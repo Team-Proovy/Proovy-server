@@ -1,4 +1,4 @@
-package com.proovy.api;
+package com.proovy;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
