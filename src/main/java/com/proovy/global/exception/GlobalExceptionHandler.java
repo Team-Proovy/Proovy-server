@@ -22,10 +22,9 @@ public class GlobalExceptionHandler {
         log.warn("Business exception: {} - {}", e.getErrorCode().getCode(), e.getMessage());
 
         ErrorCode errorCode = e.getErrorCode();
-        HttpStatus status = getHttpStatus(errorCode);
 
         return ResponseEntity
-                .status(status)
+                .status(errorCode.getHttpStatus())
                 .body(ApiResponse.failure(errorCode));
     }
 
@@ -52,32 +51,7 @@ public class GlobalExceptionHandler {
         log.error("Unexpected exception occurred", e);
 
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .status(ErrorCode.COMMON500.getHttpStatus())
                 .body(ApiResponse.failure(ErrorCode.COMMON500));
-    }
-
-    /**
-     * ErrorCode에 따른 HTTP 상태 코드 매핑
-     */
-    private HttpStatus getHttpStatus(ErrorCode errorCode) {
-        String code = errorCode.getCode();
-
-        if (code.endsWith("200")) {
-            return HttpStatus.OK;
-        } else if (code.endsWith("400") || code.contains("4001") || code.contains("4002") || code.contains("4003") || code.contains("4004")) {
-            return HttpStatus.BAD_REQUEST;
-        } else if (code.contains("401")) {
-            return HttpStatus.UNAUTHORIZED;
-        } else if (code.contains("403")) {
-            return HttpStatus.FORBIDDEN;
-        } else if (code.contains("404")) {
-            return HttpStatus.NOT_FOUND;
-        } else if (code.contains("409")) {
-            return HttpStatus.CONFLICT;
-        } else if (code.contains("500")) {
-            return HttpStatus.INTERNAL_SERVER_ERROR;
-        }
-
-        return HttpStatus.BAD_REQUEST;
     }
 }
