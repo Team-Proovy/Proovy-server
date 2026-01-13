@@ -40,3 +40,6 @@ out/
 .env.*
 *.env
 test-file-*.txt
+
+# LocalStack
+localstack-data/
