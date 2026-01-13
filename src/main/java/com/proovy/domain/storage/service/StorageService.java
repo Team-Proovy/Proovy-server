@@ -48,7 +48,7 @@ public class StorageService {
             throw new BusinessException(ErrorCode.STORAGE4031);
         }
 
-        // 파일 삭제 (원본 + 썸네일)
+        // S3 키 수집 (원본 + 썸네일)
         List<String> s3KeysToDelete = new ArrayList<>();
         long totalFileSize = 0L;
 
@@ -63,10 +63,11 @@ public class StorageService {
             }
         }
 
-        s3Service.deleteFiles(s3KeysToDelete);
-
         // DB에서 자산 삭제
         assetRepository.deleteAllInBatch(assets);
+
+        // S3에서 파일 삭제
+        s3Service.deleteFiles(s3KeysToDelete);
 
         // 스토리지 용량 반환 로깅
         log.info("[Storage] 사용자 {} - {} 개 파일 삭제, 용량 반환: {} bytes",
