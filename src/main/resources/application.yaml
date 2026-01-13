@@ -39,8 +39,25 @@ springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
 
+
+# ===============================
+# AWS 설정
+# ===============================
+cloud:
+  aws:
+    credentials:
+      access-key: ${AWS_S3_ACCESS_KEY}
+      secret-key: ${AWS_S3_SECRET_KEY}
+    region:
+      static: ${AWS_REGION:ap-northeast-2}
+    s3:
+      bucket: ${AWS_S3_BUCKET:proovy-assets-dev}
+    stack:
+      auto: false  # CloudFormation 스택 생성 비활성화
 ---
+# ===============================
 # Local 환경
+# ===============================
 spring:
   config:
     activate:
@@ -51,7 +68,9 @@ spring:
     show-sql: true
 
 ---
+# ===============================
 # Production 환경
+# ===============================
 spring:
   config:
     activate:

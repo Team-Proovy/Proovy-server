@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -61,18 +60,13 @@ public class S3HealthController {
             result.put("status", "ERROR");
             result.put("bucketName", bucketName);
             result.put("accessible", false);
-
-            if (e.awsErrorDetails() != null) {
-                result.put("errorCode", e.awsErrorDetails().errorCode());
-                result.put("errorMessage", e.awsErrorDetails().errorMessage());
-            } else {
-                result.put("errorMessage", e.getMessage());
-            }
+            result.put("errorCode", e.awsErrorDetails().errorCode());
+            result.put("errorMessage", e.awsErrorDetails().errorMessage());
 
             log.error("[S3 Health Check] 실패 - Bucket: {}, Error: {}",
-                    bucketName, e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage());
+                    bucketName, e.awsErrorDetails().errorMessage());
 
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+            return ResponseEntity.ok(
                     ApiResponse.success("S3 연결 테스트 실패", result)
             );
 
@@ -85,7 +79,7 @@ public class S3HealthController {
             log.error("[S3 Health Check] 예외 발생 - Bucket: {}, Error: {}",
                     bucketName, e.getMessage());
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+            return ResponseEntity.ok(
                     ApiResponse.success("S3 연결 테스트 중 오류 발생", result)
             );
         }

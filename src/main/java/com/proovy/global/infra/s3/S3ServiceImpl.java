@@ -11,8 +11,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.InputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,10 +21,10 @@ public class S3ServiceImpl implements S3Service {
 
     private final S3Client s3Client;
 
-    @Value("${cloud.aws.s3.bucket}")
+    @Value("${aws.s3.bucket}")
     private String bucketName;
 
-    @Value("${cloud.aws.region.static}")
+    @Value("${aws.region}")
     private String region;
 
     @Override
@@ -138,28 +136,11 @@ public class S3ServiceImpl implements S3Service {
     /**
      * 파일 URL 생성
      */
-    @Override
     public String getFileUrl(String s3Key) {
-        if (s3Key == null || s3Key.isBlank()) {
-            return null;
-        }
-        String encodedKey = URLEncoder.encode(s3Key, StandardCharsets.UTF_8)
-                .replace("+", "%20");
         return String.format("https://%s.s3.%s.amazonaws.com/%s",
                 bucketName,
                 region,
-                encodedKey);
-    }
-
-    /**
-     * 썸네일 URL 반환
-     */
-    @Override
-    public String getThumbnailUrl(String thumbnailS3Key) {
-        if (thumbnailS3Key == null || thumbnailS3Key.isBlank()) {
-            return null;
-        }
-        return getFileUrl(thumbnailS3Key);
+                s3Key);
     }
 
     /**
