@@ -11,6 +11,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -137,10 +139,12 @@ public class S3ServiceImpl implements S3Service {
      * 파일 URL 생성
      */
     public String getFileUrl(String s3Key) {
+        String encodedKey = URLEncoder.encode(s3Key, StandardCharsets.UTF_8)
+                .replace("+", "%20");
         return String.format("https://%s.s3.%s.amazonaws.com/%s",
                 bucketName,
                 region,
-                s3Key);
+                encodedKey);
     }
 
     /**
