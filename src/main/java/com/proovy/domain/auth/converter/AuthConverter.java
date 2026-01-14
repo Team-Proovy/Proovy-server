@@ -40,7 +40,6 @@ public class AuthConverter {
         return User.builder()
                 .userKey(userKey)
                 .nickname(nickname)
-                .email(email)
                 .role(Role.USER)
                 .build();
     }
