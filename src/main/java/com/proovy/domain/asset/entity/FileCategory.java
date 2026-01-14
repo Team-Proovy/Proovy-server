@@ -43,11 +43,11 @@ public enum FileCategory {
     }
 
     private static boolean isCodeMimeType(String mimeType) {
+        // text/x- 접두사가 text/x-java, text/x-python 등을 커버함
         return mimeType.startsWith("text/x-") ||
-               mimeType.contains("javascript") ||
-               mimeType.contains("typescript") ||
-               mimeType.contains("java") ||
-               mimeType.contains("python") ||
+               mimeType.equals("application/javascript") ||
+               mimeType.equals("text/javascript") ||
+               mimeType.equals("application/typescript") ||
                mimeType.equals("application/json") ||
                mimeType.equals("text/plain") ||
                mimeType.equals("text/html") ||

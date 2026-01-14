@@ -8,6 +8,7 @@ import com.proovy.domain.storage.dto.request.BulkDeleteRequest;
 import com.proovy.domain.storage.dto.response.*;
 import com.proovy.domain.user.entity.PlanType;
 import com.proovy.domain.user.entity.User;
+import com.proovy.domain.user.entity.UserPlan;
 import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -105,9 +107,10 @@ public class StorageService {
             throw new BusinessException(ErrorCode.STORAGE4003);
         }
 
-        // 사용자 플랜 조회 (없으면 FREE)
-        PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
-                .orElse(PlanType.FREE);
+        // 사용자 플랜 조회 (없으면 FREE, isActive = true)
+        Optional<UserPlan> userPlanOpt = userPlanRepository.findActiveByUserId(userId);
+        PlanType planType = userPlanOpt.map(UserPlan::getPlanType).orElse(PlanType.FREE);
+        boolean isActive = userPlanOpt.map(UserPlan::getIsActive).orElse(true);
         int totalLimitMb = planType.getStorageLimitMb();
 
         // 노트 목록 조회 (검색어 있으면 필터링)
@@ -142,11 +145,11 @@ public class StorageService {
             }
         }
 
-        // 전체 사용 용량 계산 (bytes -> MB)
+        // 전체 사용 용량 계산 (bytes -> MB, 올림 처리로 소량 파일도 반영)
         long totalUsedBytes = allAssets.stream()
                 .mapToLong(a -> a.getFileSize() != null ? a.getFileSize() : 0L)
                 .sum();
-        int totalUsedMb = (int) (totalUsedBytes / (1024 * 1024));
+        int totalUsedMb = (int) Math.ceil((double) totalUsedBytes / (1024 * 1024));
 
         // 노트별 DTO 생성
         List<NoteStorageDto> noteDtos = notes.stream()
@@ -157,17 +160,17 @@ public class StorageService {
                 totalUsedMb,
                 totalLimitMb,
                 planType.getDisplayName(),
-                true, // 현재 활성 플랜
+                isActive,
                 noteDtos
         );
     }
 
     private NoteStorageDto createNoteStorageDto(Note note, List<Asset> assets) {
-        // 노트별 사용 용량 계산
+        // 노트별 사용 용량 계산 (올림 처리)
         long noteUsedBytes = assets.stream()
                 .mapToLong(a -> a.getFileSize() != null ? a.getFileSize() : 0L)
                 .sum();
-        int noteUsedMb = (int) (noteUsedBytes / (1024 * 1024));
+        int noteUsedMb = (int) Math.ceil((double) noteUsedBytes / (1024 * 1024));
 
         // 자산 DTO 생성
         List<AssetSummaryDto> assetDtos = assets.stream()
