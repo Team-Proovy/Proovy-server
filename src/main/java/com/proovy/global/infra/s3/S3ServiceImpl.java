@@ -23,10 +23,10 @@ public class S3ServiceImpl implements S3Service {
 
     private final S3Client s3Client;
 
-    @Value("${aws.s3.bucket}")
+    @Value("${cloud.aws.s3.bucket}")
     private String bucketName;
 
-    @Value("${aws.region}")
+    @Value("${cloud.aws.region.static}")
     private String region;
 
     @Override
@@ -138,13 +138,28 @@ public class S3ServiceImpl implements S3Service {
     /**
      * 파일 URL 생성
      */
+    @Override
     public String getFileUrl(String s3Key) {
+        if (s3Key == null || s3Key.isBlank()) {
+            return null;
+        }
         String encodedKey = URLEncoder.encode(s3Key, StandardCharsets.UTF_8)
                 .replace("+", "%20");
         return String.format("https://%s.s3.%s.amazonaws.com/%s",
                 bucketName,
                 region,
                 encodedKey);
+    }
+
+    /**
+     * 썸네일 URL 반환
+     */
+    @Override
+    public String getThumbnailUrl(String thumbnailS3Key) {
+        if (thumbnailS3Key == null || thumbnailS3Key.isBlank()) {
+            return null;
+        }
+        return getFileUrl(thumbnailS3Key);
     }
 
     /**
