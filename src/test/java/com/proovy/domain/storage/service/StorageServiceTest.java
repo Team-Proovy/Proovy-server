@@ -7,6 +7,7 @@ import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.storage.dto.response.StorageResponse;
 import com.proovy.domain.user.entity.PlanType;
 import com.proovy.domain.user.entity.User;
+import com.proovy.domain.user.entity.UserPlan;
 import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
@@ -55,6 +56,8 @@ class StorageServiceTest {
     private User testUser;
     private Note testNote;
     private Asset testAsset;
+    private UserPlan freePlan;
+    private UserPlan premiumPlan;
 
     @BeforeEach
     void setUp() {
@@ -76,6 +79,18 @@ class StorageServiceTest {
                 .s3Key("users/1/assets/test.pdf")
                 .source(Asset.AssetSource.upload)
                 .build();
+
+        freePlan = UserPlan.builder()
+                .user(testUser)
+                .planType(PlanType.FREE)
+                .isActive(true)
+                .build();
+
+        premiumPlan = UserPlan.builder()
+                .user(testUser)
+                .planType(PlanType.PREMIUM)
+                .isActive(true)
+                .build();
     }
 
     @Nested
@@ -88,7 +103,7 @@ class StorageServiceTest {
             // given
             Long userId = 1L;
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActivePlanTypeByUserId(userId)).willReturn(Optional.of(PlanType.FREE));
+            given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
             given(noteRepository.findByUserIdOrderByCreatedAtDesc(userId)).willReturn(List.of(testNote));
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of(testAsset));
             given(s3Service.getThumbnailUrl(any())).willReturn(null);
@@ -110,7 +125,7 @@ class StorageServiceTest {
             Long userId = 1L;
             String keyword = "테스트";
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActivePlanTypeByUserId(userId)).willReturn(Optional.of(PlanType.FREE));
+            given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
             given(noteRepository.searchByTitleKeyword(userId, keyword)).willReturn(List.of(testNote));
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of(testAsset));
             given(s3Service.getThumbnailUrl(any())).willReturn(null);
@@ -158,7 +173,7 @@ class StorageServiceTest {
             // given
             Long userId = 1L;
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActivePlanTypeByUserId(userId)).willReturn(Optional.of(PlanType.PREMIUM));
+            given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(premiumPlan));
             given(noteRepository.findByUserIdOrderByCreatedAtDesc(userId)).willReturn(List.of());
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of());
 
@@ -176,7 +191,7 @@ class StorageServiceTest {
             // given
             Long userId = 1L;
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActivePlanTypeByUserId(userId)).willReturn(Optional.empty());
+            given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.empty());
             given(noteRepository.findByUserIdOrderByCreatedAtDesc(userId)).willReturn(List.of());
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of());
 
@@ -214,7 +229,7 @@ class StorageServiceTest {
                     .build();
 
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActivePlanTypeByUserId(userId)).willReturn(Optional.of(PlanType.FREE));
+            given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
             given(noteRepository.findByUserIdOrderByCreatedAtDesc(userId)).willReturn(List.of(testNote));
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of(asset1, asset2));
             given(s3Service.getThumbnailUrl(any())).willReturn(null);
@@ -232,7 +247,7 @@ class StorageServiceTest {
             // given
             Long userId = 1L;
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActivePlanTypeByUserId(userId)).willReturn(Optional.of(PlanType.FREE));
+            given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
             given(noteRepository.findByUserIdOrderByCreatedAtDesc(userId)).willReturn(List.of());
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of());
 
