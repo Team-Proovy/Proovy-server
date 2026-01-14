@@ -37,15 +37,15 @@ public class SecurityConfig {
     }
 
     public static final String[] ALLOWED_URLS = {
-//            "/error",
-//            "/favicon.ico",
+            "/error",
+            "/favicon.ico",
 
             "/swagger-ui/**",
             "/swagger-resources/**",
-//            "/v3/api-docs/**",
-//
-//            "/api/v1/posts/**",
-//            "/api/v1/replies/**",
+            "/v3/api-docs/**",
+
+            "/api/v1/posts/**",
+            "/api/v1/replies/**",
 
             "/login",
             "/auth/login/kakao/**"

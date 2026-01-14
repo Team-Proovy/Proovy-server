@@ -9,7 +9,7 @@ import lombok.Getter;
 @Table(
         name = "users",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_users_phone", columnNames = {"phone"})
+                @UniqueConstraint(name = "uk_users_key", columnNames = {"user_key"})
         }
 )
 public class User extends BaseTimeEntity {
@@ -21,29 +21,29 @@ public class User extends BaseTimeEntity {
     private Long userId;
 
     @Getter
-    @Column(name = "phone", length = 20)
+    @Column(name = "phone", length = 20, nullable = true)
     private String phone;
 
     @Getter
-    @Column(name = "name", length = 50)
+    @Column(name = "name", length = 50, nullable = true)
     private String name;
 
     @Getter
     @Column(name = "nickname", length = 30)
     private String nickname;
 
-    @Column(name = "department", length = 100)
+    @Column(name = "department", length = 100, nullable = true)
     private String department;
 
-    @Column(name = "referral_source", length = 20)
+    @Column(name = "referral_source", length = 20, nullable = true)
     private String referralSource;
 
     @Getter
-    @Column(name = "email", length = 100)
+    @Column(name = "email", length = 100, nullable = true)
     private String email;
 
     @Getter
-    @Column(name = "profile", length = 500)
+    @Column(name = "profile", length = 500, nullable = true)
     private String profile;
 
     @Getter
@@ -64,16 +64,16 @@ public class User extends BaseTimeEntity {
     protected User() {
     }
 
-    public User(String phone, String nickname) {
-        this.phone = phone;
-        this.nickname = nickname;
-    }
-
     @Builder
-    public User(String name, String email, String profile, String userKey, Role role) {
+    public User(String phone, String name, String nickname, String email, String profile,
+                String department, String referralSource, String userKey, Role role) {
+        this.phone = phone;
         this.name = name;
+        this.nickname = nickname;
         this.email = email;
         this.profile = profile;
+        this.department = department;
+        this.referralSource = referralSource;
         this.userKey = userKey;
         this.role = role != null ? role : Role.USER;
     }

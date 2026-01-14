@@ -4,15 +4,34 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConfigurationProperties(prefix = "spring.kakao.auth")
+@ConfigurationProperties(prefix = "spring.security.oauth2.client.registration.kakao")
 public class KakaoProperties {
 
-    private String client;
-    private String redirect;
+    private String clientId;
+    private String clientSecret;
+    private String redirectUri;
 
-    public String getClient() { return client; }
-    public void setClient(String client) { this.client = client; }
+    public String getClientId() {
+        return clientId;
+    }
 
-    public String getRedirect() { return redirect; }
-    public void setRedirect(String redirect) { this.redirect = redirect; }
+    public void setClientId(String clientId) {
+        this.clientId = clientId;
+    }
+
+    public String getClientSecret() {
+        return clientSecret;
+    }
+
+    public void setClientSecret(String clientSecret) {
+        this.clientSecret = clientSecret;
+    }
+
+    public String getRedirectUri() {
+        return redirectUri;
+    }
+
+    public void setRedirectUri(String redirectUri) {
+        this.redirectUri = redirectUri;
+    }
 }

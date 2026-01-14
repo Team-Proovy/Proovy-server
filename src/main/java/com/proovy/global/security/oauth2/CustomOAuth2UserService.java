@@ -43,7 +43,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     private User getOrSave(OAuth2UserInfo oAuth2UserInfo) {
-        User user = userRepository.findByEmail(oAuth2UserInfo.email())
+        User user = userRepository.findByUserKey(oAuth2UserInfo.email())
                 .orElseGet(oAuth2UserInfo::toEntity);
         return userRepository.save(user);
     }

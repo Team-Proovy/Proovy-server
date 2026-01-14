@@ -45,9 +45,7 @@ public record OAuth2UserInfo(
 
     public User toEntity() {
         return User.builder()
-                .name(name)
-                .email(email)
-                .profile(profile)
+                .nickname(this.name)
                 .userKey(KeyGenerator.generateKey())
                 .role(Role.USER)
                 .build();

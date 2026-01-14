@@ -23,9 +23,9 @@ public class AuthController {
     ) {
         User user = authService.oAuthLogin(accessCode, httpServletResponse);
 
-        // 여기서는 예시로 응답 DTO를 심플하게 구성
-        return ApiResponse.success(new AuthResult(user.getUserId(), user.getEmail(), user.getName()));
+        // userKey 기반 응답 (email과 name은 수집하지 않음)
+        return ApiResponse.success(new AuthResult(user.getUserId(), user.getUserKey()));
     }
 
-    public record AuthResult(Long userId, String email, String name) {}
+    public record AuthResult(Long userId, String userKey) {}
 }

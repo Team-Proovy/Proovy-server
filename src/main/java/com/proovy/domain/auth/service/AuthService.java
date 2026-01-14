@@ -29,7 +29,7 @@ public class AuthService {
         String userKey = String.valueOf(profile.getId());
 
         User user = userRepository.findByUserKey(userKey)
-                .orElseGet(() -> createNewUser(userKey));
+                .orElseGet(() -> createNewUser(userKey, profile));
 
         String jwt = jwtUtil.createAccessToken(userKey, user.getRole().name());
         response.setHeader("Authorization", "Bearer " + jwt);
@@ -37,8 +37,8 @@ public class AuthService {
         return user;
     }
 
-    private User createNewUser(String userKey) {
-        User newUser = AuthConverter.toUser(userKey);
+    private User createNewUser(String userKey, KakaoDTO.KakaoProfile profile) {
+        User newUser = AuthConverter.toUser(userKey, profile);
         return userRepository.save(newUser);
     }
 }
