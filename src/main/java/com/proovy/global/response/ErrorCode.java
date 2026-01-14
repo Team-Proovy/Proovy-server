@@ -17,6 +17,11 @@ public enum ErrorCode {
     AUTH4011("AUTH4011", "인증이 필요합니다.", HttpStatus.UNAUTHORIZED),
     AUTH4012("AUTH4012", "토큰이 만료되었습니다.", HttpStatus.UNAUTHORIZED),
     AUTH4013("AUTH4013", "권한이 없습니다.", HttpStatus.FORBIDDEN),
+    AUTH4001("AUTH4001", "지원하지 않는 OAuth 제공자입니다.", HttpStatus.BAD_REQUEST),
+
+    // Token
+    INVALID_TOKEN("TOKEN4001", "유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    INVALID_JWT_SIGNATURE("TOKEN4002", "잘못된 JWT 서명입니다.", HttpStatus.UNAUTHORIZED),
 
     // User
     USER4041("USER4041", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
