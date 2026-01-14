@@ -13,6 +13,8 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 //import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -34,6 +36,22 @@ public class SecurityConfig {
                 .requestMatchers("/error", "/favicon.ico");
     }
 
+    public static final String[] ALLOWED_URLS = {
+//            "/error",
+//            "/favicon.ico",
+
+            "/swagger-ui/**",
+            "/swagger-resources/**",
+//            "/v3/api-docs/**",
+//
+//            "/api/v1/posts/**",
+//            "/api/v1/replies/**",
+
+            "/login",
+            "/auth/login/kakao/**"
+    };
+
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -49,9 +67,12 @@ public class SecurityConfig {
                         c.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 사용하지 않음
 
                 // request 인증, 인가 설정
-                .authorizeHttpRequests(request ->
-                        request.requestMatchers("/", "/auth/login/").permitAll()
-                                .anyRequest().authenticated()
+//                .authorizeHttpRequests(request ->
+//                        request.requestMatchers("/", "/auth/login/").permitAll()
+//                                .anyRequest().authenticated()
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(ALLOWED_URLS).permitAll()
+                        .anyRequest().authenticated()
                 )
 
         // oauth2 설정
@@ -73,5 +94,9 @@ public class SecurityConfig {
                         .accessDeniedHandler(new CustomAccessDeniedHandler()));
 
         return http.build();
+    }
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }

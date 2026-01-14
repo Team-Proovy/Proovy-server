@@ -75,7 +75,7 @@ public class User extends BaseTimeEntity {
         this.email = email;
         this.profile = profile;
         this.userKey = userKey;
-        this.role = role;
+        this.role = role != null ? role : Role.USER;
     }
 
 }

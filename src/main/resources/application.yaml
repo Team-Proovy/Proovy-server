@@ -54,7 +54,7 @@ spring:
             client-secret: ${KAKAO_CLIENT_SECRET} # 발급 받은 Client Secret
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
-#            scope: # https://developers.kakao.com/docs/latest/ko/kakaologin/common#user-info
+            scope: # https://developers.kakao.com/docs/latest/ko/kakaologin/common#user-info
             redirect-uri: "${KAKAO_REDIRECT_URI}"
             client-name: Kakao
 
