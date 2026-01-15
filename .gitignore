@@ -37,3 +37,9 @@ out/
 .vscode/
 
 .env
+.env.*
+*.env
+test-file-*.txt
+
+# LocalStack
+localstack-data/
