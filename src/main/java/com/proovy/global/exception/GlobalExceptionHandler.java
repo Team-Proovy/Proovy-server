@@ -1,5 +1,7 @@
 package com.proovy.global.exception;
 
+import com.proovy.global.error.AuthHandler;
+import com.proovy.global.error.ErrorStatus;
 import com.proovy.global.response.ApiResponse;
 import com.proovy.global.response.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +15,19 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * 인증/카카오 예외 처리
+     */
+    @ExceptionHandler(AuthHandler.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthException(AuthHandler e) {
+        ErrorStatus status = e.getStatus();
+        log.warn("Auth exception: {} - {}", status.getCode(), status.getMessage());
+
+        return ResponseEntity
+                .status(status.getHttpStatus())
+                .body(ApiResponse.failure(status.getCode(), status.getMessage()));
+    }
 
     /**
      * 비즈니스 예외 처리

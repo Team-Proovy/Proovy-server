@@ -118,7 +118,7 @@ public class StorageService {
         if (keyword != null && !keyword.isBlank()) {
             notes = noteRepository.searchByTitleKeyword(userId, keyword);
         } else {
-            notes = noteRepository.findByUserIdOrderByCreatedAtDesc(userId);
+            notes = noteRepository.findByUserUserIdOrderByCreatedAtDesc(userId);
         }
 
         // 사용자의 전체 자산 조회

@@ -9,10 +9,22 @@ import java.util.List;
 
 public interface NoteRepository extends JpaRepository<Note, Long> {
 
-    List<Note> findByUserIdOrderByCreatedAtDesc(Long userId);
+    /**
+     * 특정 사용자의 노트 전체 조회 (최신순)
+     * Note.user.userId 기준
+     */
+    List<Note> findByUserUserIdOrderByCreatedAtDesc(Long userId);
 
-    @Query("SELECT n FROM Note n WHERE n.user.id = :userId " +
-           "AND LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "ORDER BY n.createdAt DESC")
-    List<Note> searchByTitleKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
+    /**
+     * 특정 사용자의 노트 제목 키워드 검색 (대소문자 무시, 최신순)
+     */
+    @Query("""
+        SELECT n
+        FROM Note n
+        WHERE n.user.userId = :userId
+          AND LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+        ORDER BY n.createdAt DESC
+    """)
+    List<Note> searchByTitleKeyword(@Param("userId") Long userId,
+                                    @Param("keyword") String keyword);
 }
