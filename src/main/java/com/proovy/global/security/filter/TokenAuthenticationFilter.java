@@ -25,9 +25,29 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     private final TokenProvider tokenProvider;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+
+        return path.equals("/favicon.ico")
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/swagger-resources")
+                || path.startsWith("/webjars")
+                || path.equals("/error");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+
         String accessToken = resolveToken(request);
+
+        // 토큰이 없으면 검증/재발급 시도하지 말고 그냥 통과
+        if (!StringUtils.hasText(accessToken)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         // accessToken 검증
         if (tokenProvider.validateToken(accessToken)) {
