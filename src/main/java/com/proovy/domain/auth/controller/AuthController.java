@@ -1,9 +1,8 @@
 package com.proovy.domain.auth.controller;
 
+import com.proovy.domain.auth.dto.response.AuthResponse;
 import com.proovy.domain.auth.service.AuthService;
-import com.proovy.domain.user.entity.User;
 import com.proovy.global.response.ApiResponse;
-import jakarta.servlet.http.HttpServletResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,15 +16,26 @@ public class AuthController {
     private final AuthService authService;
 
     @GetMapping("/auth/login/kakao")
-    public ApiResponse<AuthResult> kakaoLogin(
-            @RequestParam("code") String accessCode,
-            HttpServletResponse httpServletResponse
-    ) {
-        User user = authService.oAuthLogin(accessCode, httpServletResponse);
+    public ApiResponse<AuthResponse> kakaoLogin(@RequestParam("code") String accessCode) {
+        AuthService.AuthResult result = authService.oAuthLogin(accessCode);
 
-        // userKey 기반 응답 (email과 name은 수집하지 않음)
-        return ApiResponse.success(new AuthResult(user.getUserId(), user.getUserKey()));
+        // 응답 DTO 생성
+        AuthResponse response = AuthResponse.builder()
+                .loginType(result.getLoginType())
+                .user(AuthResponse.UserInfo.builder()
+                        .userId(result.getUser().getUserId())
+                        .nickname(result.getUser().getNickname())
+                        .phoneVerified(result.getUser().getPhone() != null && !result.getUser().getPhone().isEmpty())
+                        .build())
+                .token(AuthResponse.TokenInfo.builder()
+                        .grantType("Bearer")
+                        .accessToken(result.getAccessToken())
+                        .accessTokenExpiresIn(result.getAccessTokenExpiresIn())
+                        .refreshToken(result.getRefreshToken())
+                        .refreshTokenExpiresIn(result.getRefreshTokenExpiresIn())
+                        .build())
+                .build();
+
+        return ApiResponse.success(response);
     }
-
-    public record AuthResult(Long userId, String userKey) {}
 }

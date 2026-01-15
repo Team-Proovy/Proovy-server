@@ -6,8 +6,8 @@ import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.security.jwt.JwtUtil;
 import com.proovy.infrastructure.kakao.KakaoDTO;
 import com.proovy.infrastructure.kakao.KakaoUtil;
-import jakarta.servlet.http.HttpServletResponse;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
@@ -22,23 +22,43 @@ public class AuthService {
     private final JwtUtil jwtUtil;
 
     @Transactional
-    public User oAuthLogin(String accessCode, HttpServletResponse response) {
+    public AuthResult oAuthLogin(String accessCode) {
         KakaoDTO.OAuthToken token = kakaoUtil.requestToken(accessCode);
         KakaoDTO.KakaoProfile profile = kakaoUtil.requestProfile(token);
 
         String userKey = String.valueOf(profile.getId());
 
+        boolean isNewUser = !userRepository.existsByUserKey(userKey);
+
         User user = userRepository.findByUserKey(userKey)
                 .orElseGet(() -> createNewUser(userKey, profile));
 
-        String jwt = jwtUtil.createAccessToken(userKey, user.getRole().name());
-        response.setHeader("Authorization", "Bearer " + jwt);
+        String accessToken = jwtUtil.createAccessToken(userKey, user.getRole().name());
+        String refreshToken = jwtUtil.createRefreshToken(userKey);
 
-        return user;
+        return new AuthResult(
+                user,
+                accessToken,
+                refreshToken,
+                jwtUtil.getAccessTokenExpiresIn(),
+                jwtUtil.getRefreshTokenExpiresIn(),
+                isNewUser ? "SIGNUP" : "LOGIN"
+        );
     }
 
     private User createNewUser(String userKey, KakaoDTO.KakaoProfile profile) {
         User newUser = AuthConverter.toUser(userKey, profile);
         return userRepository.save(newUser);
+    }
+
+    @Getter
+    @RequiredArgsConstructor
+    public static class AuthResult {
+        private final User user;
+        private final String accessToken;
+        private final String refreshToken;
+        private final long accessTokenExpiresIn;
+        private final long refreshTokenExpiresIn;
+        private final String loginType;
     }
 }

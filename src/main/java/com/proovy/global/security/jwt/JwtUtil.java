@@ -19,14 +19,17 @@ public class JwtUtil {
 
     private final String secret;
     private final Duration accessExpiration;
+    private final Duration refreshExpiration;
     private SecretKey secretKey;
 
     public JwtUtil(
             @Value("${jwt.key}") String secret,
-            @Value("${jwt.access-token-expiration}") Long accessExpirationMillis
+            @Value("${jwt.access-token-expiration}") Long accessExpirationMillis,
+            @Value("${jwt.refresh-token-expiration}") Long refreshExpirationMillis
     ) {
         this.secret = secret;
         this.accessExpiration = Duration.ofMillis(accessExpirationMillis);
+        this.refreshExpiration = Duration.ofMillis(refreshExpirationMillis);
     }
 
     @PostConstruct
@@ -45,5 +48,25 @@ public class JwtUtil {
                 .setExpiration(exp)
                 .signWith(secretKey)
                 .compact();
+    }
+
+    public String createRefreshToken(String subjectEmail) {
+        Date now = new Date();
+        Date exp = new Date(now.getTime() + refreshExpiration.toMillis());
+
+        return Jwts.builder()
+                .setSubject(subjectEmail)
+                .setIssuedAt(now)
+                .setExpiration(exp)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    public long getAccessTokenExpiresIn() {
+        return accessExpiration.toSeconds();
+    }
+
+    public long getRefreshTokenExpiresIn() {
+        return refreshExpiration.toSeconds();
     }
 }
