@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -64,11 +65,13 @@ class StorageServiceTest {
         testUser = User.builder()
                 .nickname("테스트유저")
                 .build();
+        ReflectionTestUtils.setField(testUser, "id", 1L);
 
         testNote = Note.builder()
                 .user(testUser)
                 .title("테스트 노트")
                 .build();
+        ReflectionTestUtils.setField(testNote, "id", 1L);
 
         testAsset = Asset.builder()
                 .userId(1L)
@@ -79,6 +82,7 @@ class StorageServiceTest {
                 .s3Key("users/1/assets/test.pdf")
                 .source(Asset.AssetSource.upload)
                 .build();
+        ReflectionTestUtils.setField(testAsset, "id", 1L);
 
         freePlan = UserPlan.builder()
                 .user(testUser)
@@ -217,6 +221,7 @@ class StorageServiceTest {
                     .s3Key("key1")
                     .source(Asset.AssetSource.upload)
                     .build();
+            ReflectionTestUtils.setField(asset1, "id", 2L);
 
             Asset asset2 = Asset.builder()
                     .userId(1L)
@@ -227,6 +232,7 @@ class StorageServiceTest {
                     .s3Key("key2")
                     .source(Asset.AssetSource.upload)
                     .build();
+            ReflectionTestUtils.setField(asset2, "id", 3L);
 
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
             given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
