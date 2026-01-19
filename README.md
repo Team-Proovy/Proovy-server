@@ -1,4 +1,4 @@
-﻿# Proovy API
+# Proovy API
 
 이공계 대학생을 위한 AI 튜터 서비스 백엔드
 
