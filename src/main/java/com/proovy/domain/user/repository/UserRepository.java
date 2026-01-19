@@ -7,4 +7,15 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByPhone(String phone);
+    /**
+     * OAuth Provider와 Provider 고유 ID로 사용자 조회
+     * @param provider OAuth 제공자 ("kakao", "naver", "google")
+     * @param providerUserId 제공자 측 고유 ID
+     */
+    Optional<User> findByProviderAndProviderUserId(String provider, String providerUserId);
+
+    /**
+     * 특정 Provider로 가입한 사용자 존재 여부 확인
+     */
+    boolean existsByProviderAndProviderUserId(String provider, String providerUserId);
 }
