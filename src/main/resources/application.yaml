@@ -1,9 +1,9 @@
 spring:
-  profiles:
-    active: local
-
   application:
     name: proovy-api
+
+  profiles:
+    active: local
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:proovy}
@@ -12,13 +12,6 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
     open-in-view: false
 
   data:
@@ -26,19 +19,13 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+springdoc:
+  swagger-ui:
+    operationsSorter: alpha
+    tagsSorter: alpha
+
 server:
   port: 8080
-
-springdoc:
-  api-docs:
-    path: /api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    tags-sorter: alpha
-    operations-sorter: alpha
-  default-consumes-media-type: application/json
-  default-produces-media-type: application/json
-
 
 # ===============================
 # AWS 설정
@@ -54,6 +41,32 @@ cloud:
       bucket: ${AWS_S3_BUCKET:proovy-assets-dev}
     stack:
       auto: false  # CloudFormation 스택 생성 비활성화
+
+# ===============================
+# 카카오 OAuth 설정
+# ===============================
+oauth:
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    client-secret: ${KAKAO_CLIENT_SECRET}
+    redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:3000/oauth/kakao/callback}
+    # 카카오 API 엔드포인트
+    auth-url: https://kauth.kakao.com
+    api-url: https://kapi.kakao.com
+    # 개별 엔드포인트
+    token-uri: https://kauth.kakao.com/oauth/token
+    user-info-uri: https://kapi.kakao.com/v2/user/me
+    token-info-uri: https://kapi.kakao.com/v1/user/access_token_info
+
+# ===============================
+# JWT 설정 (서비스 자체 토큰)
+# ===============================
+jwt:
+  secret: ${JWT_SECRET}                    # 최소 256bit (32자 이상)
+  access-token-expiration: 3600            # 1시간 (초)
+  refresh-token-expiration: 604800         # 7일 (초)
+  signup-token-expiration: 600             # 10분 (초)
+
 ---
 # ===============================
 # Local 환경
@@ -62,10 +75,14 @@ spring:
   config:
     activate:
       on-profile: local
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
 
 ---
 # ===============================
@@ -75,6 +92,7 @@ spring:
   config:
     activate:
       on-profile: prod
+
   jpa:
     hibernate:
       ddl-auto: validate

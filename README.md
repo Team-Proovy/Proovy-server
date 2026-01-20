@@ -161,5 +161,5 @@ proovy-api/
 
 애플리케이션 실행 후 다음 URL에서 API 문서를 확인할 수 있습니다:
 
-- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **Swagger UI**: http://localhost:8080/swagger-ui/index.html
 - **API Docs (JSON)**: http://localhost:8080/api-docs

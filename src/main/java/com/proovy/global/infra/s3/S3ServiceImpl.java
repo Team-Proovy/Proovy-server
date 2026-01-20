@@ -106,6 +106,7 @@ public class S3ServiceImpl implements S3Service {
     /**
      * 파일 업로드
      */
+    @Override
     public String uploadFile(String s3Key, InputStream inputStream, long contentLength, String contentType) {
         if (s3Key == null || s3Key.isBlank()) {
             throw new BusinessException(ErrorCode.COMMON400);
@@ -138,6 +139,7 @@ public class S3ServiceImpl implements S3Service {
     /**
      * 파일 URL 생성
      */
+    @Override
     public String getFileUrl(String s3Key) {
         String encodedKey = URLEncoder.encode(s3Key, StandardCharsets.UTF_8)
                 .replace("+", "%20");
@@ -148,8 +150,20 @@ public class S3ServiceImpl implements S3Service {
     }
 
     /**
+     * 썸네일 URL 생성
+     */
+    @Override
+    public String getThumbnailUrl(String thumbnailS3Key) {
+        if (thumbnailS3Key == null || thumbnailS3Key.isBlank()) {
+            return null;
+        }
+        return getFileUrl(thumbnailS3Key);
+    }
+
+    /**
      * 파일 존재 여부 확인
      */
+    @Override
     public boolean doesFileExist(String s3Key) {
         if (s3Key == null || s3Key.isBlank()) return false;
 

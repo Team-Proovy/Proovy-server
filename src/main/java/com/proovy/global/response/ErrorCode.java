@@ -14,9 +14,12 @@ public enum ErrorCode {
     COMMON500("COMMON500", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // Auth
-    AUTH4011("AUTH4011", "인증이 필요합니다.", HttpStatus.UNAUTHORIZED),
+    AUTH4001("AUTH4001", "Redirect URI가 일치하지 않습니다.", HttpStatus.BAD_REQUEST),
+    AUTH4011("AUTH4011", "유효하지 않은 인증 코드입니다.", HttpStatus.UNAUTHORIZED),
     AUTH4012("AUTH4012", "토큰이 만료되었습니다.", HttpStatus.UNAUTHORIZED),
-    AUTH4013("AUTH4013", "권한이 없습니다.", HttpStatus.FORBIDDEN),
+    AUTH4013("AUTH4013", "유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    AUTH4291("AUTH4291", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
+    AUTH5021("AUTH5021", "카카오 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // User
     USER4041("USER4041", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
