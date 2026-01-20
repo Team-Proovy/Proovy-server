@@ -43,7 +43,12 @@ public class AuthController {
     ) {
         log.info("카카오 로그인 요청, redirectUri: {}", request.redirectUri());
         LoginResponse response = authService.kakaoLogin(request);
-        return ResponseEntity.ok(ApiResponse.success(response));
+
+        String message = "SIGNUP_REQUIRED".equals(response.loginType())
+                ? "휴대폰 인증이 필요합니다."
+                : "로그인에 성공했습니다.";
+
+        return ResponseEntity.ok(ApiResponse.success(message, response));
     }
 
     @PostMapping("/refresh")
@@ -55,6 +60,6 @@ public class AuthController {
             @Valid @RequestBody TokenRefreshRequest request
     ) {
         TokenDto tokens = authService.refreshToken(request.refreshToken());
-        return ResponseEntity.ok(ApiResponse.success(tokens));
+        return ResponseEntity.ok(ApiResponse.success("토큰이 갱신되었습니다.", tokens));
     }
 }
