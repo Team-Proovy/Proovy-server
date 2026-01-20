@@ -1,0 +1,135 @@
+package com.proovy.domain.auth.service;
+
+import com.proovy.domain.auth.dto.response.KakaoUserInfo;
+import com.proovy.domain.auth.dto.response.TokenDto;
+import com.proovy.global.exception.BusinessException;
+import com.proovy.global.response.ErrorCode;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+
+@Slf4j
+@Component
+public class JwtTokenProvider {
+
+    private final SecretKey secretKey;
+    private final long accessTokenExpiration;
+    private final long refreshTokenExpiration;
+    private final long signupTokenExpiration;
+
+    public JwtTokenProvider(
+            @Value("${jwt.secret}") String secret,
+            @Value("${jwt.access-token-expiration}") long accessTokenExpiration,
+            @Value("${jwt.refresh-token-expiration}") long refreshTokenExpiration,
+            @Value("${jwt.signup-token-expiration}") long signupTokenExpiration
+    ) {
+        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.accessTokenExpiration = accessTokenExpiration * 1000;
+        this.refreshTokenExpiration = refreshTokenExpiration * 1000;
+        this.signupTokenExpiration = signupTokenExpiration * 1000;
+    }
+
+    /**
+     * Access Token + Refresh Token 동시 생성
+     */
+    public TokenDto generateTokens(Long userId) {
+        Date now = new Date();
+
+        String accessToken = Jwts.builder()
+                .subject(String.valueOf(userId))
+                .claim("type", "access")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + accessTokenExpiration))
+                .signWith(secretKey)
+                .compact();
+
+        String refreshToken = Jwts.builder()
+                .subject(String.valueOf(userId))
+                .claim("type", "refresh")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + refreshTokenExpiration))
+                .signWith(secretKey)
+                .compact();
+
+        return TokenDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .accessTokenExpiresIn(accessTokenExpiration / 1000)
+                .refreshTokenExpiresIn(refreshTokenExpiration / 1000)
+                .build();
+    }
+
+    /**
+     * 회원가입용 임시 토큰 생성 (카카오 정보 포함)
+     */
+    public String generateSignupToken(KakaoUserInfo kakaoInfo) {
+        Date now = new Date();
+
+        return Jwts.builder()
+                .subject(kakaoInfo.id())
+                .claim("type", "signup")
+                .claim("provider", "KAKAO")
+                .claim("name", kakaoInfo.name())
+                .claim("email", kakaoInfo.email())
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + signupTokenExpiration))
+                .signWith(secretKey)
+                .compact();
+    }
+
+    /**
+     * 토큰에서 userId 추출
+     */
+    public Long getUserIdFromToken(String token) {
+        Claims claims = parseToken(token);
+        return Long.parseLong(claims.getSubject());
+    }
+
+    /**
+     * 토큰 유효성 검증
+     */
+    public boolean validateToken(String token) {
+        try {
+            parseToken(token);
+            return true;
+        } catch (ExpiredJwtException e) {
+            throw new BusinessException(ErrorCode.AUTH4012);
+        } catch (JwtException e) {
+            throw new BusinessException(ErrorCode.AUTH4013);
+        }
+    }
+
+    /**
+     * Signup Token에서 카카오 정보 추출
+     */
+    public KakaoUserInfo getKakaoInfoFromSignupToken(String token) {
+        Claims claims = parseToken(token);
+
+        if (!"signup".equals(claims.get("type", String.class))) {
+            throw new BusinessException(ErrorCode.AUTH4013);
+        }
+
+        return KakaoUserInfo.builder()
+                .id(claims.getSubject())
+                .name(claims.get("name", String.class))
+                .email(claims.get("email", String.class))
+                .build();
+    }
+
+    private Claims parseToken(String token) {
+        return Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+}
