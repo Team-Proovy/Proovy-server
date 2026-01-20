@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_user_provider", columnList = "provider, providerUserId")
+        @Index(name = "idx_user_provider", columnList = "provider, provider_user_id")
 })
 @EntityListeners(AuditingEntityListener.class)
 public class User {
@@ -40,7 +40,7 @@ public class User {
     @Column(length = 20)
     private OAuthProvider provider;
 
-    @Column(length = 100)
+    @Column(name = "provider_user_id", length = 100)
     private String providerUserId;
 
     @Column(length = 255)

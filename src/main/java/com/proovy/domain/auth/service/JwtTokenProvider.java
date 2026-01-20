@@ -97,15 +97,32 @@ public class JwtTokenProvider {
     /**
      * 토큰 유효성 검증
      */
-    public boolean validateToken(String token) {
+    public boolean validateToken(String token, String expectedType) {
         try {
-            parseToken(token);
+            Claims claims = parseToken(token);
+            if (expectedType != null && !expectedType.equals(claims.get("type", String.class))) {
+                throw new BusinessException(ErrorCode.AUTH4013);
+            }
             return true;
         } catch (ExpiredJwtException e) {
             throw new BusinessException(ErrorCode.AUTH4012);
         } catch (JwtException e) {
             throw new BusinessException(ErrorCode.AUTH4013);
         }
+    }
+
+    /**
+     * Access Token 유효성 검증
+     */
+    public boolean validateAccessToken(String token) {
+        return validateToken(token, "access");
+    }
+
+    /**
+     * Refresh Token 유효성 검증
+     */
+    public boolean validateRefreshToken(String token) {
+        return validateToken(token, "refresh");
     }
 
     /**

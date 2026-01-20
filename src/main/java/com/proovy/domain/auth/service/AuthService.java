@@ -79,8 +79,8 @@ public class AuthService {
      */
     @Transactional
     public TokenDto refreshToken(String refreshToken) {
-        // 1. 토큰 유효성 검증
-        jwtTokenProvider.validateToken(refreshToken);
+        // 1. 토큰 유효성 검증 (refresh 타입만 허용)
+        jwtTokenProvider.validateRefreshToken(refreshToken);
 
         // 2. Redis에서 저장된 토큰 확인
         RefreshToken savedToken = refreshTokenRepository.findById(refreshToken)
