@@ -70,6 +70,7 @@ public class JwtTokenProvider {
 
     /**
      * 회원가입용 임시 토큰 생성 (카카오 정보 포함)
+     * 이름은 회원가입 시 직접 입력받으므로 토큰에 포함하지 않음
      */
     public String generateSignupToken(KakaoUserInfo kakaoInfo) {
         Date now = new Date();
@@ -78,7 +79,6 @@ public class JwtTokenProvider {
                 .subject(kakaoInfo.id())
                 .claim("type", "signup")
                 .claim("provider", "KAKAO")
-                .claim("name", kakaoInfo.name())
                 .claim("email", kakaoInfo.email())
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + signupTokenExpiration))
@@ -120,7 +120,6 @@ public class JwtTokenProvider {
 
         return KakaoUserInfo.builder()
                 .id(claims.getSubject())
-                .name(claims.get("name", String.class))
                 .email(claims.get("email", String.class))
                 .build();
     }

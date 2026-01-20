@@ -28,7 +28,9 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login/kakao")
-    @Operation(summary = "카카오 소셜 로그인",
+    @Operation(
+            operationId = "01_kakaoLogin",
+            summary = "카카오 소셜 로그인",
             description = "카카오 인가 코드로 로그인합니다. 신규 유저는 회원가입 토큰을 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
@@ -45,7 +47,9 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    @Operation(summary = "토큰 갱신",
+    @Operation(
+            operationId = "02_refreshToken",
+            summary = "토큰 갱신",
             description = "Refresh Token으로 새로운 Access Token을 발급합니다.")
     public ResponseEntity<ApiResponse<TokenDto>> refreshToken(
             @Valid @RequestBody TokenRefreshRequest request
