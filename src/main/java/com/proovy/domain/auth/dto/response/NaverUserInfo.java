@@ -23,11 +23,14 @@ public record NaverUserInfo(
                 .id(user.id())
                 .email(user.email())
                 .name(user.name())
-                .mobile(user.mobile())
+                .mobile(normalizeMobile(user.mobile()))
                 .build();
     }
 
-    // 번호 형식 변경 (010-1234-5678 -> 01012345678)
+    /**
+     * 번호 형식 정규화 (010-1234-5678 -> 01012345678)
+     * 카카오와 동일한 형식으로 맞추기 위해 하이픈 및 특수문자 제거
+     */
     private static String normalizeMobile(String mobile) {
         if (mobile == null) return null;
         return mobile.replaceAll("[^0-9]", "");
