@@ -2,23 +2,33 @@ package com.proovy.domain.auth.service;
 
 import com.proovy.domain.auth.dto.kakao.KakaoTokenResponse;
 import com.proovy.domain.auth.dto.kakao.KakaoUserResponse;
+import com.proovy.domain.auth.dto.naver.NaverTokenResponse;
+import com.proovy.domain.auth.dto.naver.NaverUserResponse;
 import com.proovy.domain.auth.dto.request.KakaoLoginRequest;
+import com.proovy.domain.auth.dto.request.NaverLoginRequest;
 import com.proovy.domain.auth.dto.response.*;
+import com.proovy.domain.auth.entity.NaverState;
 import com.proovy.domain.auth.entity.RefreshToken;
 import com.proovy.domain.auth.provider.KakaoOAuthClient;
+import com.proovy.domain.auth.provider.NaverOAuthClient;
+import com.proovy.domain.auth.repository.NaverStateRepository;
 import com.proovy.domain.auth.repository.RefreshTokenRepository;
 import com.proovy.domain.user.entity.OAuthProvider;
 import com.proovy.domain.user.entity.User;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -27,9 +37,40 @@ import java.util.Optional;
 public class AuthService {
 
     private final KakaoOAuthClient kakaoClient;
+    private final NaverOAuthClient naverClient;
+    private final NaverStateRepository naverStateRepository;
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final StringRedisTemplate redisTemplate;
+
+    @Value("${oauth.naver.state-ttl:300}")
+    private Long stateTtl;
+
+    /**
+     * 네이버 로그인 URL 생성
+     * state를 생성하고 Redis에 저장 후 authorize URL 반환
+     */
+    public NaverAuthUrlResponse generateNaverAuthUrl() {
+        // 1. state 생성 (UUID)
+        String state = UUID.randomUUID().toString();
+
+        // 2. Redis에 state 저장 (TTL 적용)
+        NaverState naverState = NaverState.builder()
+                .state(state)
+                .ttl(stateTtl)
+                .build();
+        naverStateRepository.save(naverState);
+
+        // 3. 네이버 로그인 URL 생성
+        String authUrl = naverClient.generateAuthUrl(state);
+
+        log.info("네이버 로그인 URL 생성");
+        return NaverAuthUrlResponse.builder()
+                .authUrl(authUrl)
+                .state(state)
+                .build();
+    }
 
     /**
      * 카카오 로그인 처리
@@ -71,6 +112,54 @@ public class AuthService {
 
             log.info("신규 유저 감지, 회원가입 필요, kakaoId: {}", kakaoUser.id());
             return LoginResponse.signupRequired(signupToken, kakaoInfo);
+        }
+    }
+
+    /**
+     * 네이버 로그인 처리
+     */
+    @Transactional
+    public LoginResponse naverLogin(@Valid NaverLoginRequest request) {
+        // 1. state 검증
+        String redisKey = "naver_state:" + request.state();
+        Boolean deleted = redisTemplate.delete(redisKey);
+        if (deleted == null || !deleted) {
+            log.warn("네이버 state 검증 실패 (존재하지 않거나 이미 사용됨)");
+            throw new BusinessException(ErrorCode.AUTH4002);
+        }
+
+        // 2. 네이버 액세스 토큰 발급
+        NaverTokenResponse naverToken = naverClient.getAccessToken(
+                request.code(),
+                request.state()
+        );
+        log.info("네이버 토큰 발급 성공, expires_in: {}", naverToken.expiresIn());
+
+        // 3. 네이버 사용자 정보 조회
+        NaverUserResponse naverUser = naverClient.getUserInfo(naverToken.accessToken());
+        log.info("네이버 사용자 정보 조회 성공, id: {}", naverUser.response().id());
+
+        // 4. 기존 유저 조회
+        String providerUserId = naverUser.response().id();
+        Optional<User> existingUser = userRepository
+                .findByProviderAndProviderUserId(OAuthProvider.NAVER, providerUserId);
+
+        // 5. 분기 처리
+        if (existingUser.isPresent()) {
+            // 기존 유저: JWT 발급
+            User user = existingUser.get();
+            TokenDto tokens = jwtTokenProvider.generateTokens(user.getId());
+            saveRefreshToken(user.getId(), tokens.refreshToken());
+
+            log.info("기존 유저 로그인 성공 (네이버), userId: {}", user.getId());
+            return LoginResponse.login(UserDto.from(user), tokens);
+        } else {
+            // 신규 유저: signupToken 발급
+            NaverUserInfo naverInfo = NaverUserInfo.from(naverUser);
+            String signupToken = jwtTokenProvider.generateSignupToken(naverInfo);
+
+            log.info("신규 유저 감지 (네이버), 회원가입 필요, naverId: {}", providerUserId);
+            return LoginResponse.signupRequired(signupToken, naverInfo);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.proovy.domain.auth.service;
 
 import com.proovy.domain.auth.dto.response.KakaoUserInfo;
+import com.proovy.domain.auth.dto.response.NaverUserInfo;
 import com.proovy.domain.auth.dto.response.TokenDto;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
@@ -80,6 +81,26 @@ public class JwtTokenProvider {
                 .claim("type", "signup")
                 .claim("provider", "KAKAO")
                 .claim("email", kakaoInfo.email())
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + signupTokenExpiration))
+                .signWith(secretKey)
+                .compact();
+    }
+
+    /**
+     * 회원가입용 임시 토큰 생성 (네이버 정보 포함)
+     * 네이버는 이름, 휴대폰 번호도 포함
+     */
+    public String generateSignupToken(NaverUserInfo naverInfo) {
+        Date now = new Date();
+
+        return Jwts.builder()
+                .subject(naverInfo.id())
+                .claim("type", "signup")
+                .claim("provider", "NAVER")
+                .claim("email", naverInfo.email())
+                .claim("name", naverInfo.name())
+                .claim("mobile", naverInfo.mobile())
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + signupTokenExpiration))
                 .signWith(secretKey)
