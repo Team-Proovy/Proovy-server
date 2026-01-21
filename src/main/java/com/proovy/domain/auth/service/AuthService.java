@@ -22,6 +22,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final StringRedisTemplate redisTemplate;
 
     @Value("${oauth.naver.state-ttl:300}")
     private Long stateTtl;
@@ -118,13 +120,13 @@ public class AuthService {
      */
     @Transactional
     public LoginResponse naverLogin(@Valid NaverLoginRequest request) {
-        // 1. state 검증 (Redis에서 확인 후 삭제)
-        naverStateRepository.findById(request.state())
-                .orElseThrow(() -> {
-                    log.warn("네이버 state 검증 실패: {}", request.state());
-                    return new BusinessException(ErrorCode.AUTH4002);
-                });
-        naverStateRepository.deleteById(request.state());
+        // 1. state 검증
+        String redisKey = "naver_state:" + request.state();
+        Boolean deleted = redisTemplate.delete(redisKey);
+        if (deleted == null || !deleted) {
+            log.warn("네이버 state 검증 실패 (존재하지 않거나 이미 사용됨): {}", request.state());
+            throw new BusinessException(ErrorCode.AUTH4002);
+        }
 
         // 2. 네이버 액세스 토큰 발급
         NaverTokenResponse naverToken = naverClient.getAccessToken(

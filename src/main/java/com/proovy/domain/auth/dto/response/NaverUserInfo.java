@@ -19,6 +19,9 @@ public record NaverUserInfo(
 ) {
     public static NaverUserInfo from(NaverUserResponse response) {
         var user = response.response();
+        if (user == null) {
+            throw new IllegalArgumentException("Naver user response is null");
+        }
         return NaverUserInfo.builder()
                 .id(user.id())
                 .email(user.email())

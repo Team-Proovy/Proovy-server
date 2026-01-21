@@ -78,8 +78,14 @@ public class NaverOAuthClient {
                     .bodyToMono(NaverTokenResponse.class)
                     .block();
 
+            // 응답이 null인 경우 처리
+            if (response == null) {
+                log.error("네이버 토큰 발급 응답이 null입니다");
+                throw new BusinessException(ErrorCode.AUTH5022);
+            }
+
             // 네이버는 200 OK로 에러 반환
-            if (response != null && response.error() != null) {
+            if (response.error() != null) {
                 log.error("네이버 토큰 발급 에러: {} - {}", response.error(), response.errorDescription());
                 throw new BusinessException(ErrorCode.AUTH4011);
             }
