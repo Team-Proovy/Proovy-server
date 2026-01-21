@@ -124,7 +124,7 @@ public class AuthService {
         String redisKey = "naver_state:" + request.state();
         Boolean deleted = redisTemplate.delete(redisKey);
         if (deleted == null || !deleted) {
-            log.warn("네이버 state 검증 실패 (존재하지 않거나 이미 사용됨): {}", request.state());
+            log.warn("네이버 state 검증 실패 (존재하지 않거나 이미 사용됨)");
             throw new BusinessException(ErrorCode.AUTH4002);
         }
 
