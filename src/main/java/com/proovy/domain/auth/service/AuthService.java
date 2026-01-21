@@ -65,7 +65,7 @@ public class AuthService {
         // 3. 네이버 로그인 URL 생성
         String authUrl = naverClient.generateAuthUrl(state);
 
-        log.info("네이버 로그인 URL 생성, state: {}", state);
+        log.info("네이버 로그인 URL 생성");
         return NaverAuthUrlResponse.builder()
                 .authUrl(authUrl)
                 .state(state)
