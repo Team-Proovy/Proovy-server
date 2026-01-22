@@ -16,6 +16,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -39,6 +42,9 @@ public class GoogleOAuthClient {
      * 인가 코드로 액세스 토큰 발급
      */
     public GoogleTokenResponse getAccessToken(String authorizationCode, String redirectUri) {
+        // 구글 인가 코드는 '/'를 포함하므로 URL 디코딩 필요 (4%2F... -> 4/...)
+        String decodedCode = URLDecoder.decode(authorizationCode, StandardCharsets.UTF_8);
+
         try {
             return webClient.post()
                     .uri(tokenUri)
@@ -46,7 +52,7 @@ public class GoogleOAuthClient {
                     .body(BodyInserters.fromFormData("grant_type", "authorization_code")
                             .with("client_id", clientId)
                             .with("redirect_uri", redirectUri)
-                            .with("code", authorizationCode)
+                            .with("code", decodedCode)
                             .with("client_secret", clientSecret))
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, response ->
