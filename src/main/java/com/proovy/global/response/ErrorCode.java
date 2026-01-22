@@ -22,7 +22,7 @@ public enum ErrorCode {
     AUTH4291("AUTH4291", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
     AUTH5021("AUTH5021", "카카오 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     AUTH5022("AUTH5022", "네이버 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
-    AUTH5023("AUTH5023", "구글 서버 오류가 발생했습니다..", HttpStatus.INTERNAL_SERVER_ERROR),
+    AUTH5023("AUTH5023", "구글 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
             // User
     USER4041("USER4041", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
