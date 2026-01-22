@@ -2,8 +2,6 @@ package com.proovy.global.exception;
 
 import com.proovy.global.response.ApiResponse;
 import com.proovy.global.response.ErrorCode;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,28 +26,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(errorCode.getHttpStatus())
                 .body(ApiResponse.failure(errorCode));
-    }
-
-    /**
-     * JWT 만료 예외 처리
-     */
-    @ExceptionHandler(ExpiredJwtException.class)
-    public ResponseEntity<ApiResponse<Void>> handleExpiredJwtException(ExpiredJwtException e) {
-        log.warn("JWT expired: {}", e.getMessage());
-        return ResponseEntity
-                .status(ErrorCode.AUTH4012.getHttpStatus())
-                .body(ApiResponse.failure(ErrorCode.AUTH4012));
-    }
-
-    /**
-     * JWT 유효성 예외 처리
-     */
-    @ExceptionHandler(JwtException.class)
-    public ResponseEntity<ApiResponse<Void>> handleJwtException(JwtException e) {
-        log.warn("JWT invalid: {}", e.getMessage());
-        return ResponseEntity
-                .status(ErrorCode.AUTH4013.getHttpStatus())
-                .body(ApiResponse.failure(ErrorCode.AUTH4013));
     }
 
     /**
