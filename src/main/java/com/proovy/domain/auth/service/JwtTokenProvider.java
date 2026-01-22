@@ -1,5 +1,6 @@
 package com.proovy.domain.auth.service;
 
+import com.proovy.domain.auth.dto.response.GoogleUserInfo;
 import com.proovy.domain.auth.dto.response.KakaoUserInfo;
 import com.proovy.domain.auth.dto.response.NaverUserInfo;
 import com.proovy.domain.auth.dto.response.TokenDto;
@@ -101,6 +102,25 @@ public class JwtTokenProvider {
                 .claim("email", naverInfo.email())
                 .claim("name", naverInfo.name())
                 .claim("mobile", naverInfo.mobile())
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + signupTokenExpiration))
+                .signWith(secretKey)
+                .compact();
+    }
+
+    /**
+     * 회원가입용 임시 토큰 생성 (구글 정보 포함)
+     * 구글은 이름도 포함 (null 가능)
+     */
+    public String generateSignupToken(GoogleUserInfo googleInfo) {
+        Date now = new Date();
+
+        return Jwts.builder()
+                .subject(googleInfo.id())
+                .claim("type", "signup")
+                .claim("provider", "GOOGLE")
+                .claim("email", googleInfo.email())
+                .claim("name", googleInfo.name())
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + signupTokenExpiration))
                 .signWith(secretKey)
