@@ -1,14 +1,18 @@
 package com.proovy.domain.auth.service;
 
+import com.proovy.domain.auth.dto.google.GoogleTokenResponse;
+import com.proovy.domain.auth.dto.google.GoogleUserResponse;
 import com.proovy.domain.auth.dto.kakao.KakaoTokenResponse;
 import com.proovy.domain.auth.dto.kakao.KakaoUserResponse;
 import com.proovy.domain.auth.dto.naver.NaverTokenResponse;
 import com.proovy.domain.auth.dto.naver.NaverUserResponse;
+import com.proovy.domain.auth.dto.request.GoogleLoginRequest;
 import com.proovy.domain.auth.dto.request.KakaoLoginRequest;
 import com.proovy.domain.auth.dto.request.NaverLoginRequest;
 import com.proovy.domain.auth.dto.response.*;
 import com.proovy.domain.auth.entity.NaverState;
 import com.proovy.domain.auth.entity.RefreshToken;
+import com.proovy.domain.auth.provider.GoogleOAuthClient;
 import com.proovy.domain.auth.provider.KakaoOAuthClient;
 import com.proovy.domain.auth.provider.NaverOAuthClient;
 import com.proovy.domain.auth.repository.NaverStateRepository;
@@ -38,6 +42,7 @@ public class AuthService {
 
     private final KakaoOAuthClient kakaoClient;
     private final NaverOAuthClient naverClient;
+    private final GoogleOAuthClient googleClient;
     private final NaverStateRepository naverStateRepository;
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
@@ -46,31 +51,6 @@ public class AuthService {
 
     @Value("${oauth.naver.state-ttl:300}")
     private Long stateTtl;
-
-    /**
-     * 네이버 로그인 URL 생성
-     * state를 생성하고 Redis에 저장 후 authorize URL 반환
-     */
-    public NaverAuthUrlResponse generateNaverAuthUrl() {
-        // 1. state 생성 (UUID)
-        String state = UUID.randomUUID().toString();
-
-        // 2. Redis에 state 저장 (TTL 적용)
-        NaverState naverState = NaverState.builder()
-                .state(state)
-                .ttl(stateTtl)
-                .build();
-        naverStateRepository.save(naverState);
-
-        // 3. 네이버 로그인 URL 생성
-        String authUrl = naverClient.generateAuthUrl(state);
-
-        log.info("네이버 로그인 URL 생성");
-        return NaverAuthUrlResponse.builder()
-                .authUrl(authUrl)
-                .state(state)
-                .build();
-    }
 
     /**
      * 카카오 로그인 처리
@@ -113,6 +93,31 @@ public class AuthService {
             log.info("신규 유저 감지, 회원가입 필요, kakaoId: {}", kakaoUser.id());
             return LoginResponse.signupRequired(signupToken, kakaoInfo);
         }
+    }
+
+    /**
+     * 네이버 로그인 URL 생성
+     * state를 생성하고 Redis에 저장 후 authorize URL 반환
+     */
+    public NaverAuthUrlResponse generateNaverAuthUrl() {
+        // 1. state 생성 (UUID)
+        String state = UUID.randomUUID().toString();
+
+        // 2. Redis에 state 저장 (TTL 적용)
+        NaverState naverState = NaverState.builder()
+                .state(state)
+                .ttl(stateTtl)
+                .build();
+        naverStateRepository.save(naverState);
+
+        // 3. 네이버 로그인 URL 생성
+        String authUrl = naverClient.generateAuthUrl(state);
+
+        log.info("네이버 로그인 URL 생성");
+        return NaverAuthUrlResponse.builder()
+                .authUrl(authUrl)
+                .state(state)
+                .build();
     }
 
     /**
@@ -160,6 +165,49 @@ public class AuthService {
 
             log.info("신규 유저 감지 (네이버), 회원가입 필요, naverId: {}", providerUserId);
             return LoginResponse.signupRequired(signupToken, naverInfo);
+        }
+    }
+
+    /**
+     * 구글 로그인 처리
+     */
+    @Transactional
+    public LoginResponse googleLogin(GoogleLoginRequest request) {
+        // 1. 구글 액세스 토큰 발급
+        GoogleTokenResponse googleToken = googleClient.getAccessToken(
+                request.authorizationCode(),
+                request.redirectUri()
+        );
+        log.info("구글 토큰 발급 성공, expires_in: {}", googleToken.expiresIn());
+
+        // 2. 구글 사용자 정보 조회
+        GoogleUserResponse googleUser = googleClient.getUserInfo(googleToken.accessToken());
+        log.info("구글 사용자 정보 조회 성공, id: {}", googleUser.id());
+
+        // 3. 기존 유저 조회 (OAuthProvider enum 사용)
+        String providerUserId = googleUser.id();
+        Optional<User> existingUser = userRepository
+                .findByProviderAndProviderUserId(OAuthProvider.GOOGLE, providerUserId);
+
+        // 4. 분기 처리
+        if (existingUser.isPresent()) {
+            // 기존 유저: JWT 발급
+            User user = existingUser.get();
+            TokenDto tokens = jwtTokenProvider.generateTokens(user.getId());
+
+            // Refresh Token Redis 저장
+            saveRefreshToken(user.getId(), tokens.refreshToken());
+
+            log.info("기존 유저 로그인 성공 (구글), userId: {}", user.getId());
+            return LoginResponse.login(UserDto.from(user), tokens);
+
+        } else {
+            // 신규 유저: signupToken 발급
+            GoogleUserInfo googleInfo = GoogleUserInfo.from(googleUser);
+            String signupToken = jwtTokenProvider.generateSignupToken(googleInfo);
+
+            log.info("신규 유저 감지 (구글), 회원가입 필요, googleId: {}", googleUser.id());
+            return LoginResponse.signupRequired(signupToken, googleInfo);
         }
     }
 
