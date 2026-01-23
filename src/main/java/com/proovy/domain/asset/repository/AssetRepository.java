@@ -1,6 +1,7 @@
 package com.proovy.domain.asset.repository;
 
 import com.proovy.domain.asset.entity.Asset;
+import com.proovy.domain.asset.entity.AssetStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,4 +30,10 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
      * 특정 노트의 자산 목록 조회
      */
     List<Asset> findAllByNoteId(Long noteId);
+
+    /**
+     * 특정 노트의 특정 상태 자산 파일 크기 합계 조회
+     */
+    @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.noteId = :noteId AND a.status = :status")
+    Long sumFileSizeByNoteIdAndStatus(@Param("noteId") Long noteId, @Param("status") AssetStatus status);
 }

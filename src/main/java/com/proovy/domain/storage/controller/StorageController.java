@@ -11,7 +11,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.proovy.global.security.UserPrincipal;
 
 @Tag(name = "Storage API", description = "스토리지 관리 관련 API")
 @RestController
@@ -34,12 +36,10 @@ public class StorageController {
     })
     @DeleteMapping("/assets")
     public ResponseEntity<ApiResponse<BulkDeleteResponse>> bulkDeleteAssets(
-            // TODO: JWT 인증 구현 후 @AuthenticationPrincipal로 교체
-            @Parameter(description = "사용자 ID (임시, JWT 인증 구현 후 제거)", example = "1")
-            @RequestParam Long userId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody BulkDeleteRequest request
     ) {
-        BulkDeleteResponse response = storageService.bulkDeleteAssets(userId, request);
+        BulkDeleteResponse response = storageService.bulkDeleteAssets(userPrincipal.getUserId(), request);
 
         String message = response.deletedCount() + "개의 파일이 삭제되었습니다.";
         return ResponseEntity.ok(ApiResponse.success(message, response));

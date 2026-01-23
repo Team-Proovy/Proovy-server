@@ -39,26 +39,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             String token = resolveToken(request);
+            log.debug("[JWT] 요청 URI: {}, 토큰 존재: {}", request.getRequestURI(), token != null);
 
-            if (token != null && jwtTokenProvider.validateAccessToken(token)) {
-                Long userId = jwtTokenProvider.getUserIdFromToken(token);
+            if (token != null) {
+                log.debug("[JWT] 토큰 검증 시작...");
+                if (jwtTokenProvider.validateAccessToken(token)) {
+                    Long userId = jwtTokenProvider.getUserIdFromToken(token);
+                    log.debug("[JWT] 토큰 검증 성공");
 
-                User user = userRepository.findById(userId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+                    User user = userRepository.findById(userId)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
 
-                UserPrincipal principal = new UserPrincipal(user);
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                principal, null, principal.getAuthorities()
-                        );
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                    UserPrincipal principal = new UserPrincipal(user);
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    principal, null, principal.getAuthorities()
+                            );
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    log.debug("[JWT] 인증 완료");
+                }
             }
         } catch (BusinessException e) {
-            log.debug("JWT 인증 실패: {}", e.getMessage());
+            log.debug("[JWT] 인증 실패: {}", e.getMessage());
+        } catch (Exception e) {
+            log.warn("[JWT] 예외 발생: {}", e.getMessage());
         }
 
         chain.doFilter(request, response);

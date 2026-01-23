@@ -9,6 +9,11 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+
+import java.time.Duration;
 
 import java.io.InputStream;
 import java.net.URLEncoder;
@@ -22,6 +27,7 @@ import java.util.stream.Collectors;
 public class S3ServiceImpl implements S3Service {
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
 
     @Value("${aws.s3.bucket}")
     private String bucketName;
@@ -180,6 +186,44 @@ public class S3ServiceImpl implements S3Service {
             if (e.statusCode() == 404) return false;
 
             log.error("[S3] 파일 존재 확인 실패: {}", e.getMessage(), e);
+            throw new BusinessException(ErrorCode.COMMON500);
+        }
+    }
+
+    /**
+     * 파일 업로드용 Presigned URL 생성
+     */
+    @Override
+    public String generatePresignedUploadUrl(String s3Key, String contentType, int durationMinutes) {
+        if (s3Key == null || s3Key.isBlank()) {
+            throw new BusinessException(ErrorCode.COMMON400);
+        }
+
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .contentType(contentType)
+                    .build();
+
+            PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofMinutes(durationMinutes))
+                    .putObjectRequest(putObjectRequest)
+                    .build();
+
+            PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
+            String presignedUrl = presignedRequest.url().toString();
+
+            log.info("[S3] Presigned URL 생성 성공: {}", s3Key);
+            return presignedUrl;
+
+        } catch (S3Exception e) {
+            log.error("[S3] Presigned URL 생성 실패: {}, code={}, message={}",
+                    s3Key,
+                    e.awsErrorDetails() != null ? e.awsErrorDetails().errorCode() : "unknown",
+                    e.getMessage(),
+                    e
+            );
             throw new BusinessException(ErrorCode.COMMON500);
         }
     }
