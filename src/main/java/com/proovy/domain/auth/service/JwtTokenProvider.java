@@ -182,6 +182,20 @@ public class JwtTokenProvider {
                 .build();
     }
 
+    /**
+     * 토큰의 남은 만료시간(초) 반환
+     */
+    public long getRemainingExpiration(String token) {
+        try {
+            Claims claims = parseToken(token);
+            Date expiration = claims.getExpiration();
+            long remainingMillis = expiration.getTime() - System.currentTimeMillis();
+            return Math.max(0, remainingMillis / 1000);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     private Claims parseToken(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)

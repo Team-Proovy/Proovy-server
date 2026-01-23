@@ -135,19 +135,21 @@ public class AuthController {
     @Operation(
             operationId = "06_logout",
             summary = "로그아웃",
-            description = "현재 세션을 로그아웃 처리하고 Refresh Token을 무효화합니다.")
+            description = "현재 세션을 로그아웃 처리하고 Access Token을 블랙리스트에 등록, Refresh Token을 무효화합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그아웃 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "토큰 미제공 (AUTH4010), 토큰 만료 (AUTH4012), 유효하지 않은 토큰 (AUTH4013)")
     })
     public ResponseEntity<ApiResponse<Void>> logout(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestHeader("Authorization") String authHeader,
             @RequestBody(required = false) LogoutRequest request
     ) {
         Long userId = userPrincipal.getUser().getId();
+        String accessToken = authHeader.replace("Bearer ", "");
         String refreshToken = (request != null) ? request.refreshToken() : null;
 
-        authService.logout(userId, refreshToken);
+        authService.logout(userId, accessToken, refreshToken);
         log.info("로그아웃 성공, userId: {}", userId);
 
         return ResponseEntity.ok(ApiResponse.success("로그아웃되었습니다.", null));
