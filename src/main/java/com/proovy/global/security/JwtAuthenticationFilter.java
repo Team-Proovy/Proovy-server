@@ -57,24 +57,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (accessTokenBlacklistService.isBlacklisted(token)) {
                 throw new BusinessException(ErrorCode.AUTH4013);
             }
-            if (jwtTokenProvider.validateAccessToken(token)) {
-                Long userId = jwtTokenProvider.getUserIdFromToken(token);
-
-                User user = userRepository.findById(userId)
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
-
-                UserPrincipal principal = new UserPrincipal(user);
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                principal, null, principal.getAuthorities()
-                        );
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-                log.debug("[JWT] 인증 완료");
+            if (!jwtTokenProvider.validateAccessToken(token)) {
+                throw new BusinessException(ErrorCode.AUTH4013);
             }
+            Long userId = jwtTokenProvider.getUserIdFromToken(token);
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+
+            UserPrincipal principal = new UserPrincipal(user);
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            principal, null, principal.getAuthorities()
+                    );
+            authentication.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request)
+            );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            log.debug("[JWT] 인증 완료");
         } catch (BusinessException e) {
             log.warn("[JWT] 인증 실패 - {}: {}", e.getErrorCode().getCode(), e.getMessage());
             sendErrorResponse(response, e.getErrorCode());
