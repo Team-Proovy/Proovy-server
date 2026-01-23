@@ -243,6 +243,19 @@ public class AuthService {
     }
 
     /**
+     * 로그아웃 처리
+     */
+    @Transactional
+    public void logout(Long userId, String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenRepository.findById(refreshToken)
+                    .ifPresent(refreshTokenRepository::delete);
+        } else {
+            refreshTokenRepository.deleteByUserId(userId);
+        }
+    }
+
+    /**
      * [개발용] 테스트 토큰 발급
      * 프로덕션 환경에서는 사용하지 않아야 합니다.
      */
