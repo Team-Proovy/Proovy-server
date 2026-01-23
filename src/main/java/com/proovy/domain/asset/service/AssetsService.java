@@ -1,6 +1,7 @@
 package com.proovy.domain.asset.service;
 
 import com.proovy.domain.asset.dto.request.UploadUrlRequest;
+import com.proovy.domain.asset.dto.response.DownloadUrlResponse;
 import com.proovy.domain.asset.dto.response.UploadUrlResponse;
 
 public interface AssetsService {
@@ -12,4 +13,12 @@ public interface AssetsService {
      * @return Presigned URL 및 Asset 정보
      */
     UploadUrlResponse generateUploadUrl(Long userId, UploadUrlRequest request);
+
+    /**
+     * S3 다운로드용 Presigned URL 발급
+     * @param userId 사용자 ID
+     * @param assetId 자산 ID
+     * @return 다운로드 URL 및 Asset 정보
+     */
+    DownloadUrlResponse generateDownloadUrl(Long userId, Long assetId);
 }

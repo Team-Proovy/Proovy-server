@@ -10,6 +10,8 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
@@ -219,6 +221,48 @@ public class S3ServiceImpl implements S3Service {
 
         } catch (S3Exception e) {
             log.error("[S3] Presigned URL 생성 실패: {}, code={}, message={}",
+                    s3Key,
+                    e.awsErrorDetails() != null ? e.awsErrorDetails().errorCode() : "unknown",
+                    e.getMessage(),
+                    e
+            );
+            throw new BusinessException(ErrorCode.COMMON500);
+        }
+    }
+
+    /**
+     * 파일 다운로드용 Presigned URL 생성
+     */
+    @Override
+    public String generatePresignedDownloadUrl(String s3Key, String fileName, int durationMinutes) {
+        if (s3Key == null || s3Key.isBlank()) {
+            throw new BusinessException(ErrorCode.COMMON400);
+        }
+
+        try {
+            String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            String contentDisposition = "attachment; filename=\"" + encodedFileName + "\"";
+
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .responseContentDisposition(contentDisposition)
+                    .build();
+
+            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                    .signatureDuration(Duration.ofMinutes(durationMinutes))
+                    .getObjectRequest(getObjectRequest)
+                    .build();
+
+            PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+            String presignedUrl = presignedRequest.url().toString();
+
+            log.debug("[S3] 다운로드 Presigned URL 생성 성공: {}", s3Key);
+            return presignedUrl;
+
+        } catch (S3Exception e) {
+            log.error("[S3] 다운로드 Presigned URL 생성 실패: {}, code={}, message={}",
                     s3Key,
                     e.awsErrorDetails() != null ? e.awsErrorDetails().errorCode() : "unknown",
                     e.getMessage(),
