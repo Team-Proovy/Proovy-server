@@ -34,7 +34,7 @@ public enum ErrorCode {
     STORAGE4003("STORAGE4003", "검색어는 최소 2자 이상부터 입력 가능합니다.", HttpStatus.BAD_REQUEST),
     STORAGE4004("STORAGE4004", "허용되지 않은 파일 형식입니다.", HttpStatus.BAD_REQUEST),
     STORAGE4031("STORAGE4031", "자산 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
-
+    STORAGE4005("STORAGE4005", "노트의 스토리지 용량(500MB)을 초과합니다.", HttpStatus.FORBIDDEN),
     // Note
     NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
@@ -44,7 +44,8 @@ public enum ErrorCode {
     ASSET4005("ASSET4005", "파일명은 2자 이상 255자 이하로 입력해주세요.", HttpStatus.BAD_REQUEST),
     ASSET4031("ASSET4031", "해당 자산에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     ASSET4041("ASSET4041", "자산을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    STORAGE4005("STORAGE4005", "노트의 스토리지 용량(500MB)을 초과합니다.", HttpStatus.FORBIDDEN);
+    ASSET4006("ASSET4006", "업로드가 완료되지 않은 파일입니다.", HttpStatus.BAD_REQUEST);
+
 
     private final String code;
     private final String message;

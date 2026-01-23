@@ -138,6 +138,11 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.ASSET4031);
         }
 
+        // 3. 업로드 완료 상태 검증!
+        if (asset.getStatus() != AssetStatus.UPLOADED) {
+            throw new BusinessException(ErrorCode.ASSET4006);
+        }
+
         // 3. Presigned URL 생성
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(PRESIGNED_URL_DURATION_MINUTES);
         String downloadUrl = s3Service.generatePresignedDownloadUrl(
