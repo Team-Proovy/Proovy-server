@@ -3,6 +3,7 @@ package com.proovy.domain.asset.service;
 import com.proovy.domain.asset.constant.AllowedMimeType;
 import com.proovy.domain.asset.dto.request.UploadUrlRequest;
 import com.proovy.domain.asset.dto.response.DownloadUrlResponse;
+import com.proovy.domain.asset.dto.response.UploadConfirmResponse;
 import com.proovy.domain.asset.dto.response.UploadUrlResponse;
 import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.entity.AssetStatus;
@@ -29,6 +30,7 @@ public class AssetsServiceImpl implements AssetsService {
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
     private final S3Service s3Service;
+    private final OcrService ocrService;
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final long MAX_FILE_SIZE = 31_457_280L; // 30MB
@@ -154,5 +156,39 @@ public class AssetsServiceImpl implements AssetsService {
         log.debug("[Asset] 다운로드 URL 발급 완료 - assetId: {}", assetId);
 
         return DownloadUrlResponse.of(asset.getId(), asset.getFileName(), downloadUrl, expiresAt);
+    }
+
+    @Override
+    @Transactional
+    public UploadConfirmResponse confirmUpload(Long userId, Long assetId) {
+        // 1. Asset 존재 확인
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ASSET4041));
+
+        // 2. 권한 검증 (본인 소유 자산인지 확인)
+        if (!asset.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.ASSET4031);
+        }
+
+        // 3. 이미 확인된 자산인지 검증 (중복 호출 방지)
+        if (asset.getStatus() == AssetStatus.UPLOADED) {
+            throw new BusinessException(ErrorCode.ASSET4091);
+        }
+
+        // 4. S3에 파일이 실제로 존재하는지 확인
+        if (!s3Service.doesFileExist(asset.getS3Key())) {
+            throw new BusinessException(ErrorCode.ASSET4007);
+        }
+
+        // 5. Asset 상태 업데이트 (PENDING → UPLOADED)
+        asset.updateStatus(AssetStatus.UPLOADED);
+        assetRepository.save(asset);
+
+        log.info("[Asset] 업로드 확인 완료 - assetId: {}, userId: {}", assetId, userId);
+
+        // 6. OCR 처리 요청 (비동기)
+        ocrService.requestOcrProcessing(asset);
+
+        return UploadConfirmResponse.from(asset, "processing");
     }
 }

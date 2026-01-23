@@ -77,6 +77,10 @@ public class Asset {
         this.uploadExpiresAt = uploadExpiresAt;
     }
 
+    public void updateStatus(AssetStatus status) {
+        this.status = status;
+    }
+
     public enum AssetSource {
         upload,
         ai_generated

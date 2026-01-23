@@ -2,6 +2,7 @@ package com.proovy.domain.asset.controller;
 
 import com.proovy.domain.asset.dto.request.UploadUrlRequest;
 import com.proovy.domain.asset.dto.response.DownloadUrlResponse;
+import com.proovy.domain.asset.dto.response.UploadConfirmResponse;
 import com.proovy.domain.asset.dto.response.UploadUrlResponse;
 import com.proovy.domain.asset.service.AssetsService;
 import com.proovy.global.response.ApiResponse;
@@ -89,5 +90,54 @@ public class AssetsController {
 
         DownloadUrlResponse response = assetsService.generateDownloadUrl(userPrincipal.getUserId(), assetId);
         return ApiResponse.success("다운로드 URL이 발급되었습니다.", response);
+    }
+
+    @PostMapping("/{assetId}/confirm")
+    @Operation(
+            summary = "S3 업로드 완료 확인",
+            description = """
+                    클라이언트가 S3에 파일 업로드를 완료한 후 서버에 알림을 보냅니다.
+
+                    **처리 과정**:
+                    1. S3에 파일이 실제로 업로드되었는지 확인
+                    2. Asset 상태를 PENDING → UPLOADED로 변경
+                    3. OCR 처리 시작 (비동기)
+
+                    **중복 호출**: 이미 확인된 자산에 대해 재호출 시 409 Conflict 반환
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "업로드 확인 성공, OCR 처리 시작"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "S3에 파일이 업로드되지 않음 (ASSET4007)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "토큰 미제공 (AUTH4010), 토큰 만료 (AUTH4012), 유효하지 않은 토큰 (AUTH4013)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "자산 접근 권한 없음 (ASSET4031)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "자산을 찾을 수 없음 (ASSET4041)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "409",
+                    description = "이미 확인된 자산 (ASSET4091)"
+            )
+    })
+    public ApiResponse<UploadConfirmResponse> confirmUpload(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "자산 ID", required = true)
+            @PathVariable Long assetId) {
+
+        UploadConfirmResponse response = assetsService.confirmUpload(userPrincipal.getUserId(), assetId);
+        return ApiResponse.success("업로드가 확인되었습니다.", response);
     }
 }
