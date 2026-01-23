@@ -50,4 +50,13 @@ public interface S3Service {
      * @return 존재 여부
      */
     boolean doesFileExist(String s3Key);
+
+    /**
+     * 파일 업로드용 Presigned URL 생성
+     * @param s3Key S3 저장 경로
+     * @param contentType 파일 타입
+     * @param durationMinutes URL 유효 시간 (분)
+     * @return Presigned URL
+     */
+    String generatePresignedUploadUrl(String s3Key, String contentType, int durationMinutes);
 }

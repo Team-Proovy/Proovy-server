@@ -241,4 +241,21 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(token);
     }
+
+    /**
+     * [개발용] 테스트 토큰 발급
+     * 프로덕션 환경에서는 사용하지 않아야 합니다.
+     */
+    @Transactional
+    public TokenDto generateDevToken(Long userId) {
+        // 유저 존재 확인
+        userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+
+        TokenDto tokens = jwtTokenProvider.generateTokens(userId);
+        saveRefreshToken(userId, tokens.refreshToken());
+
+        log.warn("[DEV] 개발용 토큰 발급 완료 - userId: {}", userId);
+        return tokens;
+    }
 }

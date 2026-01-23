@@ -122,4 +122,17 @@ public class AuthController {
         TokenDto tokens = authService.refreshToken(request.refreshToken());
         return ResponseEntity.ok(ApiResponse.success("토큰이 갱신되었습니다.", tokens));
     }
+
+    @PostMapping("/dev/token")
+    @Operation(
+            operationId = "99_devToken",
+            summary = "[개발용] 테스트 토큰 발급",
+            description = "개발 환경에서 테스트용 Access Token을 발급합니다. 프로덕션에서는 비활성화해야 합니다.")
+    public ResponseEntity<ApiResponse<TokenDto>> devToken(
+            @RequestParam Long userId
+    ) {
+        log.warn("[DEV] 개발용 토큰 발급 요청 - userId: {}", userId);
+        TokenDto tokens = authService.generateDevToken(userId);
+        return ResponseEntity.ok(ApiResponse.success("개발용 토큰이 발급되었습니다.", tokens));
+    }
 }

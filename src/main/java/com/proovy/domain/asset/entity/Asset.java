@@ -47,6 +47,12 @@ public class Asset {
     @Enumerated(EnumType.STRING)
     private AssetSource source; // upload, ai_generated
 
+    @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private AssetStatus status; // PENDING, UPLOADED, FAILED
+
+    private LocalDateTime uploadExpiresAt; // Presigned URL 만료 시간
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -57,7 +63,8 @@ public class Asset {
 
     @Builder
     public Asset(Long userId, Long noteId, String fileName, Long fileSize,
-                 String mimeType, String s3Key, String thumbnailS3Key, AssetSource source) {
+                 String mimeType, String s3Key, String thumbnailS3Key, AssetSource source,
+                 AssetStatus status, LocalDateTime uploadExpiresAt) {
         this.userId = userId;
         this.noteId = noteId;
         this.fileName = fileName;
@@ -66,6 +73,8 @@ public class Asset {
         this.s3Key = s3Key;
         this.thumbnailS3Key = thumbnailS3Key;
         this.source = source;
+        this.status = status;
+        this.uploadExpiresAt = uploadExpiresAt;
     }
 
     public enum AssetSource {

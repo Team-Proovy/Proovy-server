@@ -37,7 +37,12 @@ public enum ErrorCode {
 
     // Note
     NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN);
+    NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
+
+    ASSET4001("ASSET4001", "지원하지 않는 파일 형식입니다. PDF만 업로드 가능합니다.", HttpStatus.BAD_REQUEST),
+    ASSET4002("ASSET4002", "파일 크기가 30MB를 초과합니다.", HttpStatus.BAD_REQUEST),
+    ASSET4005("ASSET4005", "파일명은 최소 2자 이상 입력해주세요.", HttpStatus.BAD_REQUEST),
+    STORAGE4005("STORAGE4005", "노트의 스토리지 용량(500MB)을 초과합니다.", HttpStatus.FORBIDDEN);
 
     private final String code;
     private final String message;
