@@ -2,6 +2,7 @@ package com.proovy.domain.asset.service;
 
 import com.proovy.domain.asset.constant.AllowedMimeType;
 import com.proovy.domain.asset.dto.request.UploadUrlRequest;
+import com.proovy.domain.asset.dto.response.DownloadUrlResponse;
 import com.proovy.domain.asset.dto.response.UploadUrlResponse;
 import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.entity.AssetStatus;
@@ -124,5 +125,29 @@ public class AssetsServiceImpl implements AssetsService {
         String uuid = UUID.randomUUID().toString();
         return String.format("users/%d/notes/%d/assets/%s_%s",
                 userId, noteId, uuid, fileName);
+    }
+
+    @Override
+    public DownloadUrlResponse generateDownloadUrl(Long userId, Long assetId) {
+        // 1. Asset 존재 확인
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ASSET4041));
+
+        // 2. 권한 검증 (본인 소유 자산인지 확인)
+        if (!asset.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.ASSET4031);
+        }
+
+        // 3. Presigned URL 생성
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(PRESIGNED_URL_DURATION_MINUTES);
+        String downloadUrl = s3Service.generatePresignedDownloadUrl(
+                asset.getS3Key(),
+                asset.getFileName(),
+                PRESIGNED_URL_DURATION_MINUTES
+        );
+
+        log.debug("[Asset] 다운로드 URL 발급 완료 - assetId: {}", assetId);
+
+        return DownloadUrlResponse.of(asset.getId(), asset.getFileName(), downloadUrl, expiresAt);
     }
 }

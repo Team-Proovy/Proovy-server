@@ -3,9 +3,6 @@ package com.proovy.global.infra.s3;
 import java.io.InputStream;
 import java.util.List;
 
-/**
- * S3 파일 관리 서비스
- */
 public interface S3Service {
 
     /**
@@ -59,4 +56,13 @@ public interface S3Service {
      * @return Presigned URL
      */
     String generatePresignedUploadUrl(String s3Key, String contentType, int durationMinutes);
+
+    /**
+     * 파일 다운로드용 Presigned URL 생성
+     * @param s3Key S3 저장 경로
+     * @param fileName 다운로드 시 파일명
+     * @param durationMinutes URL 유효 시간 (분)
+     * @return Presigned URL
+     */
+    String generatePresignedDownloadUrl(String s3Key, String fileName, int durationMinutes);
 }
