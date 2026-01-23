@@ -25,13 +25,19 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authException
     ) throws IOException {
-        log.error("인증되지 않은 요청: {}", request.getRequestURI());
+        ErrorCode errorCode = (ErrorCode) request.getAttribute(JwtAuthenticationFilter.JWT_ERROR_ATTRIBUTE);
+
+        if (errorCode == null) {
+            errorCode = ErrorCode.AUTH4010;
+        }
+
+        log.warn("인증 실패 - URI: {}, 에러: {}", request.getRequestURI(), errorCode.getCode());
 
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setStatus(errorCode.getHttpStatus().value());
 
-        ApiResponse<?> errorResponse = ApiResponse.failure(ErrorCode.AUTH4011);
+        ApiResponse<?> errorResponse = ApiResponse.failure(errorCode);
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
     }
 }

@@ -41,22 +41,11 @@ public class AssetsController {
                     """
     )
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200",
-                    description = "URL 발급 성공"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400",
-                    description = "잘못된 요청 (ASSET4001: 파일 형식, ASSET4002: 파일 크기, ASSET4005: 파일명)"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "403",
-                    description = "권한 없음 (NOTE4031) 또는 용량 초과 (STORAGE4005)"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404",
-                    description = "노트를 찾을 수 없음 (NOTE4041)"
-            )
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "URL 발급 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "지원하지 않는 파일 형식 (ASSET4001), 파일 크기 초과 (ASSET4002), 잘못된 파일명 (ASSET4005)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "토큰 미제공 (AUTH4010), 토큰 만료 (AUTH4012), 유효하지 않은 토큰 (AUTH4013)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "노트 접근 권한 없음 (NOTE4031), 스토리지 용량 초과 (STORAGE4005)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "노트를 찾을 수 없음 (NOTE4041)")
     })
     public ApiResponse<UploadUrlResponse> generateUploadUrl(
             @AuthenticationPrincipal UserPrincipal userPrincipal,

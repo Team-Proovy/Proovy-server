@@ -47,6 +47,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final AccessTokenBlacklistService accessTokenBlacklistService;
     private final StringRedisTemplate redisTemplate;
 
     @Value("${oauth.naver.state-ttl:300}")
@@ -240,6 +241,31 @@ public class AuthService {
                 .createdAt(LocalDateTime.now())
                 .build();
         refreshTokenRepository.save(token);
+    }
+
+    /**
+     * 로그아웃 처리
+     * - Access Token을 블랙리스트에 등록
+     * - Refresh Token 삭제
+     */
+    @Transactional
+    public void logout(Long userId, String accessToken, String refreshToken) {
+        // Access Token 블랙리스트 등록
+        accessTokenBlacklistService.blacklist(accessToken, userId);
+
+        // Refresh Token 삭제
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            RefreshToken token = refreshTokenRepository.findById(refreshToken)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.AUTH4013));
+            if (!token.getUserId().equals(userId)) {
+                throw new BusinessException(ErrorCode.AUTH4013);
+            }
+            refreshTokenRepository.delete(token);
+            log.info("로그아웃 - 특정 Refresh Token 삭제, userId: {}", userId);
+        } else {
+            refreshTokenRepository.deleteByUserId(userId);
+            log.info("로그아웃 - 모든 Refresh Token 삭제, userId: {}", userId);
+        }
     }
 
     /**
