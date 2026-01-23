@@ -39,13 +39,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             String token = resolveToken(request);
-            log.info("[JWT] 요청 URI: {}, 토큰 존재: {}", request.getRequestURI(), token != null);
+            log.debug("[JWT] 요청 URI: {}, 토큰 존재: {}", request.getRequestURI(), token != null);
 
             if (token != null) {
-                log.info("[JWT] 토큰 검증 시작...");
+                log.debug("[JWT] 토큰 검증 시작...");
                 if (jwtTokenProvider.validateAccessToken(token)) {
                     Long userId = jwtTokenProvider.getUserIdFromToken(token);
-                    log.info("[JWT] 토큰 검증 성공, userId: {}", userId);
+                    log.debug("[JWT] 토큰 검증 성공");
 
                     User user = userRepository.findById(userId)
                             .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
@@ -60,13 +60,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    log.info("[JWT] 인증 완료, userId: {}", userId);
+                    log.debug("[JWT] 인증 완료");
                 }
             }
         } catch (BusinessException e) {
-            log.warn("[JWT] 인증 실패: {}", e.getMessage());
+            log.debug("[JWT] 인증 실패: {}", e.getMessage());
         } catch (Exception e) {
-            log.error("[JWT] 예외 발생: {}", e.getMessage(), e);
+            log.warn("[JWT] 예외 발생: {}", e.getMessage());
         }
 
         chain.doFilter(request, response);

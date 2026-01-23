@@ -101,14 +101,20 @@ public class AssetsServiceImpl implements AssetsService {
         }
     }
 
+    private static final int MAX_FILE_NAME_LENGTH = 255;
+
     private void validateFileName(String fileName) {
-        if (fileName == null || fileName.length() < 2) {
+        if (fileName == null || fileName.trim().length() < 2 || fileName.trim().length() > MAX_FILE_NAME_LENGTH) {
             throw new BusinessException(ErrorCode.ASSET4005);
         }
     }
 
     private void validateStorageCapacity(Long noteId, Long fileSize) {
-        Long currentUsage = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.UPLOADED);
+        Long uploadedSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.UPLOADED);
+        Long pendingSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.PENDING);
+
+        long currentUsage = (uploadedSize != null ? uploadedSize : 0L) + (pendingSize != null ? pendingSize : 0L);
+
         if (currentUsage + fileSize > NOTE_STORAGE_LIMIT) {
             throw new BusinessException(ErrorCode.STORAGE4005);
         }
