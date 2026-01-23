@@ -37,9 +37,9 @@ public class AuthController {
             description = "카카오 인가 코드로 로그인합니다. 신규 유저는 회원가입 토큰을 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 (AUTH4001)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 (AUTH4011)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "서버 오류 (AUTH5021)")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Redirect URI 불일치 (AUTH4001)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "유효하지 않은 인증 코드 (AUTH4011)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "카카오 서버 오류 (AUTH5021)")
     })
     public ResponseEntity<ApiResponse<LoginResponse>> kakaoLogin(
             @Valid @RequestBody KakaoLoginRequest request
@@ -74,8 +74,8 @@ public class AuthController {
             description = "네이버 인가 코드와 state로 로그인합니다. 신규 유저는 회원가입 토큰을 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 (AUTH4002, AUTH4011)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "서버 오류 (AUTH5022)")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "state 불일치 (AUTH4002), 유효하지 않은 인증 코드 (AUTH4011)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "네이버 서버 오류 (AUTH5022)")
     })
     public ResponseEntity<ApiResponse<LoginResponse>> naverLogin(
             @Valid @RequestBody NaverLoginRequest request
@@ -97,9 +97,9 @@ public class AuthController {
             description = "구글 인가 코드로 로그인합니다. 신규 유저는 회원가입 토큰을 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 (AUTH4001)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 (AUTH4011)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "서버 오류 (AUTH5023)")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Redirect URI 불일치 (AUTH4001)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "유효하지 않은 인증 코드 (AUTH4011)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "구글 서버 오류 (AUTH5023)")
     })
     public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(
             @Valid @RequestBody GoogleLoginRequest request
@@ -121,8 +121,8 @@ public class AuthController {
             description = "Refresh Token으로 새로운 Access Token을 발급합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "토큰 갱신 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 (AUTH4012, AUTH4013)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효성 실패 (COMMON400)")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "필수 값 누락 (COMMON400)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "토큰 만료 (AUTH4012), 유효하지 않은 토큰 (AUTH4013)")
     })
     public ResponseEntity<ApiResponse<TokenDto>> refreshToken(
             @Valid @RequestBody TokenRefreshRequest request
