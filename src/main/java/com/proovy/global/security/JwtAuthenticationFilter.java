@@ -75,14 +75,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 log.debug("[JWT] 인증 완료");
             }
-            chain.doFilter(request, response);
         } catch (BusinessException e) {
             log.warn("[JWT] 인증 실패 - {}: {}", e.getErrorCode().getCode(), e.getMessage());
             sendErrorResponse(response, e.getErrorCode());
+            return;
         } catch (Exception e) {
             log.warn("[JWT] 예외 발생: {}", e.getMessage());
             sendErrorResponse(response, ErrorCode.AUTH4013);
+            return;
         }
+
+        chain.doFilter(request, response);
     }
 
     private String resolveToken(HttpServletRequest request) {

@@ -255,8 +255,12 @@ public class AuthService {
 
         // Refresh Token 삭제
         if (refreshToken != null && !refreshToken.isBlank()) {
-            refreshTokenRepository.findById(refreshToken)
-                    .ifPresent(refreshTokenRepository::delete);
+            RefreshToken token = refreshTokenRepository.findById(refreshToken)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.AUTH4013));
+            if (!token.getUserId().equals(userId)) {
+                throw new BusinessException(ErrorCode.AUTH4013);
+            }
+            refreshTokenRepository.delete(token);
             log.info("로그아웃 - 특정 Refresh Token 삭제, userId: {}", userId);
         } else {
             refreshTokenRepository.deleteByUserId(userId);
