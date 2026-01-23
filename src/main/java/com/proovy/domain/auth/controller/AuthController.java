@@ -116,6 +116,11 @@ public class AuthController {
             operationId = "04_refreshToken",
             summary = "토큰 갱신",
             description = "Refresh Token으로 새로운 Access Token을 발급합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "토큰 갱신 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 (AUTH4012, AUTH4013)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효성 실패 (COMMON400)")
+    })
     public ResponseEntity<ApiResponse<TokenDto>> refreshToken(
             @Valid @RequestBody TokenRefreshRequest request
     ) {
