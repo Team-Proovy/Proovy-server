@@ -2,10 +2,13 @@ package com.proovy.global.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -42,5 +45,31 @@ public class SwaggerConfig {
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
                                         .description("JWT 액세스 토큰을 입력하세요 (Bearer 접두사 없이)")));
+    }
+
+    @Bean
+    public OpenApiCustomizer sortOperationsByOperationId() {
+        return openApi -> {
+            Paths paths = openApi.getPaths();
+            if (paths != null) {
+                Paths sortedPaths = new Paths();
+                paths.entrySet().stream()
+                        .sorted((e1, e2) -> {
+                            String opId1 = getOperationId(e1.getValue());
+                            String opId2 = getOperationId(e2.getValue());
+                            return opId1.compareTo(opId2);
+                        })
+                        .forEach(e -> sortedPaths.addPathItem(e.getKey(), e.getValue()));
+                openApi.setPaths(sortedPaths);
+            }
+        };
+    }
+
+    private String getOperationId(PathItem pathItem) {
+        return pathItem.readOperations().stream()
+                .map(op -> op.getOperationId())
+                .filter(id -> id != null)
+                .findFirst()
+                .orElse("");
     }
 }

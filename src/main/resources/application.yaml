@@ -21,7 +21,6 @@ spring:
 
 springdoc:
   swagger-ui:
-    operationsSorter: alpha
     tagsSorter: alpha
 
 server:

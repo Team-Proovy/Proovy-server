@@ -16,6 +16,7 @@ public enum ErrorCode {
     // Auth
     AUTH4001("AUTH4001", "Redirect URI가 일치하지 않습니다.", HttpStatus.BAD_REQUEST),
     AUTH4002("AUTH4002", "state 값이 일치하지 않습니다.", HttpStatus.UNAUTHORIZED),
+    AUTH4010("AUTH4010", "인증 토큰이 필요합니다.", HttpStatus.UNAUTHORIZED),
     AUTH4011("AUTH4011", "유효하지 않은 인증 코드입니다.", HttpStatus.UNAUTHORIZED),
     AUTH4012("AUTH4012", "토큰이 만료되었습니다.", HttpStatus.UNAUTHORIZED),
     AUTH4013("AUTH4013", "유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),

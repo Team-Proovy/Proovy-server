@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    public static final String JWT_ERROR_ATTRIBUTE = "jwtError";
 
     @Override
     protected void doFilterInternal(
@@ -41,7 +42,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = resolveToken(request);
             log.debug("[JWT] 요청 URI: {}, 토큰 존재: {}", request.getRequestURI(), token != null);
 
-            if (token != null) {
+            if (token == null) {
+                request.setAttribute(JWT_ERROR_ATTRIBUTE, ErrorCode.AUTH4010);
+            } else {
                 log.debug("[JWT] 토큰 검증 시작...");
                 if (jwtTokenProvider.validateAccessToken(token)) {
                     Long userId = jwtTokenProvider.getUserIdFromToken(token);
@@ -65,8 +68,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         } catch (BusinessException e) {
             log.debug("[JWT] 인증 실패: {}", e.getMessage());
+            request.setAttribute(JWT_ERROR_ATTRIBUTE, e.getErrorCode());
         } catch (Exception e) {
             log.warn("[JWT] 예외 발생: {}", e.getMessage());
+            request.setAttribute(JWT_ERROR_ATTRIBUTE, ErrorCode.AUTH4013);
         }
 
         chain.doFilter(request, response);
