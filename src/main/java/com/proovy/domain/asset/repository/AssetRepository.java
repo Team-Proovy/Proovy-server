@@ -22,6 +22,11 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     long countByIdInAndUserId(@Param("ids") List<Long> ids, @Param("userId") Long userId);
 
     /**
+     * 특정 사용자의 특정 자산들 조회
+     */
+    List<Asset> findAllByIdInAndUserId(List<Long> ids, Long userId);
+
+    /**
      * 특정 사용자의 자산 목록 조회
      */
     List<Asset> findAllByUserId(Long userId);

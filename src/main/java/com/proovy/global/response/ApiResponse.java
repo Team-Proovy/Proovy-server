@@ -34,6 +34,11 @@ public class ApiResponse<T> {
         return new ApiResponse<>(true, "COMMON200", message, result);
     }
 
+    // 성공 응답 (커스텀 코드, 메시지)
+    public static <T> ApiResponse<T> success(String code, String message, T result) {
+        return new ApiResponse<>(true, code, message, result);
+    }
+
     // 실패 응답
     public static <T> ApiResponse<T> failure(String code, String message) {
         return new ApiResponse<>(false, code, message, null);
