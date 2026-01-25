@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -119,7 +120,7 @@ public class AuthController {
             summary = "회원가입 완료",
             description = "소셜 로그인 후 추가 정보를 입력하여 회원가입을 완료합니다.")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "회원가입 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "회원가입 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "닉네임 형식 오류 (AUTH4008), 필수 정보 누락 (AUTH4009)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "signupToken 만료/무효 (AUTH4018)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 존재하는 사용자 (USER4091)")
@@ -128,7 +129,8 @@ public class AuthController {
             @Valid @RequestBody SignupCompleteRequest request
     ) {
         SignupCompleteResponse response = authService.signupComplete(request);
-        return ResponseEntity.ok(ApiResponse.of("COMMON201", "회원가입이 완료되었습니다.", response));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of("COMMON201", "회원가입이 완료되었습니다.", response));
     }
 
     @PostMapping("/refresh")

@@ -226,7 +226,12 @@ public class AuthService {
         String providerUserId = claims.getSubject();
         String providerStr = claims.get("provider", String.class);
         String email = claims.get("email", String.class);
-        OAuthProvider provider = OAuthProvider.valueOf(providerStr);
+        OAuthProvider provider;
+        try {
+            provider = OAuthProvider.valueOf(providerStr);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new BusinessException(ErrorCode.AUTH4018);
+        }
 
         // 2. 이미 가입된 사용자인지 확인
         if (userRepository.existsByProviderAndProviderUserId(provider, providerUserId)) {
