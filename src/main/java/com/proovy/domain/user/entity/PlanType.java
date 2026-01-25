@@ -16,8 +16,16 @@ public enum PlanType {
     private final int maxFileSizeMb;
 
     @JsonValue
-    public String getDisplayName() {
-        return displayName;
+    public String getJsonValue() {
+        return name().toLowerCase();
+    }
+
+    public int getStorageLimitMb() {
+        return storageLimitGb * 1024;
+    }
+
+    public long getStorageLimitBytes() {
+        return (long) storageLimitGb * 1024 * 1024 * 1024;
     }
 
     public long getStorageLimitBytes() {
