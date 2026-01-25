@@ -9,8 +9,10 @@ import com.proovy.domain.auth.dto.naver.NaverUserResponse;
 import com.proovy.domain.auth.dto.request.GoogleLoginRequest;
 import com.proovy.domain.auth.dto.request.KakaoLoginRequest;
 import com.proovy.domain.auth.dto.request.NaverLoginRequest;
+import com.proovy.domain.auth.dto.request.SignupCompleteRequest;
 import com.proovy.domain.auth.dto.response.*;
 import com.proovy.domain.auth.entity.NaverState;
+import io.jsonwebtoken.Claims;
 import com.proovy.domain.auth.entity.RefreshToken;
 import com.proovy.domain.auth.provider.GoogleOAuthClient;
 import com.proovy.domain.auth.provider.KakaoOAuthClient;
@@ -31,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -210,6 +213,60 @@ public class AuthService {
             log.info("신규 유저 감지 (구글), 회원가입 필요, googleId: {}", googleUser.id());
             return LoginResponse.signupRequired(signupToken, googleInfo);
         }
+    }
+
+    /**
+     * 회원가입 완료 처리
+     */
+    @Transactional
+    public SignupCompleteResponse signupComplete(SignupCompleteRequest request) {
+        // 1. Signup Token 검증 및 파싱
+        Claims claims = jwtTokenProvider.validateAndParseSignupToken(request.signupToken());
+
+        String providerUserId = claims.getSubject();
+        String providerStr = claims.get("provider", String.class);
+        String email = claims.get("email", String.class);
+        OAuthProvider provider = OAuthProvider.valueOf(providerStr);
+
+        // 2. 이미 가입된 사용자인지 확인
+        if (userRepository.existsByProviderAndProviderUserId(provider, providerUserId)) {
+            throw new BusinessException(ErrorCode.USER4091);
+        }
+
+        // 3. 사용자 생성
+        User user = User.builder()
+                .name(request.name())
+                .nickname(request.nickname())
+                .department(request.department())
+                .referralSource(request.referralSource())
+                .provider(provider)
+                .providerUserId(providerUserId)
+                .email(email)
+                .build();
+
+        User savedUser = userRepository.save(user);
+        log.info("신규 유저 가입 완료, userId: {}, provider: {}", savedUser.getId(), provider);
+
+        // 4. JWT 토큰 발급
+        TokenDto tokens = jwtTokenProvider.generateTokens(savedUser.getId());
+        saveRefreshToken(savedUser.getId(), tokens.refreshToken());
+
+        // 5. 응답 생성
+        SignupCompleteResponse.SignupUserDto userDto = SignupCompleteResponse.SignupUserDto.builder()
+                .userId(savedUser.getId())
+                .email(savedUser.getEmail())
+                .name(savedUser.getName())
+                .nickname(savedUser.getNickname())
+                .department(savedUser.getDepartment())
+                .profileImageUrl(savedUser.getProfileImageUrl())
+                .createdAt(savedUser.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                .build();
+
+        return SignupCompleteResponse.builder()
+                .user(userDto)
+                .token(tokens)
+                .welcomeCredit(200)
+                .build();
     }
 
     /**

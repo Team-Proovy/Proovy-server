@@ -167,19 +167,22 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Signup Token에서 카카오 정보 추출
+     * Signup Token 유효성 검증 및 Claims 반환
      */
-    public KakaoUserInfo getKakaoInfoFromSignupToken(String token) {
-        Claims claims = parseToken(token);
+    public Claims validateAndParseSignupToken(String token) {
+        try {
+            Claims claims = parseToken(token);
 
-        if (!"signup".equals(claims.get("type", String.class))) {
-            throw new BusinessException(ErrorCode.AUTH4013);
+            if (!"signup".equals(claims.get("type", String.class))) {
+                throw new BusinessException(ErrorCode.AUTH4018);
+            }
+
+            return claims;
+        } catch (ExpiredJwtException e) {
+            throw new BusinessException(ErrorCode.AUTH4018);
+        } catch (JwtException e) {
+            throw new BusinessException(ErrorCode.AUTH4018);
         }
-
-        return KakaoUserInfo.builder()
-                .id(claims.getSubject())
-                .email(claims.get("email", String.class))
-                .build();
     }
 
     /**
