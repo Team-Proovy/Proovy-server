@@ -48,7 +48,7 @@ public class AuthController {
         LoginResponse response = authService.kakaoLogin(request);
 
         String message = "SIGNUP_REQUIRED".equals(response.loginType())
-                ? "휴대폰 인증이 필요합니다."
+                ? "추가 정보 입력이 필요합니다."
                 : "로그인에 성공했습니다.";
 
         return ResponseEntity.ok(ApiResponse.success(message, response));
@@ -84,7 +84,7 @@ public class AuthController {
         LoginResponse response = authService.naverLogin(request);
 
         String message = "SIGNUP_REQUIRED".equals(response.loginType())
-                ? "휴대폰 인증이 필요합니다."
+                ? "추가 정보 입력이 필요합니다."
                 : "로그인에 성공했습니다.";
 
         return ResponseEntity.ok(ApiResponse.success(message, response));
