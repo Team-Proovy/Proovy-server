@@ -46,4 +46,15 @@ public interface AssetsService {
      * @param assetId 자산 ID
      */
     void deleteAsset(Long userId, Long assetId);
+
+    /**
+     * OCR 처리 실패로 상태 변경
+     * @param assetId 자산 ID
+     */
+    void markOcrFailed(Long assetId);
+
+    /**
+     * 타임아웃된 OCR 처리 자산들을 실패로 변경
+     */
+    void markTimedOutOcrAsFailed();
 }

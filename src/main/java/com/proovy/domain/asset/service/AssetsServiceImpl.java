@@ -16,12 +16,19 @@ import com.proovy.global.infra.s3.S3Service;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -34,13 +41,22 @@ public class AssetsServiceImpl implements AssetsService {
     private final NoteRepository noteRepository;
     private final S3Service s3Service;
     private final WebClient webClient;
+    private final ApplicationContext applicationContext;
 
     @Value("${proovy.ai.server-url:http://localhost:8081}")
     private String aiServerUrl;
 
+    /**
+     * Self-injection을 통해 트랜잭션 프록시를 가져옴
+     */
+    private AssetsService getSelf() {
+        return applicationContext.getBean(AssetsService.class);
+    }
+
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final long MAX_FILE_SIZE = 31_457_280L; // 30MB
     private static final long NOTE_STORAGE_LIMIT = 524_288_000L; // 500MB
+    private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
 
     @Override
     @Transactional
@@ -200,27 +216,43 @@ public class AssetsServiceImpl implements AssetsService {
 
     /**
      * AI 서버에 OCR 처리 요청 (비동기)
+     * 요청 실패 시 ocrStatus를 failed로 변경
      */
     private void requestOcrProcessing(Asset asset) {
+        final Long assetId = asset.getId();
+
         try {
-            log.info("[OCR] OCR 처리 요청 시작 - assetId: {}, s3Key: {}", asset.getId(), asset.getS3Key());
+            log.info("[OCR] OCR 처리 요청 시작 - assetId: {}, s3Key: {}", assetId, asset.getS3Key());
 
             webClient.post()
                     .uri(aiServerUrl + "/api/ocr/process")
                     .bodyValue(java.util.Map.of(
-                            "assetId", asset.getId(),
+                            "assetId", assetId,
                             "s3Key", asset.getS3Key(),
                             "mimeType", asset.getMimeType()
                     ))
                     .retrieve()
                     .bodyToMono(Void.class)
                     .subscribe(
-                            result -> log.info("[OCR] OCR 처리 요청 완료 - assetId: {}", asset.getId()),
-                            error -> log.error("[OCR] OCR 처리 요청 실패 - assetId: {}, error: {}", asset.getId(), error.getMessage())
+                            result -> log.info("[OCR] OCR 처리 요청 완료 - assetId: {}", assetId),
+                            error -> {
+                                log.error("[OCR] OCR 처리 요청 실패 - assetId: {}, error: {}", assetId, error.getMessage());
+                                // 별도 트랜잭션에서 OCR 실패 처리
+                                try {
+                                    getSelf().markOcrFailed(assetId);
+                                } catch (Exception e) {
+                                    log.error("[OCR] OCR 실패 상태 변경 중 오류 - assetId: {}, error: {}", assetId, e.getMessage());
+                                }
+                            }
                     );
         } catch (Exception e) {
-            // OCR 요청 실패해도 메인 API는 정상 응답 (비동기 처리)
-            log.error("[OCR] OCR 처리 요청 예외 - assetId: {}, error: {}", asset.getId(), e.getMessage());
+            log.error("[OCR] OCR 처리 요청 예외 - assetId: {}, error: {}", assetId, e.getMessage());
+            // 동기 예외 발생 시에도 실패 처리
+            try {
+                getSelf().markOcrFailed(assetId);
+            } catch (Exception ex) {
+                log.error("[OCR] OCR 실패 상태 변경 중 오류 - assetId: {}, error: {}", assetId, ex.getMessage());
+            }
         }
     }
 
@@ -252,17 +284,73 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.ASSET4031);
         }
 
-        // 3. S3 원본 파일 삭제
-        s3Service.deleteFile(asset.getS3Key());
+        // S3 키 저장 (트랜잭션 커밋 후 삭제를 위해)
+        final String s3Key = asset.getS3Key();
+        final String thumbnailS3Key = asset.getThumbnailS3Key();
 
-        // 4. S3 썸네일 삭제 (있는 경우)
-        if (asset.getThumbnailS3Key() != null) {
-            s3Service.deleteFile(asset.getThumbnailS3Key());
-        }
-
-        // 5. DB Asset 레코드 삭제
+        // 3. DB Asset 레코드 삭제 (먼저 수행)
         assetRepository.delete(asset);
 
-        log.info("[Asset] 자산 삭제 완료 - assetId: {}, userId: {}", assetId, userId);
+        // 4. 트랜잭션 커밋 후 S3 파일 삭제 (afterCommit 콜백)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                // S3 원본 파일 삭제
+                try {
+                    s3Service.deleteFile(s3Key);
+                    log.info("[Asset] S3 원본 파일 삭제 완료 - s3Key: {}", s3Key);
+                } catch (Exception e) {
+                    // S3 삭제 실패해도 DB는 이미 커밋됨 (로깅만 수행)
+                    log.error("[Asset] S3 원본 파일 삭제 실패 - s3Key: {}, error: {}", s3Key, e.getMessage());
+                }
+
+                // S3 썸네일 삭제 (있는 경우)
+                if (thumbnailS3Key != null) {
+                    try {
+                        s3Service.deleteFile(thumbnailS3Key);
+                        log.info("[Asset] S3 썸네일 삭제 완료 - s3Key: {}", thumbnailS3Key);
+                    } catch (Exception e) {
+                        log.error("[Asset] S3 썸네일 삭제 실패 - s3Key: {}, error: {}", thumbnailS3Key, e.getMessage());
+                    }
+                }
+            }
+        });
+
+        log.info("[Asset] 자산 삭제 완료 (DB) - assetId: {}, userId: {}", assetId, userId);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markOcrFailed(Long assetId) {
+        assetRepository.findById(assetId).ifPresent(asset -> {
+            if (asset.getOcrStatus() == Asset.OcrStatus.processing) {
+                asset.failOcr();
+                assetRepository.save(asset);
+                log.warn("[OCR] OCR 상태를 failed로 변경 - assetId: {}", assetId);
+            }
+        });
+    }
+
+    @Override
+    @Transactional
+    @Scheduled(fixedRate = 300000) // 5분마다 실행
+    public void markTimedOutOcrAsFailed() {
+        LocalDateTime timeoutThreshold = LocalDateTime.now().minusMinutes(OCR_TIMEOUT_MINUTES);
+
+        List<Asset> timedOutAssets = assetRepository.findByOcrStatusAndUpdatedAtBefore(
+                Asset.OcrStatus.processing,
+                timeoutThreshold
+        );
+
+        if (!timedOutAssets.isEmpty()) {
+            log.info("[OCR] 타임아웃된 OCR 처리 자산 발견 - count: {}", timedOutAssets.size());
+
+            for (Asset asset : timedOutAssets) {
+                asset.failOcr();
+                assetRepository.save(asset);
+                log.warn("[OCR] OCR 타임아웃으로 failed 처리 - assetId: {}, updatedAt: {}",
+                        asset.getId(), asset.getUpdatedAt());
+            }
+        }
     }
 }
