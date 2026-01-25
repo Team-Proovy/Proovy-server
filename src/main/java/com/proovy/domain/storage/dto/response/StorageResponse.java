@@ -37,8 +37,8 @@ public record StorageResponse(
     }
 
     private static String formatStorage(int mb) {
-        if (mb >= 1000) {
-            double gb = mb / 1000.0;
+        if (mb >= 1024) {
+            double gb = mb / 1024.0;
             if (gb == Math.floor(gb)) {
                 return String.format("%.0fGB", gb);
             }
