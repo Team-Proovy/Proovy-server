@@ -46,11 +46,10 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> kakaoLogin(
             @Valid @RequestBody KakaoLoginRequest request
     ) {
-        log.info("카카오 로그인 요청, redirectUri: {}", request.redirectUri());
         LoginResponse response = authService.kakaoLogin(request);
 
         String message = "SIGNUP_REQUIRED".equals(response.loginType())
-                ? "휴대폰 인증이 필요합니다."
+                ? "추가 정보 입력이 필요합니다."
                 : "로그인에 성공했습니다.";
 
         return ResponseEntity.ok(ApiResponse.success(message, response));
@@ -82,11 +81,10 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> naverLogin(
             @Valid @RequestBody NaverLoginRequest request
     ) {
-        log.info("네이버 로그인 요청");
         LoginResponse response = authService.naverLogin(request);
 
         String message = "SIGNUP_REQUIRED".equals(response.loginType())
-                ? "휴대폰 인증이 필요합니다."
+                ? "추가 정보 입력이 필요합니다."
                 : "로그인에 성공했습니다.";
 
         return ResponseEntity.ok(ApiResponse.success(message, response));
@@ -106,7 +104,6 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(
             @Valid @RequestBody GoogleLoginRequest request
     ) {
-        log.info("구글 로그인 요청, redirectUri: {}", request.redirectUri());
         LoginResponse response = authService.googleLogin(request);
 
         String message = "SIGNUP_REQUIRED".equals(response.loginType())
@@ -130,7 +127,6 @@ public class AuthController {
     public ResponseEntity<ApiResponse<SignupCompleteResponse>> signupComplete(
             @Valid @RequestBody SignupCompleteRequest request
     ) {
-        log.info("회원가입 완료 요청");
         SignupCompleteResponse response = authService.signupComplete(request);
         return ResponseEntity.ok(ApiResponse.of("COMMON201", "회원가입이 완료되었습니다.", response));
     }
@@ -171,7 +167,6 @@ public class AuthController {
         String refreshToken = (request != null) ? request.refreshToken() : null;
 
         authService.logout(userId, accessToken, refreshToken);
-        log.info("로그아웃 성공, userId: {}", userId);
 
         return ResponseEntity.ok(ApiResponse.success("로그아웃되었습니다.", null));
     }
@@ -184,7 +179,6 @@ public class AuthController {
     public ResponseEntity<ApiResponse<TokenDto>> devToken(
             @RequestParam Long userId
     ) {
-        log.warn("[DEV] 개발용 토큰 발급 요청 - userId: {}", userId);
         TokenDto tokens = authService.generateDevToken(userId);
         return ResponseEntity.ok(ApiResponse.success("개발용 토큰이 발급되었습니다.", tokens));
     }
