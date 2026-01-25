@@ -80,12 +80,10 @@ public class UserService {
                 .expiresAt(null)
                 .build();
 
-        int daysInMonth = LocalDate.now().lengthOfMonth();
-
         return CreditDto.builder()
                 .dailyCredit(dailyCredit)
                 .monthlyCredit(monthlyCredit)
-                .totalAvailable(dailyCredit.limit() * daysInMonth + monthlyCredit.limit())
+                .totalAvailable(dailyCredit.balance() + monthlyCredit.balance())
                 .build();
     }
 
