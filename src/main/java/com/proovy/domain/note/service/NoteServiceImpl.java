@@ -145,7 +145,8 @@ public class NoteServiceImpl implements NoteService {
             }
         }
 
-        log.info("노트 생성 완료 - noteId: {}", note.getId());
+        log.info("노트 생성 완료 - noteId: {}, planType: {}, conversationLimit: {}",
+                note.getId(), planType.getDisplayName(), planType.getConversationLimitPerNote());
 
         // 12. Response 생성
         return buildCreateNoteResponse(
@@ -154,7 +155,8 @@ public class NoteServiceImpl implements NoteService {
                 userMessage,
                 assistantMessage,
                 mentionedAssets,
-                request.mentionedToolCodes()
+                request.mentionedToolCodes(),
+                planType
         );
     }
 
@@ -179,7 +181,8 @@ public class NoteServiceImpl implements NoteService {
             Message userMessage,
             Message assistantMessage,
             List<Asset> mentionedAssets,
-            List<String> mentionedToolCodes
+            List<String> mentionedToolCodes,
+            PlanType planType
     ) {
         // MentionedAssets DTO 변환
         List<CreateNoteResponse.MentionedAssetDto> mentionedAssetDtos = mentionedAssets.stream()
@@ -214,12 +217,12 @@ public class NoteServiceImpl implements NoteService {
                 assistantMessageDto
         );
 
-        // CreateNoteResponse
+        // CreateNoteResponse (요금제별 대화 제한 적용)
         return new CreateNoteResponse(
                 note.getId(),
                 note.getTitle(),
                 "USER", // 현재는 AI 사용하지 않으므로 USER로 표시
-                50, // 기본 대화 제한
+                planType.getConversationLimitPerNote(), // 요금제별 대화 제한
                 firstConversationDto,
                 note.getCreatedAt()
         );

@@ -32,10 +32,15 @@ public class NoteController {
                     노트 제목은 AI가 대화 내용을 요약하여 자동 생성합니다.
                     (현재는 임시로 첫 메시지를 제목으로 사용)
                     
-                    **생성 제한**
+                    **노트 생성 제한**
                     - Free: 2개
                     - Standard: 10개
                     - Pro: 20개
+                    
+                    **노트당 대화 제한**
+                    - Free: 30회
+                    - Standard: 100회
+                    - Pro: 300회
                     
                     **멘션 기능**
                     - `#` 파일 멘션: mentionedAssetIds
