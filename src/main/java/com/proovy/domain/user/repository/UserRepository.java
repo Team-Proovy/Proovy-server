@@ -8,8 +8,6 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    Optional<User> findByPhone(String phone);
-
     /**
      * OAuth Provider와 Provider 고유 ID로 사용자 조회
      * @param provider OAuth 제공자 (OAuthProvider enum)
