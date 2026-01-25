@@ -65,7 +65,7 @@ public class NoteController {
     ) {
         log.info("노트 생성 요청 - userId: {}", userPrincipal.getUserId());
         CreateNoteResponse response = noteService.createNote(userPrincipal.getUserId(), request);
-        return ApiResponse.success("COMMON201", "노트가 생성되었습니다.", response);
+        return ApiResponse.of("COMMON201", "노트가 생성되었습니다.", response);
     }
 }
 

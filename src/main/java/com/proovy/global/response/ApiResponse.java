@@ -35,7 +35,7 @@ public class ApiResponse<T> {
     }
 
     // 성공 응답 (커스텀 코드, 메시지)
-    public static <T> ApiResponse<T> success(String code, String message, T result) {
+    public static <T> ApiResponse<T> of(String code, String message, T result) {
         return new ApiResponse<>(true, code, message, result);
     }
 
