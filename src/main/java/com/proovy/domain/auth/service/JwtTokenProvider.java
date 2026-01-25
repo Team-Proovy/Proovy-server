@@ -90,7 +90,7 @@ public class JwtTokenProvider {
 
     /**
      * 회원가입용 임시 토큰 생성 (네이버 정보 포함)
-     * 네이버는 이름, 휴대폰 번호도 포함
+     * 네이버는 이름도 포함
      */
     public String generateSignupToken(NaverUserInfo naverInfo) {
         Date now = new Date();
@@ -101,7 +101,6 @@ public class JwtTokenProvider {
                 .claim("provider", "NAVER")
                 .claim("email", naverInfo.email())
                 .claim("name", naverInfo.name())
-                .claim("mobile", naverInfo.mobile())
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + signupTokenExpiration))
                 .signWith(secretKey)

@@ -20,9 +20,6 @@ public class User {
     @Column(name = "user_id")
     private Long id;
 
-    @Column(length = 20)
-    private String phone;
-
     @Column(length = 50)
     private String name;
 
@@ -59,9 +56,8 @@ public class User {
     }
 
     @Builder
-    public User(String phone, String name, String nickname, String department,
+    public User(String name, String nickname, String department,
                 String referralSource, OAuthProvider provider, String providerUserId, String email) {
-        this.phone = phone;
         this.name = name;
         this.nickname = nickname;
         this.department = department;
@@ -73,7 +69,6 @@ public class User {
 
     // Getter
     public Long getId() { return id; }
-    public String getPhone() { return phone; }
     public String getName() { return name; }
     public String getNickname() { return nickname; }
     public String getDepartment() { return department; }
