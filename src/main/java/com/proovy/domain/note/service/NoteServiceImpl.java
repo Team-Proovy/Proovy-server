@@ -9,7 +9,9 @@ import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.entity.User;
+import com.proovy.domain.user.entity.PlanType;
 import com.proovy.domain.user.repository.UserRepository;
+import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -31,6 +32,7 @@ public class NoteServiceImpl implements NoteService {
 
     private final NoteRepository noteRepository;
     private final UserRepository userRepository;
+    private final UserPlanRepository userPlanRepository;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final MessageAssetRepository messageAssetRepository;
@@ -48,11 +50,14 @@ public class NoteServiceImpl implements NoteService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
 
-        // 2. 노트 생성 한도 체크 (무료: 5개, 프리미엄: 10개)
-        // 일단 무료 기준으로 체크
+        // 2. 노트 생성 한도 체크 (Free: 2개, Standard: 10개, Pro: 20개)
+        PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
+                .orElse(PlanType.FREE);
         long noteCount = noteRepository.countByUserId(userId);
-        if (noteCount >= 5) {
-            throw new BusinessException(ErrorCode.NOTE4031);
+        int noteLimit = planType.getNoteLimitCount();
+
+        if (noteCount >= noteLimit) {
+            throw new BusinessException(ErrorCode.NOTE4032);
         }
 
         // 3. mentionedAssetIds 검증

@@ -33,8 +33,9 @@ public class NoteController {
                     (현재는 임시로 첫 메시지를 제목으로 사용)
                     
                     **생성 제한**
-                    - 무료 사용자: 5개
-                    - 프리미엄 사용자: 10개
+                    - Free: 2개
+                    - Standard: 10개
+                    - Pro: 20개
                     
                     **멘션 기능**
                     - `#` 파일 멘션: mentionedAssetIds
@@ -52,7 +53,7 @@ public class NoteController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
-                    description = "노트 생성 한도 초과 (NOTE4031)"
+                    description = "노트 생성 한도 초과 (NOTE4032)"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
