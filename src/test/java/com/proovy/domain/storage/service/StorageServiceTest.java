@@ -58,7 +58,7 @@ class StorageServiceTest {
     private Note testNote;
     private Asset testAsset;
     private UserPlan freePlan;
-    private UserPlan premiumPlan;
+    private UserPlan proPlan;
 
     @BeforeEach
     void setUp() {
@@ -90,9 +90,9 @@ class StorageServiceTest {
                 .isActive(true)
                 .build();
 
-        premiumPlan = UserPlan.builder()
+        proPlan = UserPlan.builder()
                 .user(testUser)
-                .planType(PlanType.PREMIUM)
+                .planType(PlanType.PRO)
                 .isActive(true)
                 .build();
     }
@@ -117,7 +117,7 @@ class StorageServiceTest {
 
             // then
             assertThat(response).isNotNull();
-            assertThat(response.totalLimit()).isEqualTo(3000); // FREE 플랜 3GB
+            assertThat(response.totalLimit()).isEqualTo(1024); // FREE 플랜 1024MB (2 * 512MB)
             assertThat(response.plan().planType()).isEqualTo("free");
             assertThat(response.plan().isActive()).isTrue();
         }
@@ -172,12 +172,12 @@ class StorageServiceTest {
         }
 
         @Test
-        @DisplayName("성공 - 프리미엄 플랜은 100GB 제한이다")
-        void successPremiumPlan() {
+        @DisplayName("성공 - 프로 플랜은 10240MB 제한이다")
+        void successProPlan() {
             // given
             Long userId = 1L;
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(premiumPlan));
+            given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(proPlan));
             given(noteRepository.findByUserIdOrderByCreatedAtDesc(userId)).willReturn(List.of());
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of());
 
@@ -185,8 +185,8 @@ class StorageServiceTest {
             StorageResponse response = storageService.getStorageUsage(userId, null);
 
             // then
-            assertThat(response.totalLimit()).isEqualTo(100000); // PREMIUM 플랜 100GB
-            assertThat(response.plan().planType()).isEqualTo("premium");
+            assertThat(response.totalLimit()).isEqualTo(10240); // PRO 플랜 10240MB (20 * 512MB)
+            assertThat(response.plan().planType()).isEqualTo("pro");
         }
 
         @Test
@@ -203,7 +203,7 @@ class StorageServiceTest {
             StorageResponse response = storageService.getStorageUsage(userId, null);
 
             // then
-            assertThat(response.totalLimit()).isEqualTo(3000); // FREE 플랜 3GB
+            assertThat(response.totalLimit()).isEqualTo(1024); // FREE 플랜 1024MB (2 * 512MB)
             assertThat(response.plan().planType()).isEqualTo("free");
         }
 

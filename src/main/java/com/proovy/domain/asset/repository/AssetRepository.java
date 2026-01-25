@@ -36,4 +36,7 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
      */
     @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.noteId = :noteId AND a.status = :status")
     Long sumFileSizeByNoteIdAndStatus(@Param("noteId") Long noteId, @Param("status") AssetStatus status);
+
+    @Query("SELECT SUM(a.fileSize) FROM Asset a WHERE a.userId = :userId")
+    Long sumFileSizeByUserId(@Param("userId") Long userId);
 }
