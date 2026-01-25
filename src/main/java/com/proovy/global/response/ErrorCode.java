@@ -48,7 +48,10 @@ public enum ErrorCode {
     ASSET4005("ASSET4005", "파일명은 2자 이상 255자 이하로 입력해주세요.", HttpStatus.BAD_REQUEST),
     ASSET4031("ASSET4031", "해당 자산에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     ASSET4041("ASSET4041", "자산을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    ASSET4006("ASSET4006", "업로드가 완료되지 않은 파일입니다.", HttpStatus.BAD_REQUEST);
+    ASSET4006("ASSET4006", "업로드가 완료되지 않은 파일입니다.", HttpStatus.BAD_REQUEST),
+    ASSET4007("ASSET4007", "S3에 파일이 업로드되지 않았습니다.", HttpStatus.BAD_REQUEST),
+    ASSET4091("ASSET4091", "이미 확인된 자산입니다.", HttpStatus.CONFLICT),
+    ASSET4003("ASSET4003", "PDF 파일만 미리보기가 가능합니다.", HttpStatus.BAD_REQUEST);
 
 
     private final String code;
