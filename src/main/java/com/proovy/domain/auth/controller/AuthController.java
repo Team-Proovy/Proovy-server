@@ -115,7 +115,7 @@ public class AuthController {
 
     @PostMapping("/signup/complete")
     @Operation(
-            operationId = "04-2_signupComplete",
+            operationId = "05_signupComplete",
             summary = "회원가입 완료",
             description = "소셜 로그인 후 추가 정보를 입력하여 회원가입을 완료합니다.")
     @ApiResponses({
@@ -133,7 +133,7 @@ public class AuthController {
 
     @PostMapping("/refresh")
     @Operation(
-            operationId = "05_refreshToken",
+            operationId = "06_refreshToken",
             summary = "토큰 갱신",
             description = "Refresh Token으로 새로운 Access Token을 발급합니다.")
     @ApiResponses({
@@ -150,7 +150,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(
-            operationId = "06_logout",
+            operationId = "07_logout",
             summary = "로그아웃",
             description = "현재 세션을 로그아웃 처리하고 Access Token을 블랙리스트에 등록, Refresh Token을 무효화합니다.")
     @ApiResponses({
