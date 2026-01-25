@@ -72,6 +72,9 @@ public class Asset {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    @Version
+    private Long version;
+
     @Builder
     public Asset(Long userId, Long noteId, String fileName, Long fileSize,
                  String mimeType, String s3Key, String thumbnailS3Key, AssetSource source,

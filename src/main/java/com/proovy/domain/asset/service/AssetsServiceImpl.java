@@ -16,9 +16,9 @@ import com.proovy.global.infra.s3.S3Service;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -203,11 +203,28 @@ public class AssetsServiceImpl implements AssetsService {
         }
 
         // 5. Asset 상태 업데이트 (PENDING → UPLOADED, ocrStatus → processing)
-        asset.markAsUploaded();
-        assetRepository.save(asset);
+        // Optimistic Locking으로 동시 요청 처리
+        try {
+            asset.markAsUploaded();
+            assetRepository.saveAndFlush(asset);
+        } catch (OptimisticLockingFailureException e) {
+            // 동시 요청으로 인한 충돌 - 이미 다른 요청이 처리됨
+            log.warn("[Asset] 업로드 확인 동시 요청 충돌 - assetId: {}", assetId);
+            throw new BusinessException(ErrorCode.ASSET4091);
+        }
 
-        // 6. OCR 처리 요청 (비동기)
-        requestOcrProcessing(asset);
+        // 6. OCR 처리 요청 (트랜잭션 커밋 후 비동기 실행)
+        // OCR 요청에 필요한 정보 저장 (트랜잭션 외부에서 사용)
+        final Long savedAssetId = asset.getId();
+        final String s3Key = asset.getS3Key();
+        final String mimeType = asset.getMimeType();
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                requestOcrProcessingAsync(savedAssetId, s3Key, mimeType);
+            }
+        });
 
         log.info("[Asset] 업로드 확인 완료 - assetId: {}, userId: {}", assetId, userId);
 
@@ -216,20 +233,23 @@ public class AssetsServiceImpl implements AssetsService {
 
     /**
      * AI 서버에 OCR 처리 요청 (비동기)
+     * 트랜잭션 커밋 후 afterCommit 콜백에서 호출됨
      * 요청 실패 시 ocrStatus를 failed로 변경
+     *
+     * @param assetId  자산 ID
+     * @param s3Key    S3 저장 경로
+     * @param mimeType MIME 타입
      */
-    private void requestOcrProcessing(Asset asset) {
-        final Long assetId = asset.getId();
-
+    private void requestOcrProcessingAsync(Long assetId, String s3Key, String mimeType) {
         try {
-            log.info("[OCR] OCR 처리 요청 시작 - assetId: {}, s3Key: {}", assetId, asset.getS3Key());
+            log.info("[OCR] OCR 처리 요청 시작 - assetId: {}, s3Key: {}", assetId, s3Key);
 
             webClient.post()
                     .uri(aiServerUrl + "/api/ocr/process")
                     .bodyValue(java.util.Map.of(
                             "assetId", assetId,
-                            "s3Key", asset.getS3Key(),
-                            "mimeType", asset.getMimeType()
+                            "s3Key", s3Key,
+                            "mimeType", mimeType
                     ))
                     .retrieve()
                     .bodyToMono(Void.class)
