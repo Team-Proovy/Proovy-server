@@ -11,6 +11,8 @@ import com.proovy.domain.asset.entity.AssetStatus;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
+import com.proovy.domain.user.entity.PlanType;
+import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.infra.s3.S3Service;
 import com.proovy.global.response.ErrorCode;
@@ -39,6 +41,7 @@ public class AssetsServiceImpl implements AssetsService {
 
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
+    private final UserPlanRepository userPlanRepository;
     private final S3Service s3Service;
     private final WebClient webClient;
     private final ApplicationContext applicationContext;
@@ -54,8 +57,7 @@ public class AssetsServiceImpl implements AssetsService {
     }
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
-    private static final long MAX_FILE_SIZE = 31_457_280L; // 30MB
-    private static final long NOTE_STORAGE_LIMIT = 524_288_000L; // 500MB
+    private static final long NOTE_STORAGE_LIMIT = 512L * 1024 * 1024; // 512MB (노트당 제한)
     private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
 
     @Override
@@ -64,13 +66,17 @@ public class AssetsServiceImpl implements AssetsService {
         // 1. 파일 형식 검증 (PDF, PNG, JPEG만 허용)
         validateMimeType(request.getMimeType());
 
-        // 2. 파일 크기 검증
-        validateFileSize(request.getFileSize());
+        // 2. 사용자 플랜 조회
+        PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
+                .orElse(PlanType.FREE);
 
-        // 3. 파일명 검증
+        // 3. 파일 크기 검증 (플랜별 제한 적용)
+        validateFileSize(request.getFileSize(), planType);
+
+        // 4. 파일명 검증
         validateFileName(request.getFileName());
 
-        // 4. 노트 존재 및 권한 검증
+        // 5. 노트 존재 및 권한 검증
         Note note = noteRepository.findById(request.getNoteId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
 
@@ -78,13 +84,13 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.NOTE4031);
         }
 
-        // 5. 스토리지 용량 검증
+        // 6. 스토리지 용량 검증
         validateStorageCapacity(request.getNoteId(), request.getFileSize());
 
-        // 6. S3 Key 생성
+        // 7. S3 Key 생성
         String s3Key = generateS3Key(userId, request.getNoteId(), request.getFileName());
 
-        // 7. Asset 엔티티 생성 (PENDING 상태)
+        // 8. Asset 엔티티 생성 (PENDING 상태)
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(PRESIGNED_URL_DURATION_MINUTES);
 
         Asset asset = Asset.builder()
@@ -101,7 +107,7 @@ public class AssetsServiceImpl implements AssetsService {
 
         Asset savedAsset = assetRepository.save(asset);
 
-        // 8. Presigned URL 생성
+        // 9. Presigned URL 생성
         String presignedUrl = s3Service.generatePresignedUploadUrl(
                 s3Key,
                 request.getMimeType(),
@@ -120,8 +126,8 @@ public class AssetsServiceImpl implements AssetsService {
         }
     }
 
-    private void validateFileSize(Long fileSize) {
-        if (fileSize > MAX_FILE_SIZE) {
+    private void validateFileSize(Long fileSize, PlanType planType) {
+        if (fileSize > planType.getMaxFileSizeBytes()) {
             throw new BusinessException(ErrorCode.ASSET4002);
         }
     }
