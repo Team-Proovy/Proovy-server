@@ -11,6 +11,8 @@ import com.proovy.domain.asset.entity.AssetStatus;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
+import com.proovy.domain.user.entity.PlanType;
+import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.infra.s3.S3Service;
 import com.proovy.global.response.ErrorCode;
@@ -40,6 +42,17 @@ public class AssetsServiceImpl implements AssetsService {
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
     private final S3Service s3Service;
+    private final UserPlanRepository userPlanRepository;
+
+    private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
+    private static final long NOTE_STORAGE_LIMIT = 536_870_912L; // 512MB
+    private static final long BYTES_PER_MB = 1024L * 1024L;
+    private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
+    private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
+  
+    // TODO: 크레딧별 단일 파일 크기 제한이 있음. 수정해야함.
+    private static final long MAX_FILE_SIZE = 31_457_280L; // 30MB
+
     private final WebClient webClient;
     private final ApplicationContext applicationContext;
 
@@ -53,11 +66,6 @@ public class AssetsServiceImpl implements AssetsService {
         return applicationContext.getBean(AssetsService.class);
     }
 
-    private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
-    private static final long MAX_FILE_SIZE = 31_457_280L; // 30MB
-    private static final long NOTE_STORAGE_LIMIT = 524_288_000L; // 500MB
-    private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
-
     @Override
     @Transactional
     public UploadUrlResponse generateUploadUrl(Long userId, UploadUrlRequest request) {
@@ -65,7 +73,9 @@ public class AssetsServiceImpl implements AssetsService {
         validateMimeType(request.getMimeType());
 
         // 2. 파일 크기 검증
-        validateFileSize(request.getFileSize());
+        PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
+                .orElse(PlanType.FREE);
+        validateFileSize(request.getFileSize(), planType);
 
         // 3. 파일명 검증
         validateFileName(request.getFileName());
@@ -120,8 +130,9 @@ public class AssetsServiceImpl implements AssetsService {
         }
     }
 
-    private void validateFileSize(Long fileSize) {
-        if (fileSize > MAX_FILE_SIZE) {
+    private void validateFileSize(Long fileSize, PlanType planType) {
+        long maxFileSize = (long) planType.getSingleFileLimitMb() * BYTES_PER_MB;
+        if (fileSize > maxFileSize) {
             throw new BusinessException(ErrorCode.ASSET4002);
         }
     }

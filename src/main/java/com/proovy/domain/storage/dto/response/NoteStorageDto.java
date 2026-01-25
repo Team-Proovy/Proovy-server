@@ -14,7 +14,7 @@ public record NoteStorageDto(
         String storageLimitDisplay,
         List<AssetSummaryDto> assets
 ) {
-    private static final int DEFAULT_NOTE_STORAGE_LIMIT_MB = 500;
+    private static final int DEFAULT_NOTE_STORAGE_LIMIT_MB = 512;
 
     public static NoteStorageDto of(
             Long noteId,
@@ -34,8 +34,8 @@ public record NoteStorageDto(
     }
 
     private static String formatStorage(int mb) {
-        if (mb >= 1000) {
-            double gb = mb / 1000.0;
+        if (mb >= 1024) {
+            double gb = mb / 1024.0;
             if (gb == Math.floor(gb)) {
                 return String.format("%.0fGB", gb);
             }
