@@ -7,17 +7,30 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum PlanType {
-    FREE("free", 1024, 2, 30),           // 1GB, 노트 2개, 대화 30회
-    STANDARD("standard", 5120, 10, 100),  // 5GB, 노트 10개, 대화 100회
-    PRO("pro", 10240, 20, 300);          // 10GB, 노트 20개, 대화 300회
+    FREE("Free", 0, "KRW", null, 100, 0, 2, 10, 1),
+    STANDARD("Standard", 6900, "KRW", "MONTHLY", 100, 2000, 10, 50, 5),
+    PRO("Pro", 14900, "KRW", "MONTHLY", 100, 5000, 20, 100, 10);
 
     private final String displayName;
-    private final int storageLimitMb;
-    private final int noteLimitCount;
-    private final int conversationLimitPerNote;
+    private final int price;
+    private final String currency;
+    private final String billingCycle; // null for FREE
+    private final int dailyCreditLimit;
+    private final int monthlyCreditLimit;
+    private final int noteLimit;
+    private final int singleFileLimitMb;
+    private final int storageLimitGb;
 
     @JsonValue
-    public String getDisplayName() {
-        return displayName;
+    public String getJsonValue() {
+        return name().toLowerCase();
+    }
+
+    public int getStorageLimitMb() {
+        return storageLimitGb * 1024;
+    }
+
+    public long getStorageLimitBytes() {
+        return (long) storageLimitGb * 1024 * 1024 * 1024;
     }
 }

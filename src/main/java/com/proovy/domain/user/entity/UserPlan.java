@@ -42,6 +42,14 @@ public class UserPlan {
         this.isActive = isActive != null ? isActive : true;
     }
 
+    public double getStorageLimitGb() {
+        return planType.getStorageLimitGb();
+    }
+
+    public long getStorageLimitBytes() {
+        return planType.getStorageLimitBytes();
+    }
+
     public int getStorageLimitMb() {
         return planType.getStorageLimitMb();
     }
