@@ -25,4 +25,12 @@ public enum PlanType {
     public String getJsonValue() {
         return name().toLowerCase();
     }
+
+    public int getStorageLimitMb() {
+        return storageLimitGb * 1024;
+    }
+
+    public long getStorageLimitBytes() {
+        return (long) storageLimitGb * 1024 * 1024 * 1024;
+    }
 }
