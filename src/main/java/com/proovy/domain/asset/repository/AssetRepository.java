@@ -38,10 +38,13 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.noteId = :noteId AND a.status = :status")
     Long sumFileSizeByNoteIdAndStatus(@Param("noteId") Long noteId, @Param("status") AssetStatus status);
 
-
-    @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.userId = :userId")
+    /**
+     * 특정 사용자의 UPLOADED 상태 자산 파일 크기 합계 조회
+     * (PENDING, FAILED 상태는 실제 S3에 저장되지 않으므로 제외)
+     */
+    @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.userId = :userId AND a.status = 'UPLOADED'")
     Long sumFileSizeByUserId(@Param("userId") Long userId);
-  
+
     /**
      * OCR 상태가 특정 값이고 updatedAt이 특정 시각 이전인 자산 목록 조회 (타임아웃 처리용)
      */
