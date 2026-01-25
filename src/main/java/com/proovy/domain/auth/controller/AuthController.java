@@ -3,9 +3,11 @@ package com.proovy.domain.auth.controller;
 import com.proovy.domain.auth.dto.request.GoogleLoginRequest;
 import com.proovy.domain.auth.dto.request.KakaoLoginRequest;
 import com.proovy.domain.auth.dto.request.NaverLoginRequest;
+import com.proovy.domain.auth.dto.request.SignupCompleteRequest;
 import com.proovy.domain.auth.dto.request.TokenRefreshRequest;
 import com.proovy.domain.auth.dto.response.LoginResponse;
 import com.proovy.domain.auth.dto.response.NaverAuthUrlResponse;
+import com.proovy.domain.auth.dto.response.SignupCompleteResponse;
 import com.proovy.domain.auth.dto.response.TokenDto;
 import com.proovy.domain.auth.dto.request.LogoutRequest;
 import com.proovy.domain.auth.service.AuthService;
@@ -118,7 +120,7 @@ public class AuthController {
             description = "소셜 로그인 후 추가 정보를 입력하여 회원가입을 완료합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "회원가입 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "닉네임 형식 오류 (AUTH4008), 필수 정보 누락 (AUTH4009)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "필수 정보 누락 또는 형식 오류 (COMMON400)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "signupToken 만료/무효 (AUTH4018)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 존재하는 사용자 (USER4091)")
     })
@@ -126,7 +128,7 @@ public class AuthController {
             @Valid @RequestBody SignupCompleteRequest request
     ) {
         SignupCompleteResponse response = authService.signupComplete(request);
-        return ResponseEntity.ok(ApiResponse.of("COMMON201", "회원가입이 완료되었습니다.", response));
+        return ResponseEntity.ok(ApiResponse.success("회원가입이 완료되었습니다.", response));
     }
 
     @PostMapping("/refresh")

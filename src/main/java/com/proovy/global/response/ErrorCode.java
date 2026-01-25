@@ -20,6 +20,7 @@ public enum ErrorCode {
     AUTH4011("AUTH4011", "유효하지 않은 인증 코드입니다.", HttpStatus.UNAUTHORIZED),
     AUTH4012("AUTH4012", "토큰이 만료되었습니다.", HttpStatus.UNAUTHORIZED),
     AUTH4013("AUTH4013", "유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    AUTH4018("AUTH4018", "회원가입 세션이 만료되었습니다. 다시 시도해주세요.", HttpStatus.UNAUTHORIZED),
     AUTH4291("AUTH4291", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
     AUTH5021("AUTH5021", "카카오 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     AUTH5022("AUTH5022", "네이버 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
