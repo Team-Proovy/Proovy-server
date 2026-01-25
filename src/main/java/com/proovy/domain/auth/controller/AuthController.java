@@ -44,7 +44,6 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> kakaoLogin(
             @Valid @RequestBody KakaoLoginRequest request
     ) {
-        log.info("카카오 로그인 요청, redirectUri: {}", request.redirectUri());
         LoginResponse response = authService.kakaoLogin(request);
 
         String message = "SIGNUP_REQUIRED".equals(response.loginType())
@@ -80,7 +79,6 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> naverLogin(
             @Valid @RequestBody NaverLoginRequest request
     ) {
-        log.info("네이버 로그인 요청");
         LoginResponse response = authService.naverLogin(request);
 
         String message = "SIGNUP_REQUIRED".equals(response.loginType())
@@ -104,14 +102,31 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(
             @Valid @RequestBody GoogleLoginRequest request
     ) {
-        log.info("구글 로그인 요청, redirectUri: {}", request.redirectUri());
         LoginResponse response = authService.googleLogin(request);
 
         String message = "SIGNUP_REQUIRED".equals(response.loginType())
-                ? "휴대폰 인증이 필요합니다."
+                ? "추가 정보 입력이 필요합니다."
                 : "로그인에 성공했습니다.";
 
         return ResponseEntity.ok(ApiResponse.success(message, response));
+    }
+
+    @PostMapping("/signup/complete")
+    @Operation(
+            operationId = "04-2_signupComplete",
+            summary = "회원가입 완료",
+            description = "소셜 로그인 후 추가 정보를 입력하여 회원가입을 완료합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "회원가입 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "닉네임 형식 오류 (AUTH4008), 필수 정보 누락 (AUTH4009)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "signupToken 만료/무효 (AUTH4018)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 존재하는 사용자 (USER4091)")
+    })
+    public ResponseEntity<ApiResponse<SignupCompleteResponse>> signupComplete(
+            @Valid @RequestBody SignupCompleteRequest request
+    ) {
+        SignupCompleteResponse response = authService.signupComplete(request);
+        return ResponseEntity.ok(ApiResponse.of("COMMON201", "회원가입이 완료되었습니다.", response));
     }
 
     @PostMapping("/refresh")
@@ -150,7 +165,6 @@ public class AuthController {
         String refreshToken = (request != null) ? request.refreshToken() : null;
 
         authService.logout(userId, accessToken, refreshToken);
-        log.info("로그아웃 성공, userId: {}", userId);
 
         return ResponseEntity.ok(ApiResponse.success("로그아웃되었습니다.", null));
     }
@@ -163,7 +177,6 @@ public class AuthController {
     public ResponseEntity<ApiResponse<TokenDto>> devToken(
             @RequestParam Long userId
     ) {
-        log.warn("[DEV] 개발용 토큰 발급 요청 - userId: {}", userId);
         TokenDto tokens = authService.generateDevToken(userId);
         return ResponseEntity.ok(ApiResponse.success("개발용 토큰이 발급되었습니다.", tokens));
     }
