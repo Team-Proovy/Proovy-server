@@ -20,6 +20,9 @@ public enum ErrorCode {
     AUTH4011("AUTH4011", "유효하지 않은 인증 코드입니다.", HttpStatus.UNAUTHORIZED),
     AUTH4012("AUTH4012", "토큰이 만료되었습니다.", HttpStatus.UNAUTHORIZED),
     AUTH4013("AUTH4013", "유효하지 않은 토큰입니다.", HttpStatus.UNAUTHORIZED),
+    AUTH4018("AUTH4018", "회원가입 세션이 만료되었습니다. 다시 시도해주세요.", HttpStatus.UNAUTHORIZED),
+    AUTH4008("AUTH4008", "닉네임은 2~10자로 입력해주세요.", HttpStatus.BAD_REQUEST),
+    AUTH4009("AUTH4009", "필수 정보를 모두 입력해주세요.", HttpStatus.BAD_REQUEST),
     AUTH4291("AUTH4291", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", HttpStatus.TOO_MANY_REQUESTS),
     AUTH5021("AUTH5021", "카카오 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     AUTH5022("AUTH5022", "네이버 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -46,6 +49,9 @@ public enum ErrorCode {
     ASSET4031("ASSET4031", "해당 자산에 대한 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     ASSET4041("ASSET4041", "자산을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     ASSET4006("ASSET4006", "업로드가 완료되지 않은 파일입니다.", HttpStatus.BAD_REQUEST),
+    ASSET4007("ASSET4007", "S3에 파일이 업로드되지 않았습니다.", HttpStatus.BAD_REQUEST),
+    ASSET4091("ASSET4091", "이미 확인된 자산입니다.", HttpStatus.CONFLICT),
+    ASSET4003("ASSET4003", "PDF 파일만 미리보기가 가능합니다.", HttpStatus.BAD_REQUEST);
 
     // Tool
     TOOL4001("TOOL4001", "유효하지 않은 도구 코드입니다.", HttpStatus.BAD_REQUEST);

@@ -34,7 +34,7 @@ public class ApiResponse<T> {
         return new ApiResponse<>(true, "COMMON200", message, result);
     }
 
-    // 성공 응답 (커스텀 코드, 메시지)
+    // 성공 응답 (커스텀 코드 + 메시지)
     public static <T> ApiResponse<T> of(String code, String message, T result) {
         return new ApiResponse<>(true, code, message, result);
     }

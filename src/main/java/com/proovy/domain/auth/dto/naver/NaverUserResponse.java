@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
  * 네이버 사용자 정보 응답
  * GET https://openapi.naver.com/v1/nid/me
  *
- * 사용하는 필드: id, email, name, mobile
+ * 사용하는 필드: id, email, name
  * 프로필 이미지는 네이버 기본 로고로 고정
  */
 public record NaverUserResponse(

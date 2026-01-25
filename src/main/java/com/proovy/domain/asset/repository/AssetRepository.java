@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface AssetRepository extends JpaRepository<Asset, Long> {
@@ -41,4 +42,9 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
      */
     @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.noteId = :noteId AND a.status = :status")
     Long sumFileSizeByNoteIdAndStatus(@Param("noteId") Long noteId, @Param("status") AssetStatus status);
+
+    /**
+     * OCR 상태가 특정 값이고 updatedAt이 특정 시각 이전인 자산 목록 조회 (타임아웃 처리용)
+     */
+    List<Asset> findByOcrStatusAndUpdatedAtBefore(Asset.OcrStatus ocrStatus, LocalDateTime threshold);
 }
