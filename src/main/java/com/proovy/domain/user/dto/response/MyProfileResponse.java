@@ -69,8 +69,10 @@ public record MyProfileResponse(
                 .nickname(user.getNickname())
                 .department(user.getDepartment())
                 .profileImageUrl(user.getProfileImageUrl())
-                .provider(user.getProvider().name())
-                .createdAt(user.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                .provider(user.getProvider() != null ? user.getProvider().name() : null)
+                .createdAt(user.getCreatedAt() != null
+                        ? user.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                        : null)
                 .subscription(subscription)
                 .credit(credit)
                 .storage(storage)
