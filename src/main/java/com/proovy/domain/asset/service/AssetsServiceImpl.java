@@ -2,7 +2,9 @@ package com.proovy.domain.asset.service;
 
 import com.proovy.domain.asset.constant.AllowedMimeType;
 import com.proovy.domain.asset.dto.request.UploadUrlRequest;
+import com.proovy.domain.asset.dto.response.AssetDetailResponse;
 import com.proovy.domain.asset.dto.response.DownloadUrlResponse;
+import com.proovy.domain.asset.dto.response.UploadConfirmResponse;
 import com.proovy.domain.asset.dto.response.UploadUrlResponse;
 import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.entity.AssetStatus;
@@ -14,8 +16,10 @@ import com.proovy.global.infra.s3.S3Service;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -29,6 +33,10 @@ public class AssetsServiceImpl implements AssetsService {
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
     private final S3Service s3Service;
+    private final WebClient webClient;
+
+    @Value("${proovy.ai.server-url:http://localhost:8081}")
+    private String aiServerUrl;
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final long MAX_FILE_SIZE = 31_457_280L; // 30MB
@@ -154,5 +162,107 @@ public class AssetsServiceImpl implements AssetsService {
         log.debug("[Asset] 다운로드 URL 발급 완료 - assetId: {}", assetId);
 
         return DownloadUrlResponse.of(asset.getId(), asset.getFileName(), downloadUrl, expiresAt);
+    }
+
+    @Override
+    @Transactional
+    public UploadConfirmResponse confirmUpload(Long userId, Long assetId) {
+        // 1. Asset 존재 확인
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ASSET4041));
+
+        // 2. 권한 검증
+        if (!asset.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.ASSET4031);
+        }
+
+        // 3. 이미 확인된 자산인지 확인 (중복 호출 방지)
+        if (asset.getStatus() == AssetStatus.UPLOADED) {
+            throw new BusinessException(ErrorCode.ASSET4091);
+        }
+
+        // 4. S3 파일 존재 여부 확인
+        if (!s3Service.doesFileExist(asset.getS3Key())) {
+            throw new BusinessException(ErrorCode.ASSET4007);
+        }
+
+        // 5. Asset 상태 업데이트 (PENDING → UPLOADED, ocrStatus → processing)
+        asset.markAsUploaded();
+        assetRepository.save(asset);
+
+        // 6. OCR 처리 요청 (비동기)
+        requestOcrProcessing(asset);
+
+        log.info("[Asset] 업로드 확인 완료 - assetId: {}, userId: {}", assetId, userId);
+
+        return UploadConfirmResponse.from(asset);
+    }
+
+    /**
+     * AI 서버에 OCR 처리 요청 (비동기)
+     */
+    private void requestOcrProcessing(Asset asset) {
+        try {
+            log.info("[OCR] OCR 처리 요청 시작 - assetId: {}, s3Key: {}", asset.getId(), asset.getS3Key());
+
+            webClient.post()
+                    .uri(aiServerUrl + "/api/ocr/process")
+                    .bodyValue(java.util.Map.of(
+                            "assetId", asset.getId(),
+                            "s3Key", asset.getS3Key(),
+                            "mimeType", asset.getMimeType()
+                    ))
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .subscribe(
+                            result -> log.info("[OCR] OCR 처리 요청 완료 - assetId: {}", asset.getId()),
+                            error -> log.error("[OCR] OCR 처리 요청 실패 - assetId: {}, error: {}", asset.getId(), error.getMessage())
+                    );
+        } catch (Exception e) {
+            // OCR 요청 실패해도 메인 API는 정상 응답 (비동기 처리)
+            log.error("[OCR] OCR 처리 요청 예외 - assetId: {}, error: {}", asset.getId(), e.getMessage());
+        }
+    }
+
+    @Override
+    public AssetDetailResponse getAssetDetail(Long userId, Long assetId) {
+        // 1. Asset 존재 확인
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ASSET4041));
+
+        // 2. 권한 검증
+        if (!asset.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.ASSET4031);
+        }
+
+        log.debug("[Asset] 자산 상세 조회 - assetId: {}, ocrStatus: {}", assetId, asset.getOcrStatus());
+
+        return AssetDetailResponse.from(asset);
+    }
+
+    @Override
+    @Transactional
+    public void deleteAsset(Long userId, Long assetId) {
+        // 1. Asset 존재 확인
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ASSET4041));
+
+        // 2. 권한 검증
+        if (!asset.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.ASSET4031);
+        }
+
+        // 3. S3 원본 파일 삭제
+        s3Service.deleteFile(asset.getS3Key());
+
+        // 4. S3 썸네일 삭제 (있는 경우)
+        if (asset.getThumbnailS3Key() != null) {
+            s3Service.deleteFile(asset.getThumbnailS3Key());
+        }
+
+        // 5. DB Asset 레코드 삭제
+        assetRepository.delete(asset);
+
+        log.info("[Asset] 자산 삭제 완료 - assetId: {}, userId: {}", assetId, userId);
     }
 }

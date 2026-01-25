@@ -53,6 +53,17 @@ public class Asset {
 
     private LocalDateTime uploadExpiresAt; // Presigned URL 만료 시간
 
+    private Integer totalPages; // 총 페이지 수 (PDF/PPT)
+
+    @Column(length = 20)
+    @Enumerated(EnumType.STRING)
+    private OcrStatus ocrStatus; // OCR 처리 상태
+
+    @Column(columnDefinition = "TEXT")
+    private String ocrText; // OCR 결과 (JSON 형태)
+
+    private LocalDateTime ocrProcessedAt; // OCR 처리 완료 시각
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -80,5 +91,37 @@ public class Asset {
     public enum AssetSource {
         upload,
         ai_generated
+    }
+
+    public enum OcrStatus {
+        pending,
+        processing,
+        completed,
+        failed
+    }
+
+    /**
+     * 업로드 완료 상태로 변경
+     */
+    public void markAsUploaded() {
+        this.status = AssetStatus.UPLOADED;
+        this.ocrStatus = OcrStatus.processing;
+    }
+
+    /**
+     * OCR 처리 완료
+     */
+    public void completeOcr(String ocrText, Integer totalPages) {
+        this.ocrStatus = OcrStatus.completed;
+        this.ocrText = ocrText;
+        this.totalPages = totalPages;
+        this.ocrProcessedAt = LocalDateTime.now();
+    }
+
+    /**
+     * OCR 처리 실패
+     */
+    public void failOcr() {
+        this.ocrStatus = OcrStatus.failed;
     }
 }
