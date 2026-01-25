@@ -43,7 +43,6 @@ public class AssetsServiceImpl implements AssetsService {
     private final NoteRepository noteRepository;
     private final UserPlanRepository userPlanRepository;
     private final S3Service s3Service;
-    private final UserPlanRepository userPlanRepository;
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final long NOTE_STORAGE_LIMIT = 536_870_912L; // 512MB
