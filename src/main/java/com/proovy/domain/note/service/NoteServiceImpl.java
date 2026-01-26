@@ -47,7 +47,8 @@ public class NoteServiceImpl implements NoteService {
 
     @Override
     public CreateNoteResponse createNote(Long userId, CreateNoteRequest request) {
-        log.info("노트 생성 요청 - userId: {}, firstMessage length: {}", userId, request.firstMessage().length());
+        log.info("노트 생성 요청 - userId: {}, firstMessage length: {}", userId,
+                request.firstMessage() != null ? request.firstMessage().length() : 0);
 
         // 1. 사용자 조회
         User user = userRepository.findById(userId)
