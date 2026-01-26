@@ -5,8 +5,10 @@ import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.conversation.entity.*;
 import com.proovy.domain.conversation.repository.*;
 import com.proovy.domain.note.dto.request.CreateNoteRequest;
+import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
+import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.entity.User;
@@ -373,6 +375,33 @@ public class NoteServiceImpl implements NoteService {
                 .assetCount((int) assetCount)
                 .createdAt(note.getCreatedAt())
                 .lastUsedAt(note.getUpdatedAt()) // updatedAt을 lastUsedAt으로 매핑
+                .build();
+    }
+
+    @Override
+    public UpdateNoteTitleResponse updateNoteTitle(Long userId, Long noteId, UpdateNoteTitleRequest request) {
+        log.info("노트 제목 수정 요청 - userId: {}, noteId: {}, newTitle: {}", userId, noteId, request.title());
+
+        // 1. 노트 조회
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
+
+        // 2. 권한 확인 (노트 소유자가 맞는지)
+        if (!note.getUser().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOTE4031);
+        }
+
+        // 3. 제목 업데이트
+        note.updateTitle(request.title());
+        note = noteRepository.save(note);
+
+        log.info("노트 제목 수정 완료 - noteId: {}", noteId);
+
+        // 4. Response 생성
+        return UpdateNoteTitleResponse.builder()
+                .noteId(note.getId())
+                .title(note.getTitle())
+                .updatedAt(note.getUpdatedAt())
                 .build();
     }
 }

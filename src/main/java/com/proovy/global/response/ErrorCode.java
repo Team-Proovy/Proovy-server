@@ -40,6 +40,8 @@ public enum ErrorCode {
     STORAGE4031("STORAGE4031", "자산 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     STORAGE4005("STORAGE4005", "노트의 스토리지 용량(512MB)을 초과합니다.", HttpStatus.FORBIDDEN),
     // Note
+    NOTE4001("NOTE4001", "노트 제목은 50자 이내로 입력해주세요.", HttpStatus.BAD_REQUEST),
+    NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),
     NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
