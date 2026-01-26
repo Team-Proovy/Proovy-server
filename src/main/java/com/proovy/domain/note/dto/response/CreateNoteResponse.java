@@ -1,6 +1,7 @@
 package com.proovy.domain.note.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record CreateNoteResponse(
         Long noteId,
@@ -20,8 +21,8 @@ public record CreateNoteResponse(
     public record UserMessageDto(
             Long messageId,
             String content,
-            java.util.List<MentionedAssetDto> mentionedAssets,
-            java.util.List<String> mentionedTools,
+            List<MentionedAssetDto> mentionedAssets,
+            List<String> mentionedTools,
             LocalDateTime createdAt
     ) {
     }
