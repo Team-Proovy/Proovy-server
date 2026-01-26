@@ -250,16 +250,48 @@ public class NoteServiceImpl implements NoteService {
         Page<Note> notePage = noteRepository.findByUserId(userId, pageable);
 
         // 5. 사용자의 활성 플랜 조회 (대화 제한 수 계산용)
-        com.proovy.domain.user.entity.PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
-                .orElse(com.proovy.domain.user.entity.PlanType.FREE);
         int conversationLimit = 50; // 기본값
 
-        // 6. DTO 변환
-        List<NoteListResponse.NoteDto> noteDtos = notePage.getContent().stream()
-                .map(note -> buildNoteDto(note, conversationLimit))
+        // 6. 노트 ID 목록 추출
+        List<Long> noteIds = notePage.getContent().stream()
+                .map(Note::getId)
                 .collect(Collectors.toList());
 
-        // 7. PageInfo 생성
+        // 7. 배치 쿼리로 대화 개수 조회 (N+1 문제 해결)
+        java.util.Map<Long, Long> conversationCountMap = new java.util.HashMap<>();
+        if (!noteIds.isEmpty()) {
+            List<java.util.Map<String, Object>> conversationCounts =
+                conversationRepository.countByNoteIdIn(noteIds);
+            for (java.util.Map<String, Object> row : conversationCounts) {
+                Long noteId = ((Number) row.get("noteId")).longValue();
+                Long count = ((Number) row.get("count")).longValue();
+                conversationCountMap.put(noteId, count);
+            }
+        }
+
+        // 8. 배치 쿼리로 자산 개수 조회 (N+1 문제 해결)
+        java.util.Map<Long, Long> assetCountMap = new java.util.HashMap<>();
+        if (!noteIds.isEmpty()) {
+            List<java.util.Map<String, Object>> assetCounts =
+                assetRepository.countByNoteIdIn(noteIds);
+            for (java.util.Map<String, Object> row : assetCounts) {
+                Long noteId = ((Number) row.get("noteId")).longValue();
+                Long count = ((Number) row.get("count")).longValue();
+                assetCountMap.put(noteId, count);
+            }
+        }
+
+        // 9. DTO 변환 (미리 조회한 카운트 사용)
+        List<NoteListResponse.NoteDto> noteDtos = notePage.getContent().stream()
+                .map(note -> buildNoteDto(
+                    note,
+                    conversationLimit,
+                    conversationCountMap.getOrDefault(note.getId(), 0L),
+                    assetCountMap.getOrDefault(note.getId(), 0L)
+                ))
+                .collect(Collectors.toList());
+
+        // 10. PageInfo 생성
         NoteListResponse.PageInfo pageInfo = NoteListResponse.PageInfo.builder()
                 .page(notePage.getNumber())
                 .size(notePage.getSize())
@@ -315,14 +347,17 @@ public class NoteServiceImpl implements NoteService {
     /**
      * Note 엔티티를 NoteDto로 변환
      * updatedAt을 lastUsedAt으로 매핑하여 반환
+     * @param note 노트 엔티티
+     * @param conversationLimit 대화 제한 수
+     * @param conversationCount 대화 개수 (미리 조회됨)
+     * @param assetCount 자산 개수 (미리 조회됨)
      */
-    private NoteListResponse.NoteDto buildNoteDto(Note note, int conversationLimit) {
-        // 대화 개수 조회
-        long conversationCount = conversationRepository.countByNoteId(note.getId());
-
-        // 자산 개수 조회
-        long assetCount = assetRepository.countByNoteId(note.getId());
-
+    private NoteListResponse.NoteDto buildNoteDto(
+            Note note,
+            int conversationLimit,
+            long conversationCount,
+            long assetCount
+    ) {
         // 대화 사용률 계산
         int conversationUsagePercent = conversationLimit > 0
                 ? Math.round((float) conversationCount / conversationLimit * 100)

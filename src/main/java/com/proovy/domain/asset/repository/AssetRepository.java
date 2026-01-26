@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public interface AssetRepository extends JpaRepository<Asset, Long> {
 
@@ -41,6 +42,17 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
      * 특정 노트의 자산 개수 조회
      */
     long countByNoteId(Long noteId);
+
+    /**
+     * 여러 노트의 자산 개수를 한 번에 조회 (배치 쿼리)
+     * @param noteIds 노트 ID 목록
+     * @return Map<노트ID, 자산개수>
+     */
+    @Query("SELECT a.noteId AS noteId, COUNT(a) AS count " +
+           "FROM Asset a " +
+           "WHERE a.noteId IN :noteIds " +
+           "GROUP BY a.noteId")
+    List<Map<String, Object>> countByNoteIdIn(@Param("noteIds") List<Long> noteIds);
 
     /**
      * 특정 노트의 특정 상태 자산 파일 크기 합계 조회
