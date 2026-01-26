@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -36,6 +35,7 @@ public class NoteServiceImpl implements NoteService {
     private final MessageAssetRepository messageAssetRepository;
     private final MessageToolRepository messageToolRepository;
     private final AssetRepository assetRepository;
+    private final com.proovy.domain.user.repository.UserPlanRepository userPlanRepository;
 
     // 허용된 도구 코드 목록 (실제로는 별도 관리 필요)
     private static final Set<String> ALLOWED_TOOL_CODES = Set.of("SOLUTION", "SUMMARY", "QUIZ", "TRANSLATOR");
@@ -48,10 +48,15 @@ public class NoteServiceImpl implements NoteService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
 
-        // 2. 노트 생성 한도 체크 (무료: 5개, 프리미엄: 10개)
-        // 일단 무료 기준으로 체크
+        // 2. 노트 생성 한도 체크
+        // 사용자의 활성 플랜 조회 (없으면 FREE 플랜으로 간주)
+        com.proovy.domain.user.entity.PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
+                .orElse(com.proovy.domain.user.entity.PlanType.FREE);
+
         long noteCount = noteRepository.countByUserId(userId);
-        if (noteCount >= 5) {
+        int noteLimit = planType.getNoteLimit();
+
+        if (noteCount >= noteLimit) {
             throw new BusinessException(ErrorCode.NOTE4031);
         }
 
