@@ -38,7 +38,7 @@ public class NoteServiceImpl implements NoteService {
     private final com.proovy.domain.user.repository.UserPlanRepository userPlanRepository;
 
     // 허용된 도구 코드 목록 (실제로는 별도 관리 필요)
-    private static final Set<String> ALLOWED_TOOL_CODES = Set.of("SOLUTION", "SUMMARY", "QUIZ", "TRANSLATOR");
+    private static final Set<String> ALLOWED_TOOL_CODES = Set.of("SOLUTION", "GRAPH", "VARIATION");
 
     @Override
     public CreateNoteResponse createNote(Long userId, CreateNoteRequest request) {
