@@ -48,8 +48,7 @@ public class AssetsServiceImpl implements AssetsService {
     private static final long NOTE_STORAGE_LIMIT = 536_870_912L; // 512MB
     private static final long BYTES_PER_MB = 1024L * 1024L;
     private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
-    private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
-  
+
     // TODO: 크레딧별 단일 파일 크기 제한이 있음. 수정해야함.
     private static final long MAX_FILE_SIZE = 31_457_280L; // 30MB
 
