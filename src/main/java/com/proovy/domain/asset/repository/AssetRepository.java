@@ -38,6 +38,11 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     List<Asset> findAllByNoteId(Long noteId);
 
     /**
+     * 특정 노트의 자산 개수 조회
+     */
+    long countByNoteId(Long noteId);
+
+    /**
      * 특정 노트의 특정 상태 자산 파일 크기 합계 조회
      */
     @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.noteId = :noteId AND a.status = :status")

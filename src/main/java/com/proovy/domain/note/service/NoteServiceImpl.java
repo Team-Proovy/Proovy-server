@@ -6,6 +6,7 @@ import com.proovy.domain.conversation.entity.*;
 import com.proovy.domain.conversation.repository.*;
 import com.proovy.domain.note.dto.request.CreateNoteRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
+import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.entity.User;
@@ -14,6 +15,10 @@ import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -224,6 +229,115 @@ public class NoteServiceImpl implements NoteService {
                 firstConversationDto,
                 note.getCreatedAt()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NoteListResponse getNoteList(Long userId, int page, int size, String sort) {
+        log.info("노트 목록 조회 요청 - userId: {}, page: {}, size: {}, sort: {}", userId, page, size, sort);
+
+        // 1. 사이즈 제한 (최대 50)
+        size = Math.min(size, 50);
+
+        // 2. 정렬 파라미터 파싱
+        Sort sortOrder = parseSortParameter(sort);
+
+        // 3. 페이지 요청 생성
+        Pageable pageable = PageRequest.of(page, size, sortOrder);
+
+        // 4. 노트 페이지 조회
+        Page<Note> notePage = noteRepository.findByUserId(userId, pageable);
+
+        // 5. 사용자의 활성 플랜 조회 (대화 제한 수 계산용)
+        com.proovy.domain.user.entity.PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
+                .orElse(com.proovy.domain.user.entity.PlanType.FREE);
+        int conversationLimit = 50; // 기본값
+
+        // 6. DTO 변환
+        List<NoteListResponse.NoteDto> noteDtos = notePage.getContent().stream()
+                .map(note -> buildNoteDto(note, conversationLimit))
+                .collect(Collectors.toList());
+
+        // 7. PageInfo 생성
+        NoteListResponse.PageInfo pageInfo = NoteListResponse.PageInfo.builder()
+                .page(notePage.getNumber())
+                .size(notePage.getSize())
+                .totalElements(notePage.getTotalElements())
+                .totalPages(notePage.getTotalPages())
+                .hasNext(notePage.hasNext())
+                .hasPrevious(notePage.hasPrevious())
+                .build();
+
+        log.info("노트 목록 조회 완료 - 총 {}개 조회", noteDtos.size());
+
+        return NoteListResponse.builder()
+                .notes(noteDtos)
+                .pageInfo(pageInfo)
+                .build();
+    }
+
+    /**
+     * 정렬 파라미터 파싱
+     * 예: "lastUsedAt,desc" -> Sort.by(Sort.Direction.DESC, "updatedAt")
+     * API 스펙상 lastUsedAt이지만 실제로는 updatedAt 컬럼을 사용
+     */
+    private Sort parseSortParameter(String sort) {
+        if (sort == null || sort.isEmpty()) {
+            return Sort.by(Sort.Direction.DESC, "updatedAt");
+        }
+
+        String[] parts = sort.split(",");
+        if (parts.length != 2) {
+            return Sort.by(Sort.Direction.DESC, "updatedAt");
+        }
+
+        String property = parts[0].trim();
+        String direction = parts[1].trim();
+
+        // lastUsedAt -> updatedAt으로 매핑
+        if ("lastUsedAt".equals(property)) {
+            property = "updatedAt";
+        }
+
+        // 허용된 정렬 필드만 사용
+        if (!Set.of("updatedAt", "createdAt", "title").contains(property)) {
+            property = "updatedAt";
+        }
+
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("asc")
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+
+        return Sort.by(sortDirection, property);
+    }
+
+    /**
+     * Note 엔티티를 NoteDto로 변환
+     * updatedAt을 lastUsedAt으로 매핑하여 반환
+     */
+    private NoteListResponse.NoteDto buildNoteDto(Note note, int conversationLimit) {
+        // 대화 개수 조회
+        long conversationCount = conversationRepository.countByNoteId(note.getId());
+
+        // 자산 개수 조회
+        long assetCount = assetRepository.countByNoteId(note.getId());
+
+        // 대화 사용률 계산
+        int conversationUsagePercent = conversationLimit > 0
+                ? Math.round((float) conversationCount / conversationLimit * 100)
+                : 0;
+
+        return NoteListResponse.NoteDto.builder()
+                .noteId(note.getId())
+                .title(note.getTitle())
+                .thumbnailUrl(null) // TODO: 썸네일 기능 구현 시 추가
+                .conversationCount((int) conversationCount)
+                .conversationLimit(conversationLimit)
+                .conversationUsagePercent(conversationUsagePercent)
+                .assetCount((int) assetCount)
+                .createdAt(note.getCreatedAt())
+                .lastUsedAt(note.getUpdatedAt()) // updatedAt을 lastUsedAt으로 매핑
+                .build();
     }
 }
 
