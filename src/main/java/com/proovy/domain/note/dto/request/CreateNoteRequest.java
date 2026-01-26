@@ -14,5 +14,9 @@ public record CreateNoteRequest(
 
         List<String> mentionedToolCodes
 ) {
+    public CreateNoteRequest {
+        mentionedAssetIds = mentionedAssetIds != null ? mentionedAssetIds : List.of();
+        mentionedToolCodes = mentionedToolCodes != null ? mentionedToolCodes : List.of();
+    }
 }
 
