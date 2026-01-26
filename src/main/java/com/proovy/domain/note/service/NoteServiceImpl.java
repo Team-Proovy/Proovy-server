@@ -97,55 +97,53 @@ public class NoteServiceImpl implements NoteService {
         conversation = conversationRepository.save(conversation);
 
         // 7. User Message 생성
-        Message userMessage = Message.builder()
+        final Message userMessage = messageRepository.save(Message.builder()
                 .conversation(conversation)
                 .role(MessageRole.USER)
                 .content(request.firstMessage())
                 .status(MessageStatus.COMPLETED)
-                .build();
-        userMessage = messageRepository.save(userMessage);
+                .build());
 
         // 8. User Message의 Asset 연결
         if (!mentionedAssets.isEmpty()) {
-            for (Asset asset : mentionedAssets) {
-                MessageAsset messageAsset = MessageAsset.builder()
-                        .message(userMessage)
-                        .asset(asset)
-                        .build();
-                messageAssetRepository.save(messageAsset);
-            }
+            List<MessageAsset> messageAssets = mentionedAssets.stream()
+                    .map(asset -> MessageAsset.builder()
+                            .message(userMessage)
+                            .asset(asset)
+                            .build())
+                    .toList();
+            messageAssetRepository.saveAll(messageAssets);
         }
 
         // 9. User Message의 Tool 연결
         if (request.mentionedToolCodes() != null && !request.mentionedToolCodes().isEmpty()) {
-            for (String toolCode : request.mentionedToolCodes()) {
-                MessageTool messageTool = MessageTool.builder()
-                        .message(userMessage)
-                        .toolCode(toolCode)
-                        .build();
-                messageToolRepository.save(messageTool);
-            }
+            List<MessageTool> messageTools = request.mentionedToolCodes().stream()
+                    .map(toolCode -> MessageTool.builder()
+                            .message(userMessage)
+                            .toolCode(toolCode)
+                            .build())
+                    .toList();
+            messageToolRepository.saveAll(messageTools);
         }
 
         // 10. Assistant Message 생성 (임시 응답)
         String assistantContent = "집합론 문제를 분석하고 해설지를 생성하겠습니다...";
-        Message assistantMessage = Message.builder()
+        final Message assistantMessage = messageRepository.save(Message.builder()
                 .conversation(conversation)
                 .role(MessageRole.ASSISTANT)
                 .content(assistantContent)
                 .status(MessageStatus.STREAMING)
-                .build();
-        assistantMessage = messageRepository.save(assistantMessage);
+                .build());
 
         // 11. Assistant Message의 Tool 연결 (사용된 도구)
         if (request.mentionedToolCodes() != null && !request.mentionedToolCodes().isEmpty()) {
-            for (String toolCode : request.mentionedToolCodes()) {
-                MessageTool messageTool = MessageTool.builder()
-                        .message(assistantMessage)
-                        .toolCode(toolCode)
-                        .build();
-                messageToolRepository.save(messageTool);
-            }
+            List<MessageTool> assistantMessageTools = request.mentionedToolCodes().stream()
+                    .map(toolCode -> MessageTool.builder()
+                            .message(assistantMessage)
+                            .toolCode(toolCode)
+                            .build())
+                    .toList();
+            messageToolRepository.saveAll(assistantMessageTools);
         }
 
         log.info("노트 생성 완료 - noteId: {}", note.getId());
