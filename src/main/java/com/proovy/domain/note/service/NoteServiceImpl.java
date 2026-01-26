@@ -239,8 +239,9 @@ public class NoteServiceImpl implements NoteService {
     public NoteListResponse getNoteList(Long userId, int page, int size, String sort) {
         log.info("노트 목록 조회 요청 - userId: {}, page: {}, size: {}, sort: {}", userId, page, size, sort);
 
-        // 1. 사이즈 제한 (최대 50)
-        size = Math.min(size, 50);
+        // 1. 페이지/사이즈 하한 및 상한 보정
+        page = Math.max(page, 0);
+        size = Math.min(Math.max(size, 1), 50);
 
         // 2. 정렬 파라미터 파싱
         Sort sortOrder = parseSortParameter(sort);
