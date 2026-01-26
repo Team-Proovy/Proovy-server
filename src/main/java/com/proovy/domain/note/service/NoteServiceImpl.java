@@ -58,8 +58,11 @@ public class NoteServiceImpl implements NoteService {
         // 3. mentionedAssetIds 검증
         List<Asset> mentionedAssets = new ArrayList<>();
         if (request.mentionedAssetIds() != null && !request.mentionedAssetIds().isEmpty()) {
-            mentionedAssets = assetRepository.findAllByIdInAndUserId(request.mentionedAssetIds(), userId);
-            if (mentionedAssets.size() != request.mentionedAssetIds().size()) {
+            List<Long> uniqueAssetIds = request.mentionedAssetIds().stream()
+                    .distinct()
+                    .toList();
+            mentionedAssets = assetRepository.findAllByIdInAndUserId(uniqueAssetIds, userId);
+            if (mentionedAssets.size() != uniqueAssetIds.size()) {
                 throw new BusinessException(ErrorCode.ASSET4041);
             }
         }
