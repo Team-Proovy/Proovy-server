@@ -8,9 +8,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum PlanType {
     // 1GB = 1024MB 기준
-    FREE("free", 0, null, 100, 0, 1, 10, 2),
-    STANDARD("standard", 6900, "monthly", 100, 2000, 5, 50, 10),
-    PRO("pro", 14900, "monthly", 100, 5000, 10, 100, 20);
+    FREE("free", 0, null, 100, 0, 1, 10, 2),           // maxFileSize = 10MB
+    STANDARD("standard", 6900, "monthly", 100, 2000, 5, 50, 10),  // maxFileSize = 50MB
+    PRO("pro", 14900, "monthly", 100, 5000, 10, 102400, 20);      // maxFileSize = 100GB (100 * 1024 MB)
 
     private final String displayName;
     private final int price;                  // 월 가격 (KRW)

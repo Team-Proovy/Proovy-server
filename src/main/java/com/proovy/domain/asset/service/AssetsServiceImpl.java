@@ -57,7 +57,6 @@ public class AssetsServiceImpl implements AssetsService {
     }
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
-    private static final long NOTE_STORAGE_LIMIT = 512L * 1024 * 1024; // 512MB (노트당 제한)
     private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
 
     @Override
@@ -84,8 +83,8 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.NOTE4031);
         }
 
-        // 6. 스토리지 용량 검증
-        validateStorageCapacity(request.getNoteId(), request.getFileSize());
+        // 6. 스토리지 용량 검증 (사용자 전체 용량 기준)
+        validateUserStorageCapacity(userId, request.getFileSize(), planType);
 
         // 7. S3 Key 생성
         String s3Key = generateS3Key(userId, request.getNoteId(), request.getFileName());
@@ -140,13 +139,14 @@ public class AssetsServiceImpl implements AssetsService {
         }
     }
 
-    private void validateStorageCapacity(Long noteId, Long fileSize) {
-        Long uploadedSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.UPLOADED);
-        Long pendingSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.PENDING);
+    /**
+     * 사용자 전체 스토리지 용량 검증 (플랜별 제한 적용)
+     */
+    private void validateUserStorageCapacity(Long userId, Long fileSize, PlanType planType) {
+        Long currentUsage = assetRepository.sumFileSizeByUserId(userId);
+        long usedBytes = currentUsage != null ? currentUsage : 0L;
 
-        long currentUsage = (uploadedSize != null ? uploadedSize : 0L) + (pendingSize != null ? pendingSize : 0L);
-
-        if (currentUsage + fileSize > NOTE_STORAGE_LIMIT) {
+        if (usedBytes + fileSize > planType.getStorageLimitBytes()) {
             throw new BusinessException(ErrorCode.STORAGE4005);
         }
     }
