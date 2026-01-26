@@ -10,6 +10,7 @@ public enum ErrorCode {
 
     // Common
     COMMON200("COMMON200", "요청에 성공했습니다.", HttpStatus.OK),
+    COMMON201("COMMON201", "생성되었습니다.", HttpStatus.CREATED),
     COMMON400("COMMON400", "잘못된 요청입니다.", HttpStatus.BAD_REQUEST),
     COMMON500("COMMON500", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 

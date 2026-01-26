@@ -70,7 +70,7 @@ public class NoteController {
     ) {
         log.info("노트 생성 요청 - userId: {}", userPrincipal.getUserId());
         CreateNoteResponse response = noteService.createNote(userPrincipal.getUserId(), request);
-        return ApiResponse.of("COMMON201", "노트가 생성되었습니다.", response);
+        return ApiResponse.created("노트가 생성되었습니다.", response);
     }
 
     @GetMapping
