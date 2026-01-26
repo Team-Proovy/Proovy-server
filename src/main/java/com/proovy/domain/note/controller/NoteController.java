@@ -39,7 +39,7 @@ public class NoteController {
                     
                     **멘션 기능**
                     - `#` 파일 멘션: mentionedAssetIds
-                    - `@` 도구 멘션: mentionedToolCodes (SOLUTION, SUMMARY, QUIZ, TRANSLATOR)
+                    - `@` 도구 멘션: mentionedToolCodes (SOLUTION, GRAPH, VARIATION)
                     """
     )
     @ApiResponses({
