@@ -46,6 +46,7 @@ public class AssetsServiceImpl implements AssetsService {
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final long BYTES_PER_MB = 1024L * 1024L;
+    private static final long NOTE_STORAGE_LIMIT = 536_870_912L;
     private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
 
     private final WebClient webClient;
