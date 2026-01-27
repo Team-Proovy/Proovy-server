@@ -49,4 +49,8 @@ public class Note {
     public void updateTitle(String title) {
         this.title = title;
     }
+
+    public void updateContent(String contentMd) {
+        this.contentMd = contentMd;
+    }
 }
