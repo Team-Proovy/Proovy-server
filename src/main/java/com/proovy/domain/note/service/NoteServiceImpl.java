@@ -540,7 +540,9 @@ public class NoteServiceImpl implements NoteService {
                 .toList();
 
         // 7. 메시지 조회 (대화별로 user/assistant 쌍)
-        List<Message> messages = messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds);
+        List<Message> messages = conversationIds.isEmpty()
+                ? List.of()
+                : messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds);
 
         // 8. 메시지 ID 목록 추출
         List<Long> messageIds = messages.stream()
@@ -548,7 +550,9 @@ public class NoteServiceImpl implements NoteService {
                 .toList();
 
         // 9. 메시지-자산 연결 조회
-        List<MessageAsset> messageAssets = messageAssetRepository.findByMessageIdIn(messageIds);
+        List<MessageAsset> messageAssets = messageIds.isEmpty()
+                ? List.of()
+                : messageAssetRepository.findByMessageIdIn(messageIds);
         Map<Long, List<Asset>> messageAssetMap = messageAssets.stream()
                 .collect(Collectors.groupingBy(
                         ma -> ma.getMessage().getId(),
@@ -556,7 +560,9 @@ public class NoteServiceImpl implements NoteService {
                 ));
 
         // 10. 메시지-도구 연결 조회
-        List<MessageTool> messageTools = messageToolRepository.findByMessageIdIn(messageIds);
+        List<MessageTool> messageTools = messageIds.isEmpty()
+                ? List.of()
+                : messageToolRepository.findByMessageIdIn(messageIds);
         Map<Long, List<String>> messageToolMap = messageTools.stream()
                 .collect(Collectors.groupingBy(
                         mt -> mt.getMessage().getId(),
