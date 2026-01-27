@@ -6,10 +6,13 @@ import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteDetailResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
+import com.proovy.domain.note.dto.response.ToolListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.service.NoteService;
 import com.proovy.global.response.ApiResponse;
 import com.proovy.global.security.UserPrincipal;
+import com.proovy.global.tool.entity.Tool;
+import com.proovy.global.tool.service.ToolService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -20,6 +23,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/notes")
@@ -28,6 +33,7 @@ import org.springframework.web.bind.annotation.*;
 public class NoteController {
 
     private final NoteService noteService;
+    private final ToolService toolService;
 
     @PostMapping
     @Operation(
@@ -247,5 +253,43 @@ public class NoteController {
         );
         return ApiResponse.success("노트 상세 조회에 성공했습니다.", response);
     }
-}
 
+    @GetMapping("/tools")
+    @Operation(
+            summary = "사용 가능한 도구 목록 조회 (@멘션용)",
+            description = """
+                    채팅창에서 `@` 입력 시 표시할 사용 가능한 도구 목록을 조회합니다.
+                    
+                    **도구 종류**
+                    - GRAPH: 그래프 그리기 - 함수 그래프 시각화
+                    - SOLUTION: 해설지 생성하기 - 단계별 풀이 과정 생성
+                    - VARIATION: 변형 문제 생성하기 - 유사 유형 변형 문제 생성
+                    
+                    **검색 기능**
+                    - query 파라미터로 도구 이름 검색 가능 (자동완성용)
+                    - 검색어가 없으면 전체 활성화된 도구 목록 반환
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "도구 목록 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패 (AUTH4011)"
+            )
+    })
+    public ApiResponse<ToolListResponse> getToolList(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "도구 이름 검색어 (자동완성용)", example = "그래프")
+            @RequestParam(required = false) String query
+    ) {
+        log.info("도구 목록 조회 요청 - userId: {}, query: {}",
+                userPrincipal.getUserId(), query);
+
+        List<Tool> tools = toolService.getToolList(query);
+        ToolListResponse response = ToolListResponse.from(tools);
+        return ApiResponse.success("도구 목록 조회에 성공했습니다.", response);
+    }
+}
