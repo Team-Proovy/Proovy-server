@@ -1,6 +1,7 @@
 package com.proovy.domain.note.service;
 
 import com.proovy.domain.asset.entity.Asset;
+import com.proovy.domain.asset.entity.FileCategory;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.conversation.entity.*;
 import com.proovy.domain.conversation.repository.*;
@@ -8,6 +9,7 @@ import com.proovy.domain.note.dto.request.CreateNoteRequest;
 import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
+import com.proovy.domain.note.dto.response.NoteDetailResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.entity.Note;
@@ -25,9 +27,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -502,6 +503,205 @@ public class NoteServiceImpl implements NoteService {
                 .deletedConversationCount((int) conversationCount)
                 .deletedAssetCount(assetCount)
                 .freedStorageBytes(freedStorageBytes)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NoteDetailResponse getNoteDetail(Long userId, Long noteId, int conversationPage, int conversationSize) {
+        log.info("노트 상세 조회 요청 - userId: {}, noteId: {}, page: {}, size: {}",
+                userId, noteId, conversationPage, conversationSize);
+
+        // 1. 노트 존재 확인
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
+
+        // 2. 권한 검증
+        if (!note.getUser().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOTE4031);
+        }
+
+        // 3. 사용자 플랜 정보 조회 (대화 제한 수 계산)
+        com.proovy.domain.user.entity.PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
+                .orElse(com.proovy.domain.user.entity.PlanType.FREE);
+        // TODO: PlanType에 conversationLimit 필드 추가 필요. 현재는 고정값 사용
+        int conversationLimit = 50; // 기본 대화 제한 수
+
+        // 4. 전체 대화 수 조회
+        long totalConversations = conversationRepository.countByNoteId(noteId);
+
+        // 5. 대화 페이징 조회
+        Pageable pageable = PageRequest.of(conversationPage, conversationSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Conversation> conversationPage1 = conversationRepository.findByNoteIdOrderByCreatedAtDesc(noteId, pageable);
+
+        // 6. 대화 ID 목록 추출
+        List<Long> conversationIds = conversationPage1.getContent().stream()
+                .map(Conversation::getId)
+                .toList();
+
+        // 7. 메시지 조회 (대화별로 user/assistant 쌍)
+        List<Message> messages = conversationIds.isEmpty()
+                ? List.of()
+                : messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds);
+
+        // 8. 메시지 ID 목록 추출
+        List<Long> messageIds = messages.stream()
+                .map(Message::getId)
+                .toList();
+
+        // 9. 메시지-자산 연결 조회
+        List<MessageAsset> messageAssets = messageIds.isEmpty()
+                ? List.of()
+                : messageAssetRepository.findByMessageIdIn(messageIds);
+        Map<Long, List<Asset>> messageAssetMap = messageAssets.stream()
+                .collect(Collectors.groupingBy(
+                        ma -> ma.getMessage().getId(),
+                        Collectors.mapping(MessageAsset::getAsset, Collectors.toList())
+                ));
+
+        // 10. 메시지-도구 연결 조회
+        List<MessageTool> messageTools = messageIds.isEmpty()
+                ? List.of()
+                : messageToolRepository.findByMessageIdIn(messageIds);
+        Map<Long, List<String>> messageToolMap = messageTools.stream()
+                .collect(Collectors.groupingBy(
+                        mt -> mt.getMessage().getId(),
+                        Collectors.mapping(MessageTool::getToolCode, Collectors.toList())
+                ));
+
+        // 11. 노트의 모든 자산 조회
+        List<Asset> noteAssets = assetRepository.findAllByNoteId(noteId);
+
+        // 12. 자산 정보 DTO 생성
+        List<NoteDetailResponse.AssetInfo> assetInfos = noteAssets.stream()
+                .map(asset -> {
+                    String thumbnailUrl = asset.getThumbnailS3Key() != null
+                            ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                            : null;
+                    FileCategory category = FileCategory.fromMimeType(asset.getMimeType());
+
+                    return NoteDetailResponse.AssetInfo.builder()
+                            .assetId(asset.getId())
+                            .fileName(asset.getFileName())
+                            .fileType(category.getValue().toUpperCase())
+                            .fileSize(asset.getFileSize())
+                            .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name().toUpperCase() : "PENDING")
+                            .thumbnailUrl(thumbnailUrl)
+                            .createdAt(asset.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // 13. 대화별로 메시지 그룹화
+        Map<Long, List<Message>> conversationMessageMap = messages.stream()
+                .collect(Collectors.groupingBy(msg -> msg.getConversation().getId()));
+
+        // 14. 대화 정보 DTO 생성
+        List<NoteDetailResponse.ConversationInfo> conversationInfos = conversationPage1.getContent().stream()
+                .map(conversation -> {
+                    List<Message> conversationMessages = conversationMessageMap.getOrDefault(conversation.getId(), List.of());
+
+                    Message userMessage = conversationMessages.stream()
+                            .filter(msg -> msg.getRole() == MessageRole.USER)
+                            .findFirst()
+                            .orElse(null);
+
+                    Message assistantMessage = conversationMessages.stream()
+                            .filter(msg -> msg.getRole() == MessageRole.ASSISTANT)
+                            .findFirst()
+                            .orElse(null);
+
+                    return NoteDetailResponse.ConversationInfo.builder()
+                            .conversationId(conversation.getId())
+                            .userMessage(userMessage != null ? buildMessageInfo(userMessage, messageAssetMap, messageToolMap, true) : null)
+                            .assistantMessage(assistantMessage != null ? buildMessageInfo(assistantMessage, messageAssetMap, messageToolMap, false) : null)
+                            .createdAt(conversation.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // 15. 사용량 정보 생성
+        int conversationUsagePercent = conversationLimit > 0
+                ? (int) Math.round((double) totalConversations / conversationLimit * 100)
+                : 0;
+
+        NoteDetailResponse.UsageInfo usageInfo = NoteDetailResponse.UsageInfo.builder()
+                .conversationCount((int) totalConversations)
+                .conversationLimit(conversationLimit)
+                .conversationUsagePercent(conversationUsagePercent)
+                .build();
+
+        // 16. 페이지 정보 생성
+        NoteDetailResponse.PageInfo pageInfo = NoteDetailResponse.PageInfo.builder()
+                .page(conversationPage1.getNumber())
+                .size(conversationPage1.getSize())
+                .totalElements(conversationPage1.getTotalElements())
+                .totalPages(conversationPage1.getTotalPages())
+                .hasNext(conversationPage1.hasNext())
+                .build();
+
+        // 17. lastUsedAt 계산 (updatedAt 또는 createdAt 사용)
+        LocalDateTime lastUsedAt = note.getUpdatedAt() != null ? note.getUpdatedAt() : note.getCreatedAt();
+
+        return NoteDetailResponse.builder()
+                .noteId(note.getId())
+                .title(note.getTitle())
+                .usage(usageInfo)
+                .assets(assetInfos)
+                .conversations(conversationInfos)
+                .conversationPageInfo(pageInfo)
+                .createdAt(note.getCreatedAt())
+                .lastUsedAt(lastUsedAt)
+                .build();
+    }
+
+    private NoteDetailResponse.MessageInfo buildMessageInfo(
+            Message message,
+            Map<Long, List<Asset>> messageAssetMap,
+            Map<Long, List<String>> messageToolMap,
+            boolean isUserMessage) {
+
+        List<Asset> assets = messageAssetMap.getOrDefault(message.getId(), List.of());
+        List<String> tools = messageToolMap.getOrDefault(message.getId(), List.of());
+
+        // 멘션된 자산 정보
+        List<NoteDetailResponse.MentionedAsset> mentionedAssets = null;
+        if (isUserMessage && !assets.isEmpty()) {
+            mentionedAssets = assets.stream()
+                    .map(asset -> NoteDetailResponse.MentionedAsset.builder()
+                            .assetId(asset.getId())
+                            .fileName(asset.getFileName())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        // AI가 생성한 파일 정보 (현재는 없지만 구조 준비)
+        List<NoteDetailResponse.GeneratedFile> generatedFiles = null;
+        if (!isUserMessage) {
+            // TODO: AI가 생성한 파일 조회 로직 추가
+            // 현재는 asset source가 ai_generated인 것들을 찾아야 함
+            generatedFiles = assets.stream()
+                    .filter(asset -> asset.getSource() == Asset.AssetSource.ai_generated)
+                    .map(asset -> NoteDetailResponse.GeneratedFile.builder()
+                            .fileId(asset.getId())
+                            .fileName(asset.getFileName())
+                            .fileType("SOLUTION") // TODO: 실제 타입 매핑 필요
+                            .downloadUrl(s3Service.getFileUrl(asset.getS3Key()))
+                            .build())
+                    .collect(Collectors.toList());
+            if (generatedFiles.isEmpty()) {
+                generatedFiles = null;
+            }
+        }
+
+        return NoteDetailResponse.MessageInfo.builder()
+                .messageId(message.getId())
+                .content(message.getContent())
+                .mentionedAssets(mentionedAssets)
+                .mentionedTools(isUserMessage && !tools.isEmpty() ? tools : null)
+                .usedTools(!isUserMessage && !tools.isEmpty() ? tools : null)
+                .generatedFiles(generatedFiles)
+                .createdAt(message.getCreatedAt())
                 .build();
     }
 }

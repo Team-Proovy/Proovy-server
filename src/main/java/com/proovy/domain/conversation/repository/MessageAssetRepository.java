@@ -16,6 +16,11 @@ public interface MessageAssetRepository extends JpaRepository<MessageAsset, Long
     List<MessageAsset> findByMessageId(Long messageId);
 
     /**
+     * 여러 메시지의 모든 자산 연결 조회
+     */
+    List<MessageAsset> findByMessageIdIn(List<Long> messageIds);
+
+    /**
      * 특정 자산을 참조하는 모든 MessageAsset 조회
      */
     List<MessageAsset> findByAssetId(Long assetId);

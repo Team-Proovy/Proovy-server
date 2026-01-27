@@ -4,6 +4,7 @@ import com.proovy.domain.note.dto.request.CreateNoteRequest;
 import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
+import com.proovy.domain.note.dto.response.NoteDetailResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.service.NoteService;
@@ -195,6 +196,56 @@ public class NoteController {
         log.info("노트 삭제 요청 - userId: {}, noteId: {}", userPrincipal.getUserId(), noteId);
         DeleteNoteResponse response = noteService.deleteNote(userPrincipal.getUserId(), noteId);
         return ApiResponse.success("노트 및 관련 대화, 자산 데이터가 모두 삭제되었습니다.", response);
+    }
+
+    @GetMapping("/{noteId}")
+    @Operation(
+            summary = "노트 상세 정보와 대화 내역, 첨부 파일 목록 조회 (채팅방 진입 시 호출)",
+            description = """
+                    채팅방에 진입할 때 호출하는 API로, 노트의 상세 정보, 대화 내역, 첨부 파일 목록을 조회합니다.
+                    
+                    **응답 내용**
+                    - 노트 기본 정보 (제목, 생성일, 마지막 사용일)
+                    - 대화 사용량 정보 (현재 대화 수/제한 수/사용률)
+                    - 노트에 첨부된 파일 목록 (OCR 상태 포함)
+                    - 대화 내역 (user-assistant 메시지 쌍, 페이징)
+                    
+                    **페이징**
+                    - 대화 내역은 최신순으로 정렬되어 페이징 처리됩니다.
+                    - 기본값: page=0, size=20
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "노트 상세 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "노트 접근 권한 없음 (NOTE4031)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "노트를 찾을 수 없음 (NOTE4041)"
+            )
+    })
+    public ApiResponse<NoteDetailResponse> getNoteDetail(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "조회할 노트의 고유 ID", example = "10")
+            @PathVariable Long noteId,
+            @Parameter(description = "대화 페이지 번호", example = "0")
+            @RequestParam(defaultValue = "0") int conversationPage,
+            @Parameter(description = "페이지당 대화 수", example = "20")
+            @RequestParam(defaultValue = "20") int conversationSize
+    ) {
+        log.info("노트 상세 조회 요청 - userId: {}, noteId: {}", userPrincipal.getUserId(), noteId);
+        NoteDetailResponse response = noteService.getNoteDetail(
+                userPrincipal.getUserId(),
+                noteId,
+                conversationPage,
+                conversationSize
+        );
+        return ApiResponse.success("노트 상세 조회에 성공했습니다.", response);
     }
 }
 
