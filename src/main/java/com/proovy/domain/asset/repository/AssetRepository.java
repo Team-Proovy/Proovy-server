@@ -3,6 +3,7 @@ package com.proovy.domain.asset.repository;
 import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.entity.AssetStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -37,6 +38,19 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
      * 특정 노트의 자산 목록 조회
      */
     List<Asset> findAllByNoteId(Long noteId);
+
+    /**
+     * 특정 노트의 자산 ID 목록 조회
+     */
+    @Query("SELECT a.id FROM Asset a WHERE a.noteId = :noteId")
+    List<Long> findIdsByNoteId(@Param("noteId") Long noteId);
+
+    /**
+     * 특정 노트의 자산 삭제 (벌크 삭제)
+     */
+    @Modifying
+    @Query("DELETE FROM Asset a WHERE a.noteId = :noteId")
+    void deleteByNoteIdInBulk(@Param("noteId") Long noteId);
 
     /**
      * 특정 노트의 자산 개수 조회

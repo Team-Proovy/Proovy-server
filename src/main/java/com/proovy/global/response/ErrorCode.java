@@ -45,6 +45,7 @@ public enum ErrorCode {
     NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),
     NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    NOTE4032("NOTE4032", "해당 노트에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     ASSET4001("ASSET4001", "지원하지 않는 파일 형식입니다. PDF, PNG, JPEG, WEBP만 업로드 가능합니다.", HttpStatus.BAD_REQUEST),
     ASSET4002("ASSET4002", "파일 크기가 플랜 제한을 초과합니다.", HttpStatus.BAD_REQUEST),
