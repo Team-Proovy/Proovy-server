@@ -45,13 +45,8 @@ public class AssetsServiceImpl implements AssetsService {
     private final UserPlanRepository userPlanRepository;
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
-    private static final long NOTE_STORAGE_LIMIT = 536_870_912L; // 512MB
     private static final long BYTES_PER_MB = 1024L * 1024L;
     private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
-    private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
-  
-    // TODO: 크레딧별 단일 파일 크기 제한이 있음. 수정해야함.
-    private static final long MAX_FILE_SIZE = 31_457_280L; // 30MB
 
     private final WebClient webClient;
     private final ApplicationContext applicationContext;
@@ -88,8 +83,8 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.NOTE4031);
         }
 
-        // 5. 스토리지 용량 검증
-        validateStorageCapacity(request.getNoteId(), request.getFileSize());
+        // 5. 스토리지 용량 검증 (플랜별 전체 저장소 한도)
+        validateStorageCapacity(userId, request.getFileSize(), planType);
 
         // 6. S3 Key 생성
         String s3Key = generateS3Key(userId, request.getNoteId(), request.getFileName());
@@ -145,13 +140,10 @@ public class AssetsServiceImpl implements AssetsService {
         }
     }
 
-    private void validateStorageCapacity(Long noteId, Long fileSize) {
-        Long uploadedSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.UPLOADED);
-        Long pendingSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.PENDING);
+    private void validateStorageCapacity(Long userId, Long fileSize, PlanType planType) {
+        Long currentUsage = assetRepository.sumFileSizeByUserId(userId);
 
-        long currentUsage = (uploadedSize != null ? uploadedSize : 0L) + (pendingSize != null ? pendingSize : 0L);
-
-        if (currentUsage + fileSize > NOTE_STORAGE_LIMIT) {
+        if (currentUsage + fileSize > planType.getStorageLimitBytes()) {
             throw new BusinessException(ErrorCode.STORAGE4005);
         }
     }
