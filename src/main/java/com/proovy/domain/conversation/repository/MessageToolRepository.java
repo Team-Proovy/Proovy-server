@@ -16,6 +16,11 @@ public interface MessageToolRepository extends JpaRepository<MessageTool, Long> 
     List<MessageTool> findByMessageId(Long messageId);
 
     /**
+     * 여러 메시지의 모든 도구 연결 조회
+     */
+    List<MessageTool> findByMessageIdIn(List<Long> messageIds);
+
+    /**
      * 여러 메시지의 모든 도구 연결 삭제 (벌크 삭제)
      */
     @Modifying

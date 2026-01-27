@@ -16,6 +16,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByConversationId(Long conversationId);
 
     /**
+     * 여러 대화의 모든 메시지 조회 (생성 시각 순)
+     */
+    List<Message> findByConversationIdInOrderByCreatedAtAsc(List<Long> conversationIds);
+
+    /**
      * 특정 대화의 모든 메시지 ID 조회
      */
     @Query("SELECT m.id FROM Message m WHERE m.conversation.id = :conversationId")
