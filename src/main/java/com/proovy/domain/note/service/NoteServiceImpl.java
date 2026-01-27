@@ -7,6 +7,7 @@ import com.proovy.domain.conversation.repository.*;
 import com.proovy.domain.note.dto.request.CreateNoteRequest;
 import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
+import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.entity.Note;
@@ -43,6 +44,7 @@ public class NoteServiceImpl implements NoteService {
     private final MessageToolRepository messageToolRepository;
     private final AssetRepository assetRepository;
     private final com.proovy.domain.user.repository.UserPlanRepository userPlanRepository;
+    private final com.proovy.global.infra.s3.S3Service s3Service;
 
     // 허용된 도구 코드 목록 (실제로는 별도 관리 필요)
     private static final Set<String> ALLOWED_TOOL_CODES = Set.of("SOLUTION", "GRAPH", "VARIATION");
@@ -403,6 +405,103 @@ public class NoteServiceImpl implements NoteService {
                 .noteId(note.getId())
                 .title(note.getTitle())
                 .updatedAt(note.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    public DeleteNoteResponse deleteNote(Long userId, Long noteId) {
+        log.info("노트 삭제 요청 - userId: {}, noteId: {}", userId, noteId);
+
+        // 1. 노트 조회 및 권한 확인
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
+
+        if (!note.getUser().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOTE4032);
+        }
+
+        // 2. 통계용 정보 수집 (엔티티 조회가 아닌 count/sum 쿼리 사용)
+        long conversationCount = conversationRepository.countByNoteId(noteId);
+
+        // 3. S3 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
+        List<Asset> assets = assetRepository.findAllByNoteId(noteId);
+        int assetCount = assets.size();
+
+        List<String> s3KeysToDelete = new ArrayList<>();
+        long freedStorageBytes = 0L;
+
+        for (Asset asset : assets) {
+            if (asset.getS3Key() != null) {
+                s3KeysToDelete.add(asset.getS3Key());
+                freedStorageBytes += asset.getFileSize();
+            }
+            if (asset.getThumbnailS3Key() != null) {
+                s3KeysToDelete.add(asset.getThumbnailS3Key());
+            }
+        }
+
+        // 4. Asset ID 목록 추출 (JPQL 벌크 삭제용)
+        List<Long> assetIds = assets.stream()
+                .map(Asset::getId)
+                .collect(Collectors.toList());
+
+        // 5. S3 파일 삭제
+        if (!s3KeysToDelete.isEmpty()) {
+            s3Service.deleteFiles(s3KeysToDelete);
+            log.info("S3 파일 삭제 완료 - {} 개 파일", s3KeysToDelete.size());
+        }
+
+        // 6. Conversation ID 목록 조회 (엔티티가 아닌 ID만 조회)
+        List<Long> conversationIds = conversationRepository.findIdsByNoteId(noteId);
+
+        // 7. Message ID 목록 조회
+        List<Long> messageIds = conversationIds.isEmpty()
+                ? List.of()
+                : messageRepository.findIdsByConversationIdIn(conversationIds);
+
+        // ========== JPQL 벌크 삭제 시작 (영속성 컨텍스트를 거치지 않음) ==========
+
+        // 8. MessageAsset 삭제 (Asset 기준 + Message 기준 모두)
+        if (!assetIds.isEmpty()) {
+            messageAssetRepository.deleteByAssetIdInBulk(assetIds);
+            log.info("Asset 관련 MessageAsset 삭제 완료");
+        }
+        if (!messageIds.isEmpty()) {
+            messageAssetRepository.deleteByMessageIdInBulk(messageIds);
+            log.info("Message 관련 MessageAsset 삭제 완료");
+        }
+
+        // 9. MessageTool 삭제
+        if (!messageIds.isEmpty()) {
+            messageToolRepository.deleteByMessageIdInBulk(messageIds);
+            log.info("MessageTool 삭제 완료");
+        }
+
+        // 10. Message 삭제
+        if (!conversationIds.isEmpty()) {
+            messageRepository.deleteByConversationIdInBulk(conversationIds);
+            log.info("Message 삭제 완료");
+        }
+
+        // 11. Conversation 삭제
+        conversationRepository.deleteByNoteIdInBulk(noteId);
+        log.info("대화 삭제 완료 - {} 개", conversationCount);
+
+        // 12. Asset 삭제
+        assetRepository.deleteByNoteIdInBulk(noteId);
+        log.info("자산 삭제 완료 - {} 개", assetCount);
+
+        // 13. Note 삭제 (이제 안전하게 삭제 가능)
+        noteRepository.deleteById(noteId);
+
+        log.info("노트 삭제 완료 - noteId: {}, conversations: {}, assets: {}, freedStorage: {} bytes",
+                noteId, conversationCount, assetCount, freedStorageBytes);
+
+        return DeleteNoteResponse.builder()
+                .deletedNoteId(noteId)
+                .deletedConversationCount((int) conversationCount)
+                .deletedAssetCount(assetCount)
+                .freedStorageBytes(freedStorageBytes)
                 .build();
     }
 }

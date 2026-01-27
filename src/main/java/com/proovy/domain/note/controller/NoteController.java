@@ -3,6 +3,7 @@ package com.proovy.domain.note.controller;
 import com.proovy.domain.note.dto.request.CreateNoteRequest;
 import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
+import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.service.NoteService;
@@ -155,6 +156,45 @@ public class NoteController {
                 request
         );
         return ApiResponse.success("노트 제목이 수정되었습니다.", response);
+    }
+
+    @DeleteMapping("/{noteId}")
+    @Operation(
+            summary = "노트 및 관련 데이터 삭제",
+            description = """
+                    노트를 영구적으로 삭제합니다.
+                    
+                    **삭제되는 데이터**
+                    - 노트 정보
+                    - 모든 대화 및 메시지 (CASCADE)
+                    - S3에 저장된 파일 (원본 + 썸네일)
+                    - DB의 자산 레코드
+                    
+                    **주의**: 삭제된 데이터는 복구할 수 없습니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "노트 삭제 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "권한 없음 (NOTE4032)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "노트 없음 (NOTE4041)"
+            )
+    })
+    public ApiResponse<DeleteNoteResponse> deleteNote(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "삭제할 노트의 고유 ID", example = "10")
+            @PathVariable Long noteId
+    ) {
+        log.info("노트 삭제 요청 - userId: {}, noteId: {}", userPrincipal.getUserId(), noteId);
+        DeleteNoteResponse response = noteService.deleteNote(userPrincipal.getUserId(), noteId);
+        return ApiResponse.success("노트 및 관련 대화, 자산 데이터가 모두 삭제되었습니다.", response);
     }
 }
 
