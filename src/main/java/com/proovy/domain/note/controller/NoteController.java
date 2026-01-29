@@ -1,8 +1,10 @@
 package com.proovy.domain.note.controller;
 
 import com.proovy.domain.note.dto.request.CreateNoteRequest;
+import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
+import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.service.NoteService;
 import com.proovy.global.response.ApiResponse;
 import com.proovy.global.security.UserPrincipal;
@@ -68,7 +70,7 @@ public class NoteController {
     ) {
         log.info("노트 생성 요청 - userId: {}", userPrincipal.getUserId());
         CreateNoteResponse response = noteService.createNote(userPrincipal.getUserId(), request);
-        return ApiResponse.of("COMMON201", "노트가 생성되었습니다.", response);
+        return ApiResponse.created("노트가 생성되었습니다.", response);
     }
 
     @GetMapping
@@ -110,6 +112,49 @@ public class NoteController {
                 userPrincipal.getUserId(), page, size, sort);
         NoteListResponse response = noteService.getNoteList(userPrincipal.getUserId(), page, size, sort);
         return ApiResponse.success("노트 목록 조회에 성공했습니다.", response);
+    }
+
+    @PatchMapping("/{noteId}")
+    @Operation(
+            summary = "노트 제목 변경",
+            description = """
+                    노트의 제목을 수정합니다.
+                    
+                    **제목 길이 제한**
+                    - 최소 1자, 최대 50자
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "노트 제목 수정 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "제목 비어있음 (NOTE4002), 제목 길이 초과 (NOTE4001)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "노트 접근 권한 없음 (NOTE4031)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "노트 없음 (NOTE4041)"
+            )
+    })
+    public ApiResponse<UpdateNoteTitleResponse> updateNoteTitle(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "수정할 노트의 고유 ID", example = "10")
+            @PathVariable Long noteId,
+            @Valid @RequestBody UpdateNoteTitleRequest request
+    ) {
+        log.info("노트 제목 수정 요청 - userId: {}, noteId: {}", userPrincipal.getUserId(), noteId);
+        UpdateNoteTitleResponse response = noteService.updateNoteTitle(
+                userPrincipal.getUserId(),
+                noteId,
+                request
+        );
+        return ApiResponse.success("노트 제목이 수정되었습니다.", response);
     }
 }
 
