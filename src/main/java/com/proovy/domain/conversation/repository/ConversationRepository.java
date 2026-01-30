@@ -7,8 +7,17 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+/**
+ * Note 도메인 전용 ConversationRepository
+ */
 public interface ConversationRepository extends JpaRepository<Conversation, Long> {
+
+    /**
+     * 특정 노트의 대화 조회
+     */
+    Optional<Conversation> findByNoteId(Long noteId);
 
     /**
      * 특정 노트의 대화 개수 조회
@@ -17,8 +26,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
 
     /**
      * 여러 노트의 대화 개수를 한 번에 조회 (배치 쿼리)
-     * @param noteIds 노트 ID 목록
-     * @return Map<노트ID, 대화개수>
      */
     @Query("SELECT c.note.id AS noteId, COUNT(c) AS count " +
            "FROM Conversation c " +

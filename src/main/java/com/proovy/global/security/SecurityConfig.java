@@ -38,6 +38,7 @@ public class SecurityConfig {
                         // 인증 없이 접근 가능
                         .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/api/conversations", "/api/conversations/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/health", "/actuator/health").permitAll()
                         // 나머지는 인증 필요

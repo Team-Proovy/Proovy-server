@@ -19,6 +19,11 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  mvc:
+    async:
+      # SSE 스트리밍 요청은 장시간 연결이 유지되므로 타임아웃을 해제한다.
+      request-timeout: -1
+
 springdoc:
   swagger-ui:
     tagsSorter: alpha
@@ -84,6 +89,13 @@ jwt:
   access-token-expiration: 3600            # 1시간 (초)
   refresh-token-expiration: 604800         # 7일 (초)
   signup-token-expiration: 600             # 10분 (초)
+
+# ===============================
+# Proovy-ai (FastAPI Agent)
+# ===============================
+proovy:
+  ai:
+    host: ${PROOVY_AI_HOST:http://localhost:8081}
 
 ---
 # ===============================
