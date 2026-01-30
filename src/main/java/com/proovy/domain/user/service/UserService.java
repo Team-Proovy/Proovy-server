@@ -149,8 +149,14 @@ public class UserService {
         userRepository.delete(user);
 
         // 5. 토큰 무효화
-        accessTokenBlacklistService.blacklist(accessToken, userId);
         refreshTokenRepository.deleteByUserId(userId);
+        // Access Token 블랙리스트는 Redis 기반이므로 커밋 이후 실행
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                accessTokenBlacklistService.blacklist(accessToken, userId);
+            }
+        });
 
         log.info("사용자 탈퇴 완료: userId={}", userId);
 
