@@ -154,7 +154,11 @@ public class UserService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                accessTokenBlacklistService.blacklist(accessToken, userId);
+                try {
+                    accessTokenBlacklistService.blacklist(accessToken, userId);
+                } catch (Exception e) {
+                    log.warn("Access Token 블랙리스트 실패: userId={}", userId, e);
+                }
             }
         });
 
