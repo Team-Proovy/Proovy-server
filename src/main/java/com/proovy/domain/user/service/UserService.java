@@ -1,6 +1,8 @@
 package com.proovy.domain.user.service;
 
 import com.proovy.domain.asset.repository.AssetRepository;
+import com.proovy.domain.auth.repository.RefreshTokenRepository;
+import com.proovy.domain.auth.service.AccessTokenBlacklistService;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.dto.response.DeleteUserResponse;
 import com.proovy.domain.user.dto.response.MyProfileResponse;
@@ -17,11 +19,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,6 +40,8 @@ public class UserService {
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
     private final S3Service s3Service;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final AccessTokenBlacklistService accessTokenBlacklistService;
 
     /**
      * 내 프로필 조회
@@ -123,7 +131,7 @@ public class UserService {
      * 회원 탈퇴
      */
     @Transactional
-    public DeleteUserResponse deleteUser(Long userId) {
+    public DeleteUserResponse deleteUser(Long userId, String accessToken) {
         // 1. 사용자 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
@@ -140,6 +148,10 @@ public class UserService {
         // 4. 사용자 삭제
         userRepository.delete(user);
 
+        // 5. 토큰 무효화
+        accessTokenBlacklistService.blacklist(accessToken, userId);
+        refreshTokenRepository.deleteByUserId(userId);
+
         log.info("사용자 탈퇴 완료: userId={}", userId);
 
         return DeleteUserResponse.of(
@@ -148,18 +160,28 @@ public class UserService {
     }
 
     private void deleteUserData(Long userId) {
-        // S3 파일 삭제
-        assetRepository.findAllByUserId(userId).forEach(asset -> {
-            try {
-                s3Service.deleteFile(asset.getS3Key());
-            } catch (Exception e) {
-                log.warn("S3 파일 삭제 실패: s3Key={}", asset.getS3Key(), e);
-            }
-        });
+        // S3 키를 먼저 수집
+        List<String> s3Keys = assetRepository.findAllByUserId(userId).stream()
+                .map(asset -> asset.getS3Key())
+                .collect(Collectors.toList());
 
         // DB 데이터 삭제
         assetRepository.deleteAllByUserId(userId);
         noteRepository.deleteAllByUserId(userId);
         userPlanRepository.deleteAllByUserId(userId);
+
+        // 커밋 이후 S3 삭제 (best-effort)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                s3Keys.forEach(key -> {
+                    try {
+                        s3Service.deleteFile(key);
+                    } catch (Exception e) {
+                        log.warn("S3 파일 삭제 실패: s3Key={}", key, e);
+                    }
+                });
+            }
+        });
     }
 }

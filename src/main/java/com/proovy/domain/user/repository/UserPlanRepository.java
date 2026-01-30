@@ -20,7 +20,7 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, Long> {
     /**
      * 특정 사용자의 모든 플랜 삭제 (회원 탈퇴용)
      */
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("DELETE FROM UserPlan up WHERE up.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);
 }

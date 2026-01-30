@@ -24,7 +24,7 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     /**
      * 특정 사용자의 모든 노트 삭제 (회원 탈퇴용)
      */
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("DELETE FROM Note n WHERE n.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);
 

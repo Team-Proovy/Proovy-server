@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -91,10 +92,20 @@ public class UserController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자 없음 (USER4041)")
     })
     public ResponseEntity<ApiResponse<DeleteUserResponse>> deleteUser(
-            @AuthenticationPrincipal UserPrincipal userPrincipal
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            HttpServletRequest request
     ) {
         Long userId = userPrincipal.getUserId();
-        DeleteUserResponse response = userService.deleteUser(userId);
+        String accessToken = extractAccessToken(request);
+        DeleteUserResponse response = userService.deleteUser(userId, accessToken);
         return ResponseEntity.ok(ApiResponse.success("회원 탈퇴가 완료되었습니다.", response));
+    }
+
+    private String extractAccessToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
     }
 }
