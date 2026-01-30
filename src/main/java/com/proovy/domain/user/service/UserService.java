@@ -155,7 +155,9 @@ public class UserService {
             @Override
             public void afterCommit() {
                 try {
-                    accessTokenBlacklistService.blacklist(accessToken, userId);
+                    if (accessToken != null) {
+                        accessTokenBlacklistService.blacklist(accessToken, userId);
+                    }
                 } catch (Exception e) {
                     log.warn("Access Token 블랙리스트 실패: userId={}", userId, e);
                 }
