@@ -160,10 +160,16 @@ public class UserService {
     }
 
     private void deleteUserData(Long userId) {
-        // S3 키를 먼저 수집
-        List<String> s3Keys = assetRepository.findAllByUserId(userId).stream()
-                .map(asset -> asset.getS3Key())
-                .collect(Collectors.toList());
+        // S3 키를 먼저 수집 (원본 + 썸네일)
+        List<String> s3Keys = new java.util.ArrayList<>();
+        assetRepository.findAllByUserId(userId).forEach(asset -> {
+            if (asset.getS3Key() != null) {
+                s3Keys.add(asset.getS3Key());
+            }
+            if (asset.getThumbnailS3Key() != null) {
+                s3Keys.add(asset.getThumbnailS3Key());
+            }
+        });
 
         // DB 데이터 삭제
         assetRepository.deleteAllByUserId(userId);
