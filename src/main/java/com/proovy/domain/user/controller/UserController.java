@@ -81,7 +81,7 @@ public class UserController {
 
     @DeleteMapping("/me")
     @Operation(
-            operationId = "04_deleteUser",
+            operationId = "03_deleteUser",
             summary = "회원 탈퇴",
             description = "현재 로그인한 사용자의 계정을 영구 삭제합니다. 모든 노트, 파일, 구독 정보가 삭제됩니다.")
     @ApiResponses({
