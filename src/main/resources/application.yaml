@@ -25,6 +25,7 @@ springdoc:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 # ===============================
 # AWS 설정
