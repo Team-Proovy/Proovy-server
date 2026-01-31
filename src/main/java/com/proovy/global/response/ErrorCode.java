@@ -28,7 +28,8 @@ public enum ErrorCode {
     AUTH5022("AUTH5022", "네이버 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     AUTH5023("AUTH5023", "구글 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
-            // User
+    // User
+    USER4004("USER4004", "활성화된 구독이 있습니다. 구독 취소 후 탈퇴해주세요.", HttpStatus.BAD_REQUEST),
     USER4041("USER4041", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     USER4091("USER4091", "이미 존재하는 사용자입니다.", HttpStatus.CONFLICT),
 

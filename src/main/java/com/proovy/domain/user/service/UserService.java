@@ -1,22 +1,33 @@
 package com.proovy.domain.user.service;
 
 import com.proovy.domain.asset.repository.AssetRepository;
+import com.proovy.domain.auth.repository.RefreshTokenRepository;
+import com.proovy.domain.auth.service.AccessTokenBlacklistService;
+import com.proovy.domain.note.repository.NoteRepository;
+import com.proovy.domain.user.dto.response.DeleteUserResponse;
 import com.proovy.domain.user.dto.response.MyProfileResponse;
 import com.proovy.domain.user.dto.response.MyProfileResponse.*;
 import com.proovy.domain.user.entity.PlanType;
 import com.proovy.domain.user.entity.User;
+import com.proovy.domain.user.entity.UserPlan;
 import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
+import com.proovy.global.infra.s3.S3Service;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -27,6 +38,10 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
     private final AssetRepository assetRepository;
+    private final NoteRepository noteRepository;
+    private final S3Service s3Service;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final AccessTokenBlacklistService accessTokenBlacklistService;
 
     /**
      * 내 프로필 조회
@@ -110,5 +125,81 @@ public class UserService {
     private String formatDate(LocalDateTime dateTime) {
         if (dateTime == null) return null;
         return dateTime.toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE);
+    }
+
+    /**
+     * 회원 탈퇴
+     */
+    @Transactional
+    public DeleteUserResponse deleteUser(Long userId, String accessToken) {
+        // 1. 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+
+        // 2. 활성 구독 확인 (FREE가 아닌 플랜이 활성 상태면 탈퇴 불가)
+        Optional<UserPlan> activePlan = userPlanRepository.findActiveByUserId(userId);
+        if (activePlan.isPresent() && activePlan.get().getPlanType() != PlanType.FREE) {
+            throw new BusinessException(ErrorCode.USER4004);
+        }
+
+        // 3. 사용자 관련 데이터 삭제
+        deleteUserData(userId);
+
+        // 4. 사용자 삭제
+        userRepository.delete(user);
+
+        // 5. 토큰 무효화
+        refreshTokenRepository.deleteByUserId(userId);
+        // Access Token 블랙리스트는 Redis 기반이므로 커밋 이후 실행
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    if (accessToken != null) {
+                        accessTokenBlacklistService.blacklist(accessToken, userId);
+                    }
+                } catch (Exception e) {
+                    log.warn("Access Token 블랙리스트 실패: userId={}", userId, e);
+                }
+            }
+        });
+
+        log.info("사용자 탈퇴 완료: userId={}", userId);
+
+        return DeleteUserResponse.of(
+                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        );
+    }
+
+    private void deleteUserData(Long userId) {
+        // S3 키를 먼저 수집 (원본 + 썸네일)
+        List<String> s3Keys = new java.util.ArrayList<>();
+        assetRepository.findAllByUserId(userId).forEach(asset -> {
+            if (asset.getS3Key() != null) {
+                s3Keys.add(asset.getS3Key());
+            }
+            if (asset.getThumbnailS3Key() != null) {
+                s3Keys.add(asset.getThumbnailS3Key());
+            }
+        });
+
+        // DB 데이터 삭제
+        assetRepository.deleteAllByUserId(userId);
+        noteRepository.deleteAllByUserId(userId);
+        userPlanRepository.deleteAllByUserId(userId);
+
+        // 커밋 이후 S3 삭제 (best-effort)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                s3Keys.forEach(key -> {
+                    try {
+                        s3Service.deleteFile(key);
+                    } catch (Exception e) {
+                        log.warn("S3 파일 삭제 실패: s3Key={}", key, e);
+                    }
+                });
+            }
+        });
     }
 }

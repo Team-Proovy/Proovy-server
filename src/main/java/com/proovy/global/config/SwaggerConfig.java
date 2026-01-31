@@ -11,6 +11,10 @@ import io.swagger.v3.oas.models.servers.Server;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.function.RouterFunction;
+import org.springframework.web.servlet.function.RouterFunctions;
+import org.springframework.web.servlet.function.ServerResponse;
 
 import java.util.List;
 
@@ -71,5 +75,36 @@ public class SwaggerConfig {
                 .filter(id -> id != null)
                 .findFirst()
                 .orElse("");
+    }
+
+    @Bean
+    public RouterFunction<ServerResponse> customSwaggerInitializer() {
+        return RouterFunctions.route()
+                .GET("/swagger-ui/swagger-initializer.js", request ->
+                        ServerResponse.ok()
+                                .contentType(MediaType.valueOf("text/javascript"))
+                                .body("""
+                                        window.onload = function() {
+                                          window.ui = SwaggerUIBundle({
+                                            configUrl: '/v3/api-docs/swagger-config',
+                                            dom_id: '#swagger-ui',
+                                            deepLinking: true,
+                                            presets: [
+                                              SwaggerUIBundle.presets.apis,
+                                              SwaggerUIStandalonePreset
+                                            ],
+                                            plugins: [
+                                              SwaggerUIBundle.plugins.DownloadUrl
+                                            ],
+                                            layout: "StandaloneLayout",
+                                            operationsSorter: function(a, b) {
+                                              var aId = a.get("operation").get("operationId") || "";
+                                              var bId = b.get("operation").get("operationId") || "";
+                                              return aId.localeCompare(bId);
+                                            }
+                                          });
+                                        };
+                                        """))
+                .build();
     }
 }
