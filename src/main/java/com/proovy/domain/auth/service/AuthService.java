@@ -179,8 +179,7 @@ public class AuthService {
     public LoginResponse googleLogin(GoogleLoginRequest request) {
         // 1. 구글 액세스 토큰 발급
         GoogleTokenResponse googleToken = googleClient.getAccessToken(
-                request.authorizationCode(),
-                request.redirectUri()
+                request.authorizationCode()
         );
         log.info("구글 토큰 발급 성공, expires_in: {}", googleToken.expiresIn());
 
