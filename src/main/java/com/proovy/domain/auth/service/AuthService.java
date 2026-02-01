@@ -63,8 +63,7 @@ public class AuthService {
     public LoginResponse kakaoLogin(KakaoLoginRequest request) {
         // 1. 카카오 액세스 토큰 발급
         KakaoTokenResponse kakaoToken = kakaoClient.getAccessToken(
-                request.authorizationCode(),
-                request.redirectUri()
+                request.authorizationCode()
         );
         log.info("카카오 토큰 발급 성공, expires_in: {}", kakaoToken.expiresIn());
 
