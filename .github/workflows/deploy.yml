@@ -63,13 +63,15 @@ jobs:
           SERVICE_NAME="${{ secrets.SERVICE_NAME }}"
           BUCKET="${{ secrets.DEPLOY_BUCKET }}"
           KEY="${{ env.S3_KEY }}"
+          SHA="${{ github.event.workflow_run.head_sha }}"
 
           aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
-            --comment "Deploy Proovy backend: $KEY" \
+            --comment "Deploy backend ${SHA:0:7}" \
             --document-name "AWS-RunShellScript" \
             --parameters commands="[
               \"set -e\",
+              \"echo Deploying $KEY\",
               \"sudo mkdir -p ${DEPLOY_PATH}\",
               \"sudo chown -R ec2-user:ec2-user ${DEPLOY_PATH}\",
               \"sudo aws s3 cp s3://${BUCKET}/${KEY} ${DEPLOY_PATH}/app.jar\",
@@ -79,3 +81,4 @@ jobs:
               \"sudo systemctl is-active ${SERVICE_NAME}\"
             ]" \
             --output text
+            
