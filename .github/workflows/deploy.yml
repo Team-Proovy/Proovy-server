@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: backend-deploy-${{ github.ref }}
+  group: backend-deploy-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
 jobs:
@@ -33,15 +33,19 @@ jobs:
       - name: Grant execute permission for Gradle
         run: chmod +x ./gradlew
 
-      - name: Build (skip tests)
-        run: ./gradlew clean build -x test
+      - name: Build (bootJar, skip tests)
+        run: ./gradlew clean bootJar -x test
 
       - name: Find bootJar (exclude plain)
         run: |
           ls -al build/libs
-          JAR_PATH=$(ls build/libs/*.jar | grep -v plain | head -n 1)
+          JAR_PATH="$(ls -1 build/libs/*.jar | grep -v plain | head -n 1)"
+          if [ -z "$JAR_PATH" ]; then
+            echo "ERROR: No boot jar found in build/libs"
+            exit 1
+          fi
           echo "JAR_PATH=$JAR_PATH" >> $GITHUB_ENV
-          echo "JAR_NAME=$(basename $JAR_PATH)" >> $GITHUB_ENV
+          echo "JAR_NAME=$(basename "$JAR_PATH")" >> $GITHUB_ENV
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -81,4 +85,3 @@ jobs:
               \"sudo systemctl is-active ${SERVICE_NAME}\"
             ]" \
             --output text
-            
