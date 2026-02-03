@@ -54,7 +54,7 @@ public enum ErrorCode {
     ASSET4003("ASSET4003", "PDF 파일만 미리보기가 가능합니다.", HttpStatus.BAD_REQUEST),
 
     // Conversation (Chat)
-    CONV4041("CONV4041", "채팅 세션 또는 사용자를 찾을 수 없거나 접근 권한이 없습니다.", HttpStatus.NOT_FOUND),
+    CONV4041("CONV4041", "채팅 세션을 찾을 수 없거나 접근 권한이 없습니다.", HttpStatus.NOT_FOUND),
     CONV4001("CONV4001", "잘못된 기능 값이 포함되어 있습니다.", HttpStatus.BAD_REQUEST),
     CONV5001("CONV5001", "Proovy-ai 통신 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     CONV5002("CONV5002", "Proovy-ai 스트리밍 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
