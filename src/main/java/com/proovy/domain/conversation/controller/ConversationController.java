@@ -65,7 +65,7 @@ public class ConversationController {
     })
     public Flux<ServerSentEvent<String>> createConversation(
             @Parameter(description = "스트리밍 여부 (true: SSE, false: 단건 JSON)", example = "true")
-            @RequestParam(name = "isStream", defaultValue = "false") Boolean isStream,
+            @RequestParam(name = "isStream", defaultValue = "true") Boolean isStream,
 
             @Parameter(hidden = true)
             @AuthenticationPrincipal UserPrincipal userDetails,
