@@ -113,12 +113,6 @@ public class ConversationController {
                                 .build();
                     }
                 })
-                .concatWith(Flux.just(
-                        ServerSentEvent.<String>builder()
-                                .event("[DONE]")
-                                .data("")
-                                .build()
-                ))
                 .doOnComplete(() -> log.info("SSE stream completed for userId: {}", userId))
                 .doOnError(error -> log.error("SSE stream error for userId: {}", userId, error));
     }
