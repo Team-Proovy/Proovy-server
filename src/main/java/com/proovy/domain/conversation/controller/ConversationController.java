@@ -68,18 +68,11 @@ public class ConversationController {
             @RequestParam(name = "isStream", defaultValue = "true") Boolean isStream,
 
             @Parameter(hidden = true)
-            @AuthenticationPrincipal UserPrincipal userDetails,
-
-            @Parameter(description = "테스트용 사용자 ID (인증 없을 때 사용)")
-            @RequestParam(name = "userId", required = false) Long userId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
 
             @Valid @RequestBody ConversationRequest request
     ) {
-        Long resolvedUserId = (userDetails != null) ? userDetails.getUserId() : userId;
-
-        if (resolvedUserId == null) {
-            throw new BusinessException(ErrorCode.USER4041);
-        }
+        Long resolvedUserId = userPrincipal.getUserId();
 
         if (Boolean.FALSE.equals(isStream)) {
             throw new UnsupportedOperationException("invoke 모드는 아직 구현되지 않았습니다. isStream=true 로만 호출해 주세요.");
