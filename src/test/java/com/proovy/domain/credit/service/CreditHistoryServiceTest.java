@@ -117,4 +117,26 @@ class CreditHistoryServiceTest {
                 userId, 0, 20, "all", "all", startDate, endDate
         )).isInstanceOf(BusinessException.class);
     }
+
+    @Test
+    @DisplayName("시작일만 전달 시 예외 발생")
+    void getCreditHistory_OnlyStartDate() {
+        Long userId = 1L;
+
+        assertThatThrownBy(() -> creditHistoryService.getCreditHistory(
+                userId, 0, 20, "all", "all", "2026-01-01", null
+        )).isInstanceOf(BusinessException.class)
+          .hasMessageContaining("시작일과 종료일을 모두 입력");
+    }
+
+    @Test
+    @DisplayName("종료일만 전달 시 예외 발생")
+    void getCreditHistory_OnlyEndDate() {
+        Long userId = 1L;
+
+        assertThatThrownBy(() -> creditHistoryService.getCreditHistory(
+                userId, 0, 20, "all", "all", null, "2026-01-31"
+        )).isInstanceOf(BusinessException.class)
+          .hasMessageContaining("시작일과 종료일을 모두 입력");
+    }
 }

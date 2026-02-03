@@ -107,12 +107,18 @@ public class CreditHistoryService {
     }
 
     private void validateDateRange(LocalDateTime startDate, LocalDateTime endDate) {
-        if (startDate == null || endDate == null) {
+        // 둘 다 없으면 OK
+        if (startDate == null && endDate == null) {
             return;
         }
 
+        // 한쪽만 있으면 에러 (90일 제한 우회 방지)
+        if (startDate == null || endDate == null) {
+            throw new BusinessException(ErrorCode.CREDIT4001, "조회 기간은 시작일과 종료일을 모두 입력해야 합니다.");
+        }
+
         if (startDate.isAfter(endDate)) {
-            throw new BusinessException(ErrorCode.CREDIT4001);
+            throw new BusinessException(ErrorCode.CREDIT4001, "시작일은 종료일보다 이전이어야 합니다.");
         }
 
         long daysBetween = ChronoUnit.DAYS.between(startDate, endDate);
