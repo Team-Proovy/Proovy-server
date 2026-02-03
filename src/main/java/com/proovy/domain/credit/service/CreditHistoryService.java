@@ -117,7 +117,7 @@ public class CreditHistoryService {
             throw new BusinessException(ErrorCode.CREDIT4001, "조회 기간은 시작일과 종료일을 모두 입력해야 합니다.");
         }
 
-        if (startDate.isAfter(endDate)) {
+        if (!startDate.isBefore(endDate)) {
             throw new BusinessException(ErrorCode.CREDIT4001, "시작일은 종료일보다 이전이어야 합니다.");
         }
 
