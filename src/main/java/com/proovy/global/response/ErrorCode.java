@@ -34,19 +34,15 @@ public enum ErrorCode {
     USER4041("USER4041", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     USER4091("USER4091", "이미 존재하는 사용자입니다.", HttpStatus.CONFLICT),
 
-    // Storage / Asset
+    // Storage
     STORAGE4001("STORAGE4001", "파일을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     STORAGE4002("STORAGE4002", "스토리지 용량이 부족합니다.", HttpStatus.BAD_REQUEST),
     STORAGE4003("STORAGE4003", "검색어는 최소 2자 이상부터 입력 가능합니다.", HttpStatus.BAD_REQUEST),
     STORAGE4004("STORAGE4004", "허용되지 않은 파일 형식입니다.", HttpStatus.BAD_REQUEST),
     STORAGE4031("STORAGE4031", "자산 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     STORAGE4005("STORAGE4005", "노트의 스토리지 용량(512MB)을 초과합니다.", HttpStatus.FORBIDDEN),
-    // Note
-    NOTE4001("NOTE4001", "노트 제목은 50자 이내로 입력해주세요.", HttpStatus.BAD_REQUEST),
-    NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),
-    NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
+    // Asset
     ASSET4001("ASSET4001", "지원하지 않는 파일 형식입니다. PDF, PNG, JPEG, WEBP만 업로드 가능합니다.", HttpStatus.BAD_REQUEST),
     ASSET4002("ASSET4002", "파일 크기가 플랜 제한을 초과합니다.", HttpStatus.BAD_REQUEST),
     ASSET4005("ASSET4005", "파일명은 2자 이상 255자 이하로 입력해주세요.", HttpStatus.BAD_REQUEST),
@@ -56,6 +52,17 @@ public enum ErrorCode {
     ASSET4007("ASSET4007", "S3에 파일이 업로드되지 않았습니다.", HttpStatus.BAD_REQUEST),
     ASSET4091("ASSET4091", "이미 확인된 자산입니다.", HttpStatus.CONFLICT),
     ASSET4003("ASSET4003", "PDF 파일만 미리보기가 가능합니다.", HttpStatus.BAD_REQUEST),
+
+    // Note
+    NOTE4001("NOTE4001", "노트 제목은 50자 이내로 입력해주세요.", HttpStatus.BAD_REQUEST),
+    NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),
+    NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
+
+    // Credit
+    CREDIT4001("CREDIT4001", "날짜 형식이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
+    CREDIT4002("CREDIT4002", "조회 기간은 최대 90일까지 가능합니다.", HttpStatus.BAD_REQUEST),
+    CREDIT4041("CREDIT4041", "크레딧 잔액 정보를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
     // Tool
     TOOL4001("TOOL4001", "유효하지 않은 도구 코드입니다.", HttpStatus.BAD_REQUEST);
