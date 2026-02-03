@@ -75,15 +75,17 @@ class CreditHistoryServiceTest {
                 eq(userId), any(), any(), any(), any(), any(Pageable.class)
         )).thenReturn(historyPage);
 
-        when(creditHistoryRepository.calculatePeriodSummary(eq(userId), any(), any()))
-                .thenReturn(new CreditHistoryRepository.CreditPeriodSummary() {
-                    @Override
-                    public Long getTotalEarned() { return 2100L; }
-                    @Override
-                    public Long getTotalSpent() { return 555L; }
-                    @Override
-                    public Long getTotalExpired() { return 350L; }
-                });
+        when(creditHistoryRepository.calculatePeriodSummary(
+                eq(userId), any(CreditChangeType.class), any(CreditChangeType.class),
+                any(CreditChangeType.class), any(), any()
+        )).thenReturn(new CreditHistoryRepository.CreditPeriodSummary() {
+            @Override
+            public Long getTotalEarned() { return 2100L; }
+            @Override
+            public Long getTotalSpent() { return 555L; }
+            @Override
+            public Long getTotalExpired() { return 350L; }
+        });
 
         CreditHistoryResponse response = creditHistoryService.getCreditHistory(
                 userId, 0, 20, "all", "all", null, null

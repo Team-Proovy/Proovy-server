@@ -73,7 +73,14 @@ public class CreditHistoryService {
 
         // 6. 기간 통계 조회
         CreditHistoryRepository.CreditPeriodSummary periodSummary =
-                creditHistoryRepository.calculatePeriodSummary(userId, startDate, endDate);
+                creditHistoryRepository.calculatePeriodSummary(
+                        userId,
+                        CreditChangeType.EARN,
+                        CreditChangeType.SPEND,
+                        CreditChangeType.EXPIRE,
+                        startDate,
+                        endDate
+                );
 
         // 7. DTO 변환 및 반환
         return buildResponse(balance, historyPage, periodSummary, startDateStr, endDateStr);
@@ -194,11 +201,11 @@ public class CreditHistoryService {
                 .pageInfo(pageInfo)
                 .build();
 
-        // 기간 통계
+        // 기간 통계 (null 안전 처리)
         CreditHistoryResponse.PeriodSummaryDto periodSummaryDto = CreditHistoryResponse.PeriodSummaryDto.builder()
-                .totalEarned(periodSummary.getTotalEarned())
-                .totalSpent(periodSummary.getTotalSpent())
-                .totalExpired(periodSummary.getTotalExpired())
+                .totalEarned(periodSummary != null && periodSummary.getTotalEarned() != null ? periodSummary.getTotalEarned() : 0L)
+                .totalSpent(periodSummary != null && periodSummary.getTotalSpent() != null ? periodSummary.getTotalSpent() : 0L)
+                .totalExpired(periodSummary != null && periodSummary.getTotalExpired() != null ? periodSummary.getTotalExpired() : 0L)
                 .periodStart(startDateStr != null ? startDateStr : "")
                 .periodEnd(endDateStr != null ? endDateStr : "")
                 .build();

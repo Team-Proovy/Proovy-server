@@ -70,7 +70,15 @@ public class CreditBalance {
         return dailyFreeCredit + freeCredit + paidCredit;
     }
 
-    // 크레딧 차감 (우선순위: 일일 → 무료 → 유료)
+    /**
+     * 크레딧을 차감합니다. (우선순위: 일일 무료 → 무료 → 유료)
+     * <p>
+     * 요청 금액이 총 가용 크레딧보다 큰 경우, 예외 없이 가능한 만큼만 차감됩니다.
+     * 호출자는 차감 전후 잔액을 비교하여 전액 차감 여부를 확인할 수 있습니다.
+     * </p>
+     *
+     * @param amount 차감할 크레딧 양 (양수)
+     */
     public void deductCredit(int amount) {
         if (amount <= 0) return;
 

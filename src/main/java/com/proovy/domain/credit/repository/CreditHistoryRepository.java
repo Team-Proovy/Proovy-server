@@ -32,15 +32,18 @@ public interface CreditHistoryRepository extends JpaRepository<CreditHistory, Lo
 
     // 기간 통계 쿼리
     @Query("SELECT " +
-            "COALESCE(SUM(CASE WHEN ch.changeType = 'EARN' THEN ch.amount ELSE 0 END), 0) as totalEarned, " +
-            "COALESCE(SUM(CASE WHEN ch.changeType = 'SPEND' THEN ch.amount ELSE 0 END), 0) as totalSpent, " +
-            "COALESCE(SUM(CASE WHEN ch.changeType = 'EXPIRE' THEN ch.amount ELSE 0 END), 0) as totalExpired " +
+            "COALESCE(SUM(CASE WHEN ch.changeType = :earn THEN ch.amount ELSE 0 END), 0) as totalEarned, " +
+            "COALESCE(SUM(CASE WHEN ch.changeType = :spend THEN ch.amount ELSE 0 END), 0) as totalSpent, " +
+            "COALESCE(SUM(CASE WHEN ch.changeType = :expire THEN ch.amount ELSE 0 END), 0) as totalExpired " +
             "FROM CreditHistory ch " +
             "WHERE ch.user.id = :userId " +
             "AND (:startDate IS NULL OR ch.createdAt >= :startDate) " +
             "AND (:endDate IS NULL OR ch.createdAt < :endDate)")
     CreditPeriodSummary calculatePeriodSummary(
             @Param("userId") Long userId,
+            @Param("earn") CreditChangeType earn,
+            @Param("spend") CreditChangeType spend,
+            @Param("expire") CreditChangeType expire,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
