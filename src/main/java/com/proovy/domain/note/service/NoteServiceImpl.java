@@ -13,6 +13,7 @@ import com.proovy.domain.note.dto.response.NoteDetailResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
+import com.proovy.domain.note.dto.response.AssetListResponse;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.entity.User;
@@ -704,6 +705,53 @@ public class NoteServiceImpl implements NoteService {
                 .usedTools(!isUserMessage && !tools.isEmpty() ? tools : null)
                 .generatedFiles(generatedFiles)
                 .createdAt(message.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AssetListResponse getAssetList(Long userId, Long noteId, String query) {
+        // 1. 노트 존재 및 권한 확인
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
+
+        if (!note.getUser().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOTE4032);
+        }
+
+        // 2. 자산 목록 조회 (검색어가 있으면 파일명으로 필터링)
+        List<Asset> assets;
+        if (query != null && !query.trim().isEmpty()) {
+            assets = assetRepository.findAllByNoteIdAndFileNameContainingIgnoreCase(noteId, query.trim());
+        } else {
+            assets = assetRepository.findAllByNoteId(noteId);
+        }
+
+        // 3. 자산 정보 DTO 생성
+        List<AssetListResponse.AssetInfo> assetInfos = assets.stream()
+                .map(asset -> {
+                    String thumbnailUrl = asset.getThumbnailS3Key() != null
+                            ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                            : null;
+                    FileCategory category = FileCategory.fromMimeType(asset.getMimeType());
+
+                    return AssetListResponse.AssetInfo.builder()
+                            .assetId(asset.getId())
+                            .fileName(asset.getFileName())
+                            .fileSize(asset.getFileSize())
+                            .mimeType(asset.getMimeType())
+                            .fileType(category.getValue().toUpperCase())
+                            .source(asset.getSource().name().toUpperCase())
+                            .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name().toUpperCase() : "PENDING")
+                            .thumbnailUrl(thumbnailUrl)
+                            .createdAt(asset.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return AssetListResponse.builder()
+                .assets(assetInfos)
+                .totalCount(assetInfos.size())
                 .build();
     }
 }

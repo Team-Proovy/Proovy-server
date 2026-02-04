@@ -40,6 +40,11 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     List<Asset> findAllByNoteId(Long noteId);
 
     /**
+     * 특정 노트의 자산 목록 조회 (파일명 검색)
+     */
+    List<Asset> findAllByNoteIdAndFileNameContainingIgnoreCase(Long noteId, String fileName);
+
+    /**
      * 특정 노트의 자산 ID 목록 조회
      */
     @Query("SELECT a.id FROM Asset a WHERE a.noteId = :noteId")
