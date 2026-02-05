@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Builder
@@ -15,6 +16,12 @@ public class CreditCostResponse {
 
     @Schema(description = "비용 정책 목록")
     private List<CreditCostItemDto> costs;
+
+    @Schema(description = "기능별 비용 목록")
+    private List<FeatureCostDto> featureCosts;
+
+    @Schema(description = "난이도별 배율")
+    private Map<String, Double> difficultyMultipliers;
 
     @Getter
     @Builder
@@ -33,5 +40,27 @@ public class CreditCostResponse {
 
         @Schema(description = "고정 비용 여부", example = "true")
         private Boolean isFixed;
+    }
+
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    @Schema(description = "기능별 크레딧 비용")
+    public static class FeatureCostDto {
+
+        @Schema(description = "기능 이름", example = "Solve")
+        private String featureName;
+
+        @Schema(description = "기본 비용", example = "10")
+        private Integer baseCost;
+
+        @Schema(description = "쉬운 난이도 비용", example = "10")
+        private Integer easyCost;
+
+        @Schema(description = "중간 난이도 비용", example = "15")
+        private Integer mediumCost;
+
+        @Schema(description = "어려운 난이도 비용", example = "20")
+        private Integer hardCost;
     }
 }
