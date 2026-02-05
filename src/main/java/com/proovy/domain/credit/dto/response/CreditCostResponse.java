@@ -35,7 +35,7 @@ public class CreditCostResponse {
         @Schema(description = "기능 설명", example = "OCR 텍스트 추출")
         private String description;
 
-        @Schema(description = "비용 (null인 경우 사용량 기반)", example = "10")
+        @Schema(description = "비용 (null인 경우 사용량 기반)", example = "10", nullable = true)
         private Integer costAmount;
 
         @Schema(description = "고정 비용 여부", example = "true")

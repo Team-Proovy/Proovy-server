@@ -96,13 +96,18 @@ public class CreditController {
     @Operation(
             operationId = "02_getCreditCosts",
             summary = "크레딧 비용 정책 조회",
-            description = "각 기능(OCR, 코드 실행, AI 질의 등)의 현재 적용 중인 크레딧 소모 비용을 조회합니다. 인증이 필요하지 않습니다."
+            description = "각 기능(OCR, 코드 실행, AI 질의 등)의 현재 적용 중인 크레딧 소모 비용을 조회합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "조회 성공",
                     content = @Content(schema = @Schema(implementation = CreditCostResponse.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"AUTH4013\",\"message\":\"유효하지 않은 토큰입니다.\"}"))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "500",
