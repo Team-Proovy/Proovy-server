@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -17,6 +18,23 @@ public class CreditCostService {
     // TODO: DB에서 관리하도록 변경
     private static final int OCR_COST = 10;
     private static final int CODE_EXECUTION_COST = 5;
+
+    // 기능별 기본 비용
+    private static final Map<String, Integer> FEATURE_BASE_COST = Map.of(
+            "Solve", 10,
+            "Explain", 5,
+            "CreateGraph", 5,
+            "Variant", 5,
+            "Solution", 20,
+            "Check", 3
+    );
+
+    // 난이도별 배율
+    private static final Map<String, Double> DIFFICULTY_MULTIPLIER = Map.of(
+            "easy", 1.0,
+            "medium", 1.5,
+            "hard", 2.0
+    );
 
     /**
      * 크레딧 비용 정책 조회
@@ -52,6 +70,24 @@ public class CreditCostService {
         log.info("크레딧 비용 정책 조회 완료, 총 {}개 항목", costs.size());
         return CreditCostResponse.builder()
                 .costs(costs)
+                .featureCosts(buildFeatureCosts())
+                .difficultyMultipliers(DIFFICULTY_MULTIPLIER)
                 .build();
+    }
+
+    private List<CreditCostResponse.FeatureCostDto> buildFeatureCosts() {
+        List<CreditCostResponse.FeatureCostDto> featureCosts = new ArrayList<>();
+
+        for (Map.Entry<String, Integer> entry : FEATURE_BASE_COST.entrySet()) {
+            featureCosts.add(CreditCostResponse.FeatureCostDto.builder()
+                    .featureName(entry.getKey())
+                    .baseCost(entry.getValue())
+                    .easyCost(entry.getValue())
+                    .mediumCost((int) Math.ceil(entry.getValue() * 1.5))
+                    .hardCost(entry.getValue() * 2)
+                    .build());
+        }
+
+        return featureCosts;
     }
 }
