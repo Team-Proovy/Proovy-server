@@ -1,6 +1,8 @@
 package com.proovy.domain.credit.controller;
 
+import com.proovy.domain.credit.dto.response.CreditCostResponse;
 import com.proovy.domain.credit.dto.response.CreditHistoryResponse;
+import com.proovy.domain.credit.service.CreditCostService;
 import com.proovy.domain.credit.service.CreditHistoryService;
 import com.proovy.global.response.ApiResponse;
 import com.proovy.global.security.UserPrincipal;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CreditController {
 
     private final CreditHistoryService creditHistoryService;
+    private final CreditCostService creditCostService;
 
     @GetMapping("/history")
     @Operation(
@@ -83,6 +86,29 @@ public class CreditController {
                 userId, page, size, changeType, creditType, startDate, endDate
         );
 
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/costs")
+    @Operation(
+            operationId = "02_getCreditCosts",
+            summary = "크레딧 비용 정책 조회",
+            description = "각 기능(OCR, 코드 실행, AI 질의 등)의 현재 적용 중인 크레딧 소모 비용을 조회합니다. 인증이 필요하지 않습니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = CreditCostResponse.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "서버 오류",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"SERVER5001\",\"message\":\"서버 오류가 발생했습니다.\"}"))
+            )
+    })
+    public ResponseEntity<ApiResponse<CreditCostResponse>> getCreditCosts() {
+        CreditCostResponse response = creditCostService.getCreditCosts();
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
