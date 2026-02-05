@@ -163,7 +163,7 @@ public class StorageService {
         return StorageResponse.of(
                 totalUsedMb,
                 planType.getStorageLimitMb(),
-                planType.getDisplayName(),
+                planType.getJsonValue(),
                 isActive,
                 noteStorageDtos
         );

@@ -71,4 +71,9 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
      * OCR 상태가 특정 값이고 updatedAt이 특정 시각 이전인 자산 목록 조회 (타임아웃 처리용)
      */
     List<Asset> findByOcrStatusAndUpdatedAtBefore(Asset.OcrStatus ocrStatus, LocalDateTime threshold);
+
+    /**
+     * 특정 사용자의 모든 자산 삭제 (회원 탈퇴용)
+     */
+    void deleteAllByUserId(Long userId);
 }

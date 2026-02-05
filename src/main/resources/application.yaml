@@ -30,6 +30,7 @@ springdoc:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 # ===============================
 # AWS 설정
@@ -53,7 +54,7 @@ oauth:
   kakao:
     client-id: ${KAKAO_CLIENT_ID}
     client-secret: ${KAKAO_CLIENT_SECRET}
-    redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:3000/oauth/kakao/callback}
+    redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao/callback}
     # 카카오 API 엔드포인트
     auth-url: https://kauth.kakao.com
     api-url: https://kapi.kakao.com
@@ -66,7 +67,7 @@ oauth:
     client-id: ${NAVER_CLIENT_ID}
     client-secret: ${NAVER_CLIENT_SECRET}
     # redirectUri는 서버에서 고정 (보안상 Request Body에서 받지 않음)
-    redirect-uri: ${NAVER_REDIRECT_URI:http://localhost:3000/oauth/naver/callback}
+    redirect-uri: ${NAVER_REDIRECT_URI:http://localhost:5173/oauth/naver/callback}
     # 네이버 API 엔드포인트
     authorize-uri: https://nid.naver.com/oauth2.0/authorize
     token-uri: https://nid.naver.com/oauth2.0/token
@@ -77,6 +78,7 @@ oauth:
   google:
     client-id: ${GOOGLE_CLIENT_ID}
     client-secret: ${GOOGLE_CLIENT_SECRET}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:5173/oauth/google/callback}
     # 구글 API 엔드포인트
     token-uri: https://oauth2.googleapis.com/token
     user-info-uri: https://www.googleapis.com/oauth2/v2/userinfo
