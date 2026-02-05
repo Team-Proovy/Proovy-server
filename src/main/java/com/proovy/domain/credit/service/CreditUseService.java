@@ -79,7 +79,7 @@ public class CreditUseService {
      */
     @Transactional
     public CreditUseResponse useCredit(Long userId, CreditUseRequest request) {
-        CreditBalance balance = creditBalanceRepository.findByUserId(userId)
+        CreditBalance balance = creditBalanceRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
 
         // 비용 계산
@@ -131,13 +131,16 @@ public class CreditUseService {
         }
 
         // 이벤트 타입 기반 고정 비용
-        try {
-            CreditEventType eventType = CreditEventType.valueOf(request.getEventType());
-            if (EVENT_TYPE_COST.containsKey(eventType)) {
-                return EVENT_TYPE_COST.get(eventType);
+        String requestEventType = request.getEventType();
+        if (requestEventType != null) {
+            try {
+                CreditEventType eventType = CreditEventType.valueOf(requestEventType);
+                if (EVENT_TYPE_COST.containsKey(eventType)) {
+                    return EVENT_TYPE_COST.get(eventType);
+                }
+            } catch (IllegalArgumentException ignored) {
+                // 알 수 없는 이벤트 타입은 기능별 비용으로 계산
             }
-        } catch (IllegalArgumentException ignored) {
-            // 알 수 없는 이벤트 타입은 기능별 비용으로 계산
         }
 
         // 기능 이름 기반 비용 계산 (난이도 적용)
@@ -184,11 +187,14 @@ public class CreditUseService {
         int freeUsed = freeBefore - balance.getFreeCredit();
         int paidUsed = paidBefore - balance.getPaidCredit();
 
-        CreditEventType eventType;
-        try {
-            eventType = CreditEventType.valueOf(request.getEventType());
-        } catch (IllegalArgumentException e) {
-            eventType = CreditEventType.LLM_QUERY; // 기본값
+        CreditEventType eventType = CreditEventType.LLM_QUERY;
+        String requestEventType = request.getEventType();
+        if (requestEventType != null) {
+            try {
+                eventType = CreditEventType.valueOf(requestEventType);
+            } catch (IllegalArgumentException ignored) {
+                // 기본값 유지
+            }
         }
 
         String eventName = request.getFeatureName() != null
