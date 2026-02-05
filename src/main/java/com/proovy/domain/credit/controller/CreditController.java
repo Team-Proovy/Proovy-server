@@ -1,9 +1,13 @@
 package com.proovy.domain.credit.controller;
 
+import com.proovy.domain.credit.dto.request.CreditUseRequest;
+import com.proovy.domain.credit.dto.response.CreditBalanceResponse;
 import com.proovy.domain.credit.dto.response.CreditCostResponse;
 import com.proovy.domain.credit.dto.response.CreditHistoryResponse;
+import com.proovy.domain.credit.dto.response.CreditUseResponse;
 import com.proovy.domain.credit.service.CreditCostService;
 import com.proovy.domain.credit.service.CreditHistoryService;
+import com.proovy.domain.credit.service.CreditUseService;
 import com.proovy.global.response.ApiResponse;
 import com.proovy.global.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,14 +16,12 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
@@ -30,6 +32,7 @@ public class CreditController {
 
     private final CreditHistoryService creditHistoryService;
     private final CreditCostService creditCostService;
+    private final CreditUseService creditUseService;
 
     @GetMapping("/history")
     @Operation(
@@ -110,5 +113,94 @@ public class CreditController {
     public ResponseEntity<ApiResponse<CreditCostResponse>> getCreditCosts() {
         CreditCostResponse response = creditCostService.getCreditCosts();
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/balance")
+    @Operation(
+            operationId = "03_getCreditBalance",
+            summary = "크레딧 잔액 조회",
+            description = "현재 사용자의 크레딧 잔액을 조회합니다. checkCost 파라미터를 통해 특정 비용 사용 가능 여부도 확인할 수 있습니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = CreditBalanceResponse.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"AUTH4013\",\"message\":\"유효하지 않은 토큰입니다.\"}"))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자 없음",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"USER4041\",\"message\":\"사용자를 찾을 수 없습니다.\"}"))
+            )
+    })
+    public ResponseEntity<ApiResponse<CreditBalanceResponse>> getCreditBalance(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+
+            @Parameter(description = "사용 가능 여부를 확인할 비용 (선택)", example = "10")
+            @RequestParam(required = false) Integer checkCost
+    ) {
+        Long userId = userPrincipal.getUserId();
+        CreditBalanceResponse response = creditUseService.getBalance(userId, checkCost);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/use")
+    @Operation(
+            operationId = "04_useCredit",
+            summary = "크레딧 사용 (차감)",
+            description = "AI 기능 사용 시 크레딧을 차감합니다. 난이도에 따라 비용이 조정됩니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "처리 완료 (성공/실패 여부는 응답의 success 필드로 확인)",
+                    content = @Content(schema = @Schema(implementation = CreditUseResponse.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"AUTH4013\",\"message\":\"유효하지 않은 토큰입니다.\"}"))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자 없음",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"USER4041\",\"message\":\"사용자를 찾을 수 없습니다.\"}"))
+            )
+    })
+    public ResponseEntity<ApiResponse<CreditUseResponse>> useCredit(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody CreditUseRequest request
+    ) {
+        Long userId = userPrincipal.getUserId();
+        CreditUseResponse response = creditUseService.useCredit(userId, request);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/estimate")
+    @Operation(
+            operationId = "05_estimateCost",
+            summary = "예상 크레딧 비용 조회",
+            description = "특정 기능 실행 시 소모될 예상 크레딧을 조회합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공"
+            )
+    })
+    public ResponseEntity<ApiResponse<Integer>> estimateCost(
+            @Parameter(description = "기능 이름 (Solve, Explain, CreateGraph, Variant, Solution, Check)", example = "Solve")
+            @RequestParam String featureName,
+
+            @Parameter(description = "문제 난이도 (easy, medium, hard)", example = "medium")
+            @RequestParam(required = false, defaultValue = "easy") String difficulty
+    ) {
+        int cost = creditUseService.getEstimatedCost(featureName, difficulty);
+        return ResponseEntity.ok(ApiResponse.success(cost));
     }
 }
