@@ -107,7 +107,7 @@ public class CreditUseService {
         balance.deductCredit(cost);
 
         // 히스토리 기록
-        saveCreditHistory(balance, request, cost, dailyBefore, freeBefore, paidBefore);
+        saveCreditHistory(balance, request, dailyBefore, freeBefore, paidBefore);
 
         log.info("크레딧 사용 완료: userId={}, 사용={}, 잔액={}",
                 userId, cost, balance.getTotalAvailable());
@@ -178,20 +178,11 @@ public class CreditUseService {
     }
 
     private void saveCreditHistory(CreditBalance balance, CreditUseRequest request,
-                                   int cost, int dailyBefore, int freeBefore, int paidBefore) {
+                                   int dailyBefore, int freeBefore, int paidBefore) {
         // 어떤 크레딧에서 차감되었는지 판단
         int dailyUsed = dailyBefore - balance.getDailyFreeCredit();
         int freeUsed = freeBefore - balance.getFreeCredit();
         int paidUsed = paidBefore - balance.getPaidCredit();
-
-        CreditType creditType;
-        if (dailyUsed > 0) {
-            creditType = CreditType.DAILY;
-        } else if (freeUsed > 0) {
-            creditType = CreditType.FREE;
-        } else {
-            creditType = CreditType.PAID;
-        }
 
         CreditEventType eventType;
         try {
@@ -204,12 +195,24 @@ public class CreditUseService {
                 ? request.getFeatureName() + " 실행"
                 : eventType.getDescription();
 
+        // 유형별로 분리 기록해 필터링 왜곡을 방지합니다.
+        saveHistoryItem(balance, eventType, eventName, request.getDescription(), dailyUsed, CreditType.DAILY);
+        saveHistoryItem(balance, eventType, eventName, request.getDescription(), freeUsed, CreditType.FREE);
+        saveHistoryItem(balance, eventType, eventName, request.getDescription(), paidUsed, CreditType.PAID);
+    }
+
+    private void saveHistoryItem(CreditBalance balance, CreditEventType eventType,
+                                 String eventName, String description, int amount, CreditType creditType) {
+        if (amount <= 0) {
+            return;
+        }
+
         CreditHistory history = CreditHistory.builder()
                 .user(balance.getUser())
                 .eventType(eventType)
                 .eventName(eventName)
-                .description(request.getDescription())
-                .amount(cost)
+                .description(description)
+                .amount(amount)
                 .changeType(CreditChangeType.SPEND)
                 .creditType(creditType)
                 .balanceAfterDaily(balance.getDailyFreeCredit())
