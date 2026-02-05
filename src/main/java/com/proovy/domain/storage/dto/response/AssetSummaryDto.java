@@ -10,10 +10,9 @@ public record AssetSummaryDto(
         String fileName,
         String mimeType,
         String fileCategory,
-        String source,
-        String thumbnailUrl
+        String source
 ) {
-    public static AssetSummaryDto from(Asset asset, String thumbnailUrl) {
+    public static AssetSummaryDto from(Asset asset) {
         FileCategory category = FileCategory.fromMimeType(asset.getMimeType());
         String source = asset.getSource() != null
                 ? asset.getSource().name().toLowerCase()
@@ -25,7 +24,6 @@ public record AssetSummaryDto(
                 .mimeType(asset.getMimeType())
                 .fileCategory(category.getValue())
                 .source(source)
-                .thumbnailUrl(category.hasThumbnail() ? thumbnailUrl : null)
                 .build();
     }
 }
