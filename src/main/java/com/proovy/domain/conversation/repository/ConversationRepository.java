@@ -48,25 +48,12 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     /**
      * 특정 노트의 모든 대화 조회
      */
-    List<Conversation> findByNoteId(Long noteId);
+    //List<Conversation> findByNoteId(Long noteId);
 
     /**
      * 특정 노트의 대화 조회 (페이징)
      */
     Page<Conversation> findByNoteIdOrderByCreatedAtDesc(Long noteId, Pageable pageable);
-
-    /**
-     * 특정 노트의 모든 대화 ID 조회
-     */
-    @Query("SELECT c.id FROM Conversation c WHERE c.note.id = :noteId")
-    List<Long> findIdsByNoteId(@Param("noteId") Long noteId);
-
-    /**
-     * 특정 노트의 모든 대화 삭제 (벌크 삭제)
-     */
-    @Modifying
-    @Query("DELETE FROM Conversation c WHERE c.note.id = :noteId")
-    void deleteByNoteIdInBulk(@Param("noteId") Long noteId);
 
     /**
      * 여러 노트의 대화 개수를 한 번에 조회 (배치 쿼리)
