@@ -48,16 +48,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         log.debug("[JWT] 요청 URI: {}, 토큰 존재: {}", request.getRequestURI(), token != null);
 
         if (token == null) {
+            log.debug("[JWT] Authorization 헤더에 Bearer 토큰 없음 - AUTH4010 세팅 후 체인 진행");
             request.setAttribute(JWT_ERROR_ATTRIBUTE, ErrorCode.AUTH4010);
             chain.doFilter(request, response);
             return;
         }
 
         try {
+            log.debug("[JWT] 토큰 검증 시작");
             if (accessTokenBlacklistService.isBlacklisted(token)) {
+                log.warn("[JWT] 블랙리스트 토큰 감지 - URI: {}", request.getRequestURI());
                 throw new BusinessException(ErrorCode.AUTH4013);
             }
             if (!jwtTokenProvider.validateAccessToken(token)) {
+                log.warn("[JWT] 토큰 유효성 검증 실패 - URI: {}", request.getRequestURI());
                 throw new BusinessException(ErrorCode.AUTH4013);
             }
             Long userId = jwtTokenProvider.getUserIdFromToken(token);
