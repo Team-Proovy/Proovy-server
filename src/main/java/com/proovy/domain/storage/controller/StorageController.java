@@ -2,6 +2,7 @@ package com.proovy.domain.storage.controller;
 
 import com.proovy.domain.storage.dto.request.BulkDeleteRequest;
 import com.proovy.domain.storage.dto.response.BulkDeleteResponse;
+import com.proovy.domain.storage.dto.response.StorageResponse;
 import com.proovy.domain.storage.service.StorageService;
 import com.proovy.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +23,26 @@ import com.proovy.global.security.UserPrincipal;
 public class StorageController {
 
     private final StorageService storageService;
+
+    @Operation(
+            summary = "스토리지 사용량 조회",
+            description = "사용자의 전체 스토리지 사용량과 각 노트별 파일 정보를 조회합니다. 노트 제목이나 파일명으로 검색이 가능합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "검색어 길이 오류 (STORAGE4003)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "토큰 미제공 (AUTH4010), 토큰 만료 (AUTH4012), 유효하지 않은 토큰 (AUTH4013)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음 (USER4041)")
+    })
+    @GetMapping
+    public ResponseEntity<ApiResponse<StorageResponse>> getStorageUsage(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "검색어 (노트 제목, 파일명 검색, 최소 2자 이상)")
+            @RequestParam(required = false) String keyword
+    ) {
+        StorageResponse response = storageService.getStorageUsage(userPrincipal.getUserId(), keyword);
+        return ResponseEntity.ok(ApiResponse.success("조회에 성공했습니다.", response));
+    }
 
     @Operation(
             summary = "자산 일괄 삭제",

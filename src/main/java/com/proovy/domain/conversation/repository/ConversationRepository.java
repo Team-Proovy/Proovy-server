@@ -10,8 +10,17 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+/**
+ * Note 도메인 전용 ConversationRepository
+ */
 public interface ConversationRepository extends JpaRepository<Conversation, Long> {
+
+    /**
+     * 특정 노트의 대화 조회
+     */
+    Optional<Conversation> findByNoteId(Long noteId);
 
     /**
      * 특정 노트의 대화 개수 조회
@@ -21,12 +30,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     /**
      * 특정 노트의 모든 대화 조회
      */
-    List<Conversation> findByNoteId(Long noteId);
-
-    /**
-     * 특정 노트의 대화 조회 (페이징)
-     */
-    Page<Conversation> findByNoteIdOrderByCreatedAtDesc(Long noteId, Pageable pageable);
+    //List<Conversation> findByNoteId(Long noteId);
 
     /**
      * 특정 노트의 모든 대화 ID 조회
@@ -40,6 +44,16 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     @Modifying
     @Query("DELETE FROM Conversation c WHERE c.note.id = :noteId")
     void deleteByNoteIdInBulk(@Param("noteId") Long noteId);
+
+    /**
+     * 특정 노트의 모든 대화 조회
+     */
+    //List<Conversation> findByNoteId(Long noteId);
+
+    /**
+     * 특정 노트의 대화 조회 (페이징)
+     */
+    Page<Conversation> findByNoteIdOrderByCreatedAtDesc(Long noteId, Pageable pageable);
 
     /**
      * 여러 노트의 대화 개수를 한 번에 조회 (배치 쿼리)

@@ -63,8 +63,7 @@ public class AuthService {
     public LoginResponse kakaoLogin(KakaoLoginRequest request) {
         // 1. 카카오 액세스 토큰 발급
         KakaoTokenResponse kakaoToken = kakaoClient.getAccessToken(
-                request.authorizationCode(),
-                request.redirectUri()
+                request.authorizationCode()
         );
         log.info("카카오 토큰 발급 성공, expires_in: {}", kakaoToken.expiresIn());
 
@@ -126,34 +125,24 @@ public class AuthService {
 
     /**
      * 네이버 로그인 처리
+     * state 검증은 프론트엔드에서 수행됨 (CSRF 방지)
      */
     @Transactional
     public LoginResponse naverLogin(@Valid NaverLoginRequest request) {
-        // 1. state 검증
-        String redisKey = "naver_state:" + request.state();
-        Boolean deleted = redisTemplate.delete(redisKey);
-        if (deleted == null || !deleted) {
-            log.warn("네이버 state 검증 실패 (존재하지 않거나 이미 사용됨)");
-            throw new BusinessException(ErrorCode.AUTH4002);
-        }
-
-        // 2. 네이버 액세스 토큰 발급
-        NaverTokenResponse naverToken = naverClient.getAccessToken(
-                request.code(),
-                request.state()
-        );
+        // 1. 네이버 액세스 토큰 발급
+        NaverTokenResponse naverToken = naverClient.getAccessToken(request.code());
         log.info("네이버 토큰 발급 성공, expires_in: {}", naverToken.expiresIn());
 
-        // 3. 네이버 사용자 정보 조회
+        // 2. 네이버 사용자 정보 조회
         NaverUserResponse naverUser = naverClient.getUserInfo(naverToken.accessToken());
         log.info("네이버 사용자 정보 조회 성공, id: {}", naverUser.response().id());
 
-        // 4. 기존 유저 조회
+        // 3. 기존 유저 조회
         String providerUserId = naverUser.response().id();
         Optional<User> existingUser = userRepository
                 .findByProviderAndProviderUserId(OAuthProvider.NAVER, providerUserId);
 
-        // 5. 분기 처리
+        // 4. 분기 처리
         if (existingUser.isPresent()) {
             // 기존 유저: JWT 발급
             User user = existingUser.get();
@@ -179,8 +168,7 @@ public class AuthService {
     public LoginResponse googleLogin(GoogleLoginRequest request) {
         // 1. 구글 액세스 토큰 발급
         GoogleTokenResponse googleToken = googleClient.getAccessToken(
-                request.authorizationCode(),
-                request.redirectUri()
+                request.authorizationCode()
         );
         log.info("구글 토큰 발급 성공, expires_in: {}", googleToken.expiresIn());
 
@@ -330,20 +318,4 @@ public class AuthService {
         }
     }
 
-    /**
-     * [개발용] 테스트 토큰 발급
-     * 프로덕션 환경에서는 사용하지 않아야 합니다.
-     */
-    @Transactional
-    public TokenDto generateDevToken(Long userId) {
-        // 유저 존재 확인
-        userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
-
-        TokenDto tokens = jwtTokenProvider.generateTokens(userId);
-        saveRefreshToken(userId, tokens.refreshToken());
-
-        log.warn("[DEV] 개발용 토큰 발급 완료 - userId: {}", userId);
-        return tokens;
-    }
 }

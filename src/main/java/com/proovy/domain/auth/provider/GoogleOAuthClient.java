@@ -32,6 +32,9 @@ public class GoogleOAuthClient {
     @Value("${oauth.google.client-secret}")
     private String clientSecret;
 
+    @Value("${oauth.google.redirect-uri}")
+    private String redirectUri;
+
     @Value("${oauth.google.token-uri}")
     private String tokenUri;
 
@@ -40,8 +43,9 @@ public class GoogleOAuthClient {
 
     /**
      * 인가 코드로 액세스 토큰 발급
+     * redirectUri는 서버 설정값 사용
      */
-    public GoogleTokenResponse getAccessToken(String authorizationCode, String redirectUri) {
+    public GoogleTokenResponse getAccessToken(String authorizationCode) {
         // 구글 인가 코드는 '/'를 포함하므로 URL 디코딩 필요 (4%2F... -> 4/...)
         String decodedCode = URLDecoder.decode(authorizationCode, StandardCharsets.UTF_8);
 

@@ -54,8 +54,9 @@ public class NaverOAuthClient {
     /**
      * 인가 코드로 액세스 토큰 발급
      * redirectUri는 서버 설정값
+     * state는 프론트엔드에서 이미 검증됨
      */
-    public NaverTokenResponse getAccessToken(String code, String state) {
+    public NaverTokenResponse getAccessToken(String code) {
         try {
             NaverTokenResponse response = webClient.post()
                     .uri(tokenUri)
@@ -64,8 +65,7 @@ public class NaverOAuthClient {
                             .with("client_id", clientId)
                             .with("client_secret", clientSecret)
                             .with("redirect_uri", redirectUri)
-                            .with("code", code)
-                            .with("state", state))
+                            .with("code", code))
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, res ->
                             res.bodyToMono(String.class)

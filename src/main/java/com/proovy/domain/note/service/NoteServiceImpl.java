@@ -10,6 +10,7 @@ import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteDetailResponse;
+import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.entity.Note;
@@ -26,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.proovy.global.infra.s3.S3Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -45,7 +47,7 @@ public class NoteServiceImpl implements NoteService {
     private final MessageToolRepository messageToolRepository;
     private final AssetRepository assetRepository;
     private final com.proovy.domain.user.repository.UserPlanRepository userPlanRepository;
-    private final com.proovy.global.infra.s3.S3Service s3Service;
+    private final S3Service s3Service;
 
     // 허용된 도구 코드 목록 (실제로는 별도 관리 필요)
     private static final Set<String> ALLOWED_TOOL_CODES = Set.of("SOLUTION", "GRAPH", "VARIATION");

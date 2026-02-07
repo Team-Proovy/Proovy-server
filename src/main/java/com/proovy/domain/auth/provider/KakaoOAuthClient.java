@@ -32,13 +32,16 @@ public class KakaoOAuthClient {
     @Value("${oauth.kakao.token-uri}")
     private String tokenUri;
 
+    @Value("${oauth.kakao.redirect-uri}")
+    private String redirectUri;
+
     @Value("${oauth.kakao.user-info-uri}")
     private String userInfoUri;
 
     /**
      * 인가 코드로 액세스 토큰 발급
      */
-    public KakaoTokenResponse getAccessToken(String authorizationCode, String redirectUri) {
+    public KakaoTokenResponse getAccessToken(String authorizationCode) {
         try {
             return webClient.post()
                     .uri(tokenUri)
