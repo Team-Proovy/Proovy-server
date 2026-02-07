@@ -243,7 +243,7 @@ public class AuthService {
         log.info("신규 유저 가입 완료, userId: {}, provider: {}", savedUser.getId(), provider);
 
         // 3-1. 크레딧 잔액 초기화 (일일 100 + 가입 보너스 100)
-        creditBalanceService.createSignupBalance(savedUser.getId());
+        creditBalanceService.createSignupBalance(savedUser);
         log.info("크레딧 잔액 초기화 완료, userId: {}, dailyFree: 100, freeCredit: 100", savedUser.getId());
 
         // 4. JWT 토큰 발급
