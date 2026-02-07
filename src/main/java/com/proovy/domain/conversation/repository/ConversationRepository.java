@@ -10,13 +10,40 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+/**
+ * Note 도메인 전용 ConversationRepository
+ */
 public interface ConversationRepository extends JpaRepository<Conversation, Long> {
+
+    /**
+     * 특정 노트의 대화 조회
+     */
+    Optional<Conversation> findByNoteId(Long noteId);
 
     /**
      * 특정 노트의 대화 개수 조회
      */
     long countByNoteId(Long noteId);
+
+    /**
+     * 특정 노트의 모든 대화 조회
+     */
+    //List<Conversation> findByNoteId(Long noteId);
+
+    /**
+     * 특정 노트의 모든 대화 ID 조회
+     */
+    @Query("SELECT c.id FROM Conversation c WHERE c.note.id = :noteId")
+    List<Long> findIdsByNoteId(@Param("noteId") Long noteId);
+
+    /**
+     * 특정 노트의 모든 대화 삭제 (벌크 삭제)
+     */
+    @Modifying
+    @Query("DELETE FROM Conversation c WHERE c.note.id = :noteId")
+    void deleteByNoteIdInBulk(@Param("noteId") Long noteId);
 
     /**
      * 특정 노트의 모든 대화 조회

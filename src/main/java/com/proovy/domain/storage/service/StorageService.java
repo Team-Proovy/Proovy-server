@@ -148,12 +148,7 @@ public class StorageService {
 
                     // 자산 DTO 변환
                     List<AssetSummaryDto> assetDtos = noteAssets.stream()
-                            .map(asset -> {
-                                String thumbnailUrl = asset.getThumbnailS3Key() != null
-                                        ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
-                                        : null;
-                                return AssetSummaryDto.from(asset, thumbnailUrl);
-                            })
+                            .map(AssetSummaryDto::from)
                             .toList();
 
                     return NoteStorageDto.of(note.getId(), note.getTitle(), noteUsedMb, assetDtos);
@@ -163,7 +158,7 @@ public class StorageService {
         return StorageResponse.of(
                 totalUsedMb,
                 planType.getStorageLimitMb(),
-                planType.getDisplayName(),
+                planType.getJsonValue(),
                 isActive,
                 noteStorageDtos
         );

@@ -8,6 +8,9 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
+/**
+ * Note 도메인 전용 MessageRepository
+ */
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
     /**
@@ -16,15 +19,15 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByConversationId(Long conversationId);
 
     /**
-     * 여러 대화의 모든 메시지 조회 (생성 시각 순)
-     */
-    List<Message> findByConversationIdInOrderByCreatedAtAsc(List<Long> conversationIds);
-
-    /**
      * 특정 대화의 모든 메시지 ID 조회
      */
     @Query("SELECT m.id FROM Message m WHERE m.conversation.id = :conversationId")
     List<Long> findIdsByConversationId(@Param("conversationId") Long conversationId);
+
+    /**
+     * 여러 대화의 모든 메시지 조회 (생성 시각 순)
+     */
+    List<Message> findByConversationIdInOrderByCreatedAtAsc(List<Long> conversationIds);
 
     /**
      * 여러 대화의 모든 메시지 ID 조회
@@ -39,4 +42,3 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @Query("DELETE FROM Message m WHERE m.conversation.id IN :conversationIds")
     void deleteByConversationIdInBulk(@Param("conversationIds") List<Long> conversationIds);
 }
-

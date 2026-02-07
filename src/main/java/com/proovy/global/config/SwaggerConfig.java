@@ -7,12 +7,15 @@ import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-import io.swagger.v3.oas.models.servers.Server;
+
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.function.RouterFunction;
+import org.springframework.web.servlet.function.RouterFunctions;
+import org.springframework.web.servlet.function.ServerResponse;
 
-import java.util.List;
 
 @Configuration
 public class SwaggerConfig {
@@ -28,14 +31,6 @@ public class SwaggerConfig {
                         .title("Proovy API")
                         .description("Proovy 백엔드 API 명세서")
                         .version("v1.0.0"))
-                .servers(List.of(
-                        new Server()
-                                .url("http://localhost:8080")
-                                .description("로컬 개발 서버"),
-                        new Server()
-                                .url("https://api.proovy.com")
-                                .description("프로덕션 서버")
-                ))
                 .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
                 .components(new Components()
                         .addSecuritySchemes(securitySchemeName,
@@ -71,5 +66,36 @@ public class SwaggerConfig {
                 .filter(id -> id != null)
                 .findFirst()
                 .orElse("");
+    }
+
+    @Bean
+    public RouterFunction<ServerResponse> customSwaggerInitializer() {
+        return RouterFunctions.route()
+                .GET("/swagger-ui/swagger-initializer.js", request ->
+                        ServerResponse.ok()
+                                .contentType(MediaType.valueOf("text/javascript"))
+                                .body("""
+                                        window.onload = function() {
+                                          window.ui = SwaggerUIBundle({
+                                            configUrl: '/v3/api-docs/swagger-config',
+                                            dom_id: '#swagger-ui',
+                                            deepLinking: true,
+                                            presets: [
+                                              SwaggerUIBundle.presets.apis,
+                                              SwaggerUIStandalonePreset
+                                            ],
+                                            plugins: [
+                                              SwaggerUIBundle.plugins.DownloadUrl
+                                            ],
+                                            layout: "StandaloneLayout",
+                                            operationsSorter: function(a, b) {
+                                              var aId = a.get("operation").get("operationId") || "";
+                                              var bId = b.get("operation").get("operationId") || "";
+                                              return aId.localeCompare(bId);
+                                            }
+                                          });
+                                        };
+                                        """))
+                .build();
     }
 }
