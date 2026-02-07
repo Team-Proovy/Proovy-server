@@ -68,8 +68,7 @@ public class ChatServiceImpl implements ChatService {
             request.getChosenFeatures(),
             request.getMentionedAssetIds());
 
-        // Proovy-ai 서버 상태를 사전에 한 번 체크하고, 연결이 불가능하면 바로 CONV5001 비즈니스 예외를 던진다.
-        checkProovyAiHealth();
+        
 
         // 1. 사용자 검증
         User user = userRepository.findById(userId)
@@ -118,6 +117,9 @@ public class ChatServiceImpl implements ChatService {
 
         // 6. 자산 URL 변환
         List<String> filesUrl = convertAssetIdsToUrls(request.getMentionedAssetIds(), userId);
+
+        // 6.5. Proovy-ai 서버 상태를 사전에 한 번 체크하고, 연결이 불가능하면 바로 CONV5001 비즈니스 예외를 던진다.
+        checkProovyAiHealth();
 
         // 7. Proovy-ai 요청 생성 (Proovy-ai StreamInput 스키마에 맞게 구성)
         ProovyAiRequest aiRequest = ProovyAiRequest.builder()
