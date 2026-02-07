@@ -5,7 +5,6 @@ import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteDetailResponse;
-import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.ToolListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
@@ -267,8 +266,13 @@ public class NoteController {
                     - VARIATION: 변형 문제 생성하기 - 유사 유형 변형 문제 생성
                     
                     **검색 기능**
-                    - query 파라미터로 도구 이름 검색 가능 (자동완성용)
+                    - query 파라미터로 도구 이름 또는 toolCode 검색 가능 (자동완성용)
                     - 검색어가 없으면 전체 활성화된 도구 목록 반환
+                    
+                    **사용 예시**
+                    - `GET /api/notes/tools` : 전체 도구 목록
+                    - `GET /api/notes/tools?query=그래` : "그래프"가 포함된 도구 검색
+                    - `GET /api/notes/tools?query=SOLUTION` : toolCode로 검색
                     """
     )
     @ApiResponses({

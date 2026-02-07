@@ -15,10 +15,12 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
     List<Tool> findByIsActiveTrueOrderByDisplayOrder();
 
     /**
-     * 도구 이름으로 검색 (자동완성용)
+     * 도구 이름 또는 toolCode로 검색 (자동완성용)
+     * @param query 검색어 (name 또는 toolCode에서 부분 일치 검색)
      */
     @Query("SELECT t FROM Tool t WHERE t.isActive = true " +
-           "AND LOWER(t.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
+           "AND (LOWER(t.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
+           "OR LOWER(t.toolCode) LIKE LOWER(CONCAT('%', :query, '%'))) " +
            "ORDER BY t.displayOrder")
     List<Tool> searchByNameQuery(@Param("query") String query);
 }
