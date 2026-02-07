@@ -97,7 +97,7 @@ jwt:
 # ===============================
 proovy:
   ai:
-    host: ${PROOVY_AI_HOST:http://localhost:8081}
+    host: ${PROOVY_AI_HOST:https://api.proovy.ai.kr/ai}
 
 ---
 # ===============================
