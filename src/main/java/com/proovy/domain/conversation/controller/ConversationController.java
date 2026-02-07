@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +32,9 @@ public class ConversationController {
 
     private final ChatService chatService;
 
-    @PostMapping(produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    // 정상 응답은 text/event-stream 으로 보내되,
+    // 예외(GlobalExceptionHandler)는 application/json 으로 내려갈 수 있도록 JSON 도 허용한다.
+    @PostMapping(produces = {MediaType.TEXT_EVENT_STREAM_VALUE, MediaType.APPLICATION_JSON_VALUE})
     @Operation(
             summary = "대화 생성 (SSE 스트리밍 또는 단건 응답)",
             description = """
