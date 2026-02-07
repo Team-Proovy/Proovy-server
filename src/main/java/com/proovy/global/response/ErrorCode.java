@@ -41,12 +41,6 @@ public enum ErrorCode {
     STORAGE4004("STORAGE4004", "허용되지 않은 파일 형식입니다.", HttpStatus.BAD_REQUEST),
     STORAGE4031("STORAGE4031", "자산 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
     STORAGE4005("STORAGE4005", "노트의 스토리지 용량(512MB)을 초과합니다.", HttpStatus.FORBIDDEN),
-    // Note
-    NOTE4001("NOTE4001", "노트 제목은 50자 이내로 입력해주세요.", HttpStatus.BAD_REQUEST),
-    NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),
-    NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
-    NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
-    NOTE4032("NOTE4032", "해당 노트에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     // Asset
     ASSET4001("ASSET4001", "지원하지 않는 파일 형식입니다. PDF, PNG, JPEG, WEBP만 업로드 가능합니다.", HttpStatus.BAD_REQUEST),
@@ -58,6 +52,18 @@ public enum ErrorCode {
     ASSET4007("ASSET4007", "S3에 파일이 업로드되지 않았습니다.", HttpStatus.BAD_REQUEST),
     ASSET4091("ASSET4091", "이미 확인된 자산입니다.", HttpStatus.CONFLICT),
     ASSET4003("ASSET4003", "PDF 파일만 미리보기가 가능합니다.", HttpStatus.BAD_REQUEST),
+
+    // Conversation (Chat)
+    CONV4041("CONV4041", "채팅 세션을 찾을 수 없거나 접근 권한이 없습니다.", HttpStatus.NOT_FOUND),
+    CONV4001("CONV4001", "잘못된 기능 값이 포함되어 있습니다.", HttpStatus.BAD_REQUEST),
+    CONV5001("CONV5001", "Proovy-ai 통신 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    CONV5002("CONV5002", "Proovy-ai 스트리밍 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+    // Note
+    NOTE4001("NOTE4001", "노트 제목은 50자 이내로 입력해주세요.", HttpStatus.BAD_REQUEST),
+    NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),
+    NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    NOTE4032("NOTE4032", "해당 노트에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     // Credit
     CREDIT4001("CREDIT4001", "날짜 형식이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),

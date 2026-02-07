@@ -8,6 +8,9 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
+/**
+ * Note 도메인 전용 MessageRepository
+ */
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
     /**
@@ -34,4 +37,3 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @Query("DELETE FROM Message m WHERE m.conversation.id IN :conversationIds")
     void deleteByConversationIdInBulk(@Param("conversationIds") List<Long> conversationIds);
 }
-

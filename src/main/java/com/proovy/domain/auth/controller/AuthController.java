@@ -73,10 +73,10 @@ public class AuthController {
     @Operation(
             operationId = "03_naverLogin",
             summary = "네이버 소셜 로그인",
-            description = "네이버 인가 코드와 state로 로그인합니다. 신규 유저는 회원가입 토큰을 반환합니다.")
+            description = "네이버 인가 코드로 로그인합니다. state는 프론트엔드에서 검증됩니다. 신규 유저는 회원가입 토큰을 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "state 불일치 (AUTH4002), 유효하지 않은 인증 코드 (AUTH4011)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "유효하지 않은 인증 코드 (AUTH4011)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "네이버 서버 오류 (AUTH5022)")
     })
     public ResponseEntity<ApiResponse<LoginResponse>> naverLogin(
