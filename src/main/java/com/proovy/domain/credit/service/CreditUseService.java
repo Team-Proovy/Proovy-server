@@ -8,10 +8,7 @@ import com.proovy.domain.credit.entity.CreditChangeType;
 import com.proovy.domain.credit.entity.CreditEventType;
 import com.proovy.domain.credit.entity.CreditHistory;
 import com.proovy.domain.credit.entity.CreditType;
-import com.proovy.domain.credit.repository.CreditBalanceRepository;
 import com.proovy.domain.credit.repository.CreditHistoryRepository;
-import com.proovy.global.exception.BusinessException;
-import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +21,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CreditUseService {
 
-    private final CreditBalanceRepository creditBalanceRepository;
+    private final CreditBalanceService creditBalanceService;
     private final CreditHistoryRepository creditHistoryRepository;
 
     // 기능별 기본 비용
@@ -53,10 +50,9 @@ public class CreditUseService {
     /**
      * 크레딧 잔액 조회
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public CreditBalanceResponse getBalance(Long userId, Integer checkCost) {
-        CreditBalance balance = creditBalanceRepository.findByUserId(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+        CreditBalance balance = creditBalanceService.getOrCreateBalance(userId);
 
         Integer totalAvailable = balance.getTotalAvailable();
         Boolean canUse = checkCost == null || totalAvailable >= checkCost;
@@ -79,8 +75,7 @@ public class CreditUseService {
      */
     @Transactional
     public CreditUseResponse useCredit(Long userId, CreditUseRequest request) {
-        CreditBalance balance = creditBalanceRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+        CreditBalance balance = creditBalanceService.getOrCreateBalanceForUpdate(userId);
 
         // 비용 계산
         int cost = calculateCost(request);

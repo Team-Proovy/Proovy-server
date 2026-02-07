@@ -5,7 +5,6 @@ import com.proovy.domain.credit.entity.CreditBalance;
 import com.proovy.domain.credit.entity.CreditChangeType;
 import com.proovy.domain.credit.entity.CreditHistory;
 import com.proovy.domain.credit.entity.CreditType;
-import com.proovy.domain.credit.repository.CreditBalanceRepository;
 import com.proovy.domain.credit.repository.CreditHistoryRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
@@ -31,7 +30,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CreditHistoryService {
 
-    private final CreditBalanceRepository creditBalanceRepository;
+    private final CreditBalanceService creditBalanceService;
     private final CreditHistoryRepository creditHistoryRepository;
 
     private static final int MAX_QUERY_DAYS = 90;
@@ -39,6 +38,7 @@ public class CreditHistoryService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final int DEFAULT_PAGE_SIZE = 20;
 
+    @Transactional
     public CreditHistoryResponse getCreditHistory(
             Long userId,
             Integer page,
@@ -62,8 +62,7 @@ public class CreditHistoryService {
         CreditType creditType = parseCreditType(creditTypeStr);
 
         // 4. 크레딧 잔액 조회
-        CreditBalance balance = creditBalanceRepository.findByUserId(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+        CreditBalance balance = creditBalanceService.getOrCreateBalance(userId);
 
         // 5. 크레딧 내역 조회
         Pageable pageable = PageRequest.of(validatedPage, validatedSize);
