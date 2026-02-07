@@ -27,8 +27,19 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     ) throws IOException {
         ErrorCode errorCode = (ErrorCode) request.getAttribute(JwtAuthenticationFilter.JWT_ERROR_ATTRIBUTE);
 
+        // JwtAuthenticationFilter 에서 명시적으로 설정한 오류 코드가 없다면,
+        // Authorization 헤더 존재 여부를 기준으로 보다 정확한 기본 코드를 결정한다.
         if (errorCode == null) {
-            errorCode = ErrorCode.AUTH4010;
+            String authHeader = request.getHeader("Authorization");
+
+            // 헤더가 아예 없으면 "토큰이 필요"한 상황으로 간주 (AUTH4010)
+            if (authHeader == null || authHeader.isBlank()) {
+                errorCode = ErrorCode.AUTH4010;
+            } else {
+                // 헤더는 있는데도 Authentication 실패가 났다면
+                // "유효하지 않은 토큰" 상황으로 간주 (AUTH4013)
+                errorCode = ErrorCode.AUTH4013;
+            }
         }
 
         log.warn("인증 실패 - URI: {}, 에러: {}", request.getRequestURI(), errorCode.getCode());

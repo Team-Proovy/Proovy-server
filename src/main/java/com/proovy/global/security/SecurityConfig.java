@@ -39,7 +39,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/health", "/actuator/health").permitAll()
+                    .requestMatchers("/health", "/actuator/health").permitAll()
+                    // 에러 디스패치(/error) 시에는 인증 필터가 개입하지 않도록 허용
+                    .requestMatchers("/error").permitAll()
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
                 )

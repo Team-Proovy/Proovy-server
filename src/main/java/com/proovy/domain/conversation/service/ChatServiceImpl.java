@@ -28,9 +28,11 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.net.ConnectException;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -60,6 +62,14 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional
     public Flux<ProovyAiStreamEvent> streamConversation(Long userId, ConversationRequest request) {
+        log.info("[Chat] streamConversation 시작 - userId: {}, textLength: {}, features: {}, assetIds: {}",
+            userId,
+            request.getText() != null ? request.getText().length() : 0,
+            request.getChosenFeatures(),
+            request.getMentionedAssetIds());
+
+        
+
         // 1. 사용자 검증
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
@@ -79,6 +89,9 @@ public class ChatServiceImpl implements ChatService {
                             .build();
                     return chatSessionRepository.save(newSession);
                 });
+
+        log.debug("[Chat] 사용 중인 ChatSession - id: {}, externalThreadId: {}",
+            chatSession.getId(), chatSession.getExternalThreadId());
 
         // 4. 사용자 메시지 저장
         JsonNode userContentJson = buildUserContentJson(request);
@@ -105,6 +118,9 @@ public class ChatServiceImpl implements ChatService {
         // 6. 자산 URL 변환
         List<String> filesUrl = convertAssetIdsToUrls(request.getMentionedAssetIds(), userId);
 
+        // 6.5. Proovy-ai 서버 상태를 사전에 한 번 체크하고, 연결이 불가능하면 바로 CONV5001 비즈니스 예외를 던진다.
+        checkProovyAiHealth();
+
         // 7. Proovy-ai 요청 생성 (Proovy-ai StreamInput 스키마에 맞게 구성)
         ProovyAiRequest aiRequest = ProovyAiRequest.builder()
             .message(request.getText())
@@ -118,7 +134,9 @@ public class ChatServiceImpl implements ChatService {
 
         // 8. SSE 스트리밍 호출
         final StringBuilder contentBuilder = new StringBuilder();
-        
+        log.info("[Chat] Proovy-ai 스트리밍 호출 준비 - sessionId: {}, userId: {}",
+            chatSession.getId(), userId);
+
         return callProovyAiStream(aiRequest)
                 .doOnNext(event -> {
                     Map<String, Object> data = event.getData();
@@ -157,8 +175,28 @@ public class ChatServiceImpl implements ChatService {
                 })
                 .onErrorResume(error -> {
                     log.error("Proovy-ai streaming failed", error);
-                    return Flux.error(new BusinessException(ErrorCode.CONV5002, 
-                            "스트리밍 중 오류 발생: " + error.getMessage()));
+
+                    // Proovy-ai 서버 연결 자체가 안 되는 경우 (예: Connection refused)
+                    if (error instanceof WebClientRequestException webClientError) {
+                        Throwable cause = webClientError.getCause();
+                        if (cause instanceof ConnectException) {
+                            return Flux.error(new BusinessException(
+                                    ErrorCode.CONV5001,
+                                    "Proovy-ai 서버에 연결할 수 없습니다: " + cause.getMessage()
+                            ));
+                        }
+                    }
+
+                    // 이미 비즈니스 예외로 래핑된 경우 그대로 전달
+                    if (error instanceof BusinessException businessException) {
+                        return Flux.error(businessException);
+                    }
+
+                    // 그 외 일반적인 스트리밍 오류는 CONV5002로 래핑
+                    return Flux.error(new BusinessException(
+                            ErrorCode.CONV5002,
+                            "스트리밍 중 오류 발생: " + error.getMessage()
+                    ));
                 });
     }
 
@@ -189,6 +227,42 @@ public class ChatServiceImpl implements ChatService {
                 .flatMap(this::parseSseEvent)
                 .doOnNext(event -> log.debug("Received event: {}", event.getEvent()))
                 .takeUntil(event -> "[DONE]".equals(event.getEvent()));
+    }
+
+    /**
+     * Proovy-ai /health 헬스 체크를 사전에 수행하여, 서버가 아예 죽어있는 경우에는
+     * SSE 스트리밍을 시작하기 전에 즉시 CONV5001 비즈니스 예외를 발생시킨다.
+     */
+    private void checkProovyAiHealth() {
+        String healthUrl = proovyAiHost + "/health";
+        log.debug("[Chat] Proovy-ai 헬스 체크 호출: {}", healthUrl);
+
+        try {
+            webClient.get()
+                    .uri(healthUrl)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .timeout(Duration.ofSeconds(2))
+                    .block();
+        } catch (Exception e) {
+            log.error("[Chat] Proovy-ai 헬스 체크 실패", e);
+
+            if (e instanceof WebClientRequestException webClientError) {
+                Throwable cause = webClientError.getCause();
+                if (cause instanceof ConnectException) {
+                    throw new BusinessException(
+                            ErrorCode.CONV5001,
+                            "Proovy-ai 서버에 연결할 수 없습니다: " + cause.getMessage()
+                    );
+                }
+            }
+
+            throw new BusinessException(
+                    ErrorCode.CONV5001,
+                    "Proovy-ai 헬스 체크 중 오류가 발생했습니다: " + e.getMessage()
+            );
+        }
     }
 
     /**
