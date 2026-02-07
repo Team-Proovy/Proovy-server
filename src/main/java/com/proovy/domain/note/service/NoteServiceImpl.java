@@ -421,7 +421,7 @@ public class NoteServiceImpl implements NoteService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
 
         if (!note.getUser().getId().equals(userId)) {
-            throw new BusinessException(ErrorCode.NOTE4032);
+            throw new BusinessException(ErrorCode.NOTE4031);
         }
 
         // 2. 통계용 정보 수집 (엔티티 조회가 아닌 count/sum 쿼리 사용)
@@ -716,7 +716,7 @@ public class NoteServiceImpl implements NoteService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
 
         if (!note.getUser().getId().equals(userId)) {
-            throw new BusinessException(ErrorCode.NOTE4032);
+            throw new BusinessException(ErrorCode.NOTE4031);
         }
 
         // 2. 자산 목록 조회 (검색어가 있으면 파일명으로 필터링)

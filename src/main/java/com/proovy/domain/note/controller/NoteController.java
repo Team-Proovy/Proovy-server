@@ -188,7 +188,7 @@ public class NoteController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
-                    description = "권한 없음 (NOTE4032)"
+                    description = "노트 접근 권한 없음 (NOTE4031)"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
@@ -324,7 +324,7 @@ public class NoteController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
-                    description = "노트 접근 권한 없음 (NOTE4032)"
+                    description = "노트 접근 권한 없음 (NOTE4031)"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
