@@ -6,7 +6,6 @@ import com.proovy.domain.credit.entity.CreditHistory;
 import com.proovy.domain.credit.entity.CreditChangeType;
 import com.proovy.domain.credit.entity.CreditEventType;
 import com.proovy.domain.credit.entity.CreditType;
-import com.proovy.domain.credit.repository.CreditBalanceRepository;
 import com.proovy.domain.credit.repository.CreditHistoryRepository;
 import com.proovy.domain.user.entity.User;
 import com.proovy.global.exception.BusinessException;
@@ -22,7 +21,6 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,7 +34,7 @@ class CreditHistoryServiceTest {
     private CreditHistoryService creditHistoryService;
 
     @Mock
-    private CreditBalanceRepository creditBalanceRepository;
+    private CreditBalanceService creditBalanceService;
 
     @Mock
     private CreditHistoryRepository creditHistoryRepository;
@@ -70,7 +68,7 @@ class CreditHistoryServiceTest {
 
         Page<CreditHistory> historyPage = new PageImpl<>(List.of(history));
 
-        when(creditBalanceRepository.findByUserId(userId)).thenReturn(Optional.of(balance));
+        when(creditBalanceService.getOrCreateBalance(userId)).thenReturn(balance);
         when(creditHistoryRepository.findByUserIdWithFilters(
                 eq(userId), any(), any(), any(), any(), any(Pageable.class)
         )).thenReturn(historyPage);

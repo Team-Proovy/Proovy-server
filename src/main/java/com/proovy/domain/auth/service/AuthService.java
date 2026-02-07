@@ -19,6 +19,7 @@ import com.proovy.domain.auth.provider.KakaoOAuthClient;
 import com.proovy.domain.auth.provider.NaverOAuthClient;
 import com.proovy.domain.auth.repository.NaverStateRepository;
 import com.proovy.domain.auth.repository.RefreshTokenRepository;
+import com.proovy.domain.credit.service.CreditBalanceService;
 import com.proovy.domain.user.entity.OAuthProvider;
 import com.proovy.domain.user.entity.User;
 import com.proovy.domain.user.repository.UserRepository;
@@ -52,6 +53,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final AccessTokenBlacklistService accessTokenBlacklistService;
     private final StringRedisTemplate redisTemplate;
+    private final CreditBalanceService creditBalanceService;
 
     @Value("${oauth.naver.state-ttl:300}")
     private Long stateTtl;
@@ -240,6 +242,10 @@ public class AuthService {
         User savedUser = userRepository.save(user);
         log.info("신규 유저 가입 완료, userId: {}, provider: {}", savedUser.getId(), provider);
 
+        // 3-1. 크레딧 잔액 초기화 (일일 100 + 가입 보너스 100)
+        creditBalanceService.createSignupBalance(savedUser);
+        log.info("크레딧 잔액 초기화 완료, userId: {}, dailyFree: 100, freeCredit: 100", savedUser.getId());
+
         // 4. JWT 토큰 발급
         TokenDto tokens = jwtTokenProvider.generateTokens(savedUser.getId());
         saveRefreshToken(savedUser.getId(), tokens.refreshToken());
@@ -258,7 +264,7 @@ public class AuthService {
         return SignupCompleteResponse.builder()
                 .user(userDto)
                 .token(tokens)
-                .welcomeCredit(200)
+                .welcomeCredit(100)
                 .build();
     }
 
