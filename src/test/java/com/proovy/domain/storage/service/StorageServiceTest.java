@@ -110,7 +110,6 @@ class StorageServiceTest {
             given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
             given(noteRepository.findByUserIdOrderByCreatedAtDesc(userId)).willReturn(List.of(testNote));
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of(testAsset));
-            given(s3Service.getThumbnailUrl(any())).willReturn(null);
 
             // when
             StorageResponse response = storageService.getStorageUsage(userId, null);
@@ -132,7 +131,6 @@ class StorageServiceTest {
             given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
             given(noteRepository.searchByTitleKeyword(userId, keyword)).willReturn(List.of(testNote));
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of(testAsset));
-            given(s3Service.getThumbnailUrl(any())).willReturn(null);
 
             // when
             StorageResponse response = storageService.getStorageUsage(userId, keyword);
@@ -238,7 +236,6 @@ class StorageServiceTest {
             given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
             given(noteRepository.findByUserIdOrderByCreatedAtDesc(userId)).willReturn(List.of(testNote));
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of(asset1, asset2));
-            given(s3Service.getThumbnailUrl(any())).willReturn(null);
 
             // when
             StorageResponse response = storageService.getStorageUsage(userId, null);
