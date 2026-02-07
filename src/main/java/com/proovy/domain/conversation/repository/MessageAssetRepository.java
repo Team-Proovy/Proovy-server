@@ -38,5 +38,7 @@ public interface MessageAssetRepository extends JpaRepository<MessageAsset, Long
     @Modifying
     @Query("DELETE FROM MessageAsset ma WHERE ma.message.id IN :messageIds")
     void deleteByMessageIdInBulk(@Param("messageIds") List<Long> messageIds);
+
+    List<MessageAsset> findByMessageIdIn(List<Long> messageIds);
 }
 
