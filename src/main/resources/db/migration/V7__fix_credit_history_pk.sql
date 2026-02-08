@@ -1,14 +1,20 @@
--- 구버전 credit_history(change_type 컬럼 없는)가 있으면 DROP 후 재생성
+-- credit_history PK/컬럼 불일치 시 재생성
 DO $$
 BEGIN
     IF to_regclass('public.credit_history') IS NOT NULL
-       AND NOT EXISTS (
+       AND (NOT EXISTS (
             SELECT 1
             FROM information_schema.columns
             WHERE table_schema = 'public'
               AND table_name = 'credit_history'
               AND column_name = 'change_type'
-       )
+       ) OR NOT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'credit_history'
+              AND column_name = 'history_id'
+       ))
     THEN
         DROP TABLE public.credit_history CASCADE;
     END IF;

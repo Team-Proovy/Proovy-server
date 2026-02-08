@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.9'
 	id 'io.spring.dependency-management' version '1.1.7'
+    id "org.flywaydb.flyway" version "11.7.2"
 }
 
 group = 'com.proovy'
@@ -22,6 +23,12 @@ configurations {
 
 repositories {
 	mavenCentral()
+}
+
+flyway {
+    url = System.getProperty("flyway.url")
+    user = System.getProperty("flyway.user")
+    password = System.getProperty("flyway.password")
 }
 
 dependencies {

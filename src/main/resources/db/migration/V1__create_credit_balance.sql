@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS credit_balance (
-    balance_id BIGSERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,
     daily_free_credit INTEGER NOT NULL DEFAULT 0,
     daily_free_limit INTEGER NOT NULL DEFAULT 100,
