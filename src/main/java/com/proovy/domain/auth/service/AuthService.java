@@ -240,17 +240,26 @@ public class AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("신규 유저 가입 완료, userId: {}, provider: {}", savedUser.getId(), provider);
+        log.info("신규 유저 가입 완료, userId: {}, provider: {}, createdAt: {}", savedUser.getId(), provider, savedUser.getCreatedAt());
 
         // 3-1. 크레딧 잔액 초기화 (일일 100 + 가입 보너스 100)
-        creditBalanceService.createSignupBalance(savedUser);
-        log.info("크레딧 잔액 초기화 완료, userId: {}, dailyFree: 100, freeCredit: 100", savedUser.getId());
+        try {
+            creditBalanceService.createSignupBalance(savedUser);
+            log.info("크레딧 잔액 초기화 완료, userId: {}", savedUser.getId());
+        } catch (Exception e) {
+            log.error("크레딧 잔액 초기화 실패, userId: {}, error: {}", savedUser.getId(), e.getMessage(), e);
+            throw e;
+        }
 
         // 4. JWT 토큰 발급
         TokenDto tokens = jwtTokenProvider.generateTokens(savedUser.getId());
         saveRefreshToken(savedUser.getId(), tokens.refreshToken());
 
         // 5. 응답 생성
+        String createdAtStr = savedUser.getCreatedAt() != null
+                ? savedUser.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                : LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
         SignupCompleteResponse.SignupUserDto userDto = SignupCompleteResponse.SignupUserDto.builder()
                 .userId(savedUser.getId())
                 .email(savedUser.getEmail())
@@ -258,7 +267,7 @@ public class AuthService {
                 .nickname(savedUser.getNickname())
                 .department(savedUser.getDepartment())
                 .profileImageUrl(savedUser.getProfileImageUrl())
-                .createdAt(savedUser.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                .createdAt(createdAtStr)
                 .build();
 
         return SignupCompleteResponse.builder()

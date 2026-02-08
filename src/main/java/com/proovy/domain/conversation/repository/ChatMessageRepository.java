@@ -2,6 +2,9 @@ package com.proovy.domain.conversation.repository;
 
 import com.proovy.domain.conversation.entity.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -16,4 +19,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
      * 특정 세션의 메시지 개수 조회
      */
     long countByChatSessionId(Long chatSessionId);
+
+    @Modifying
+    @Query("DELETE FROM ChatMessage cm WHERE cm.chatSession.user.id = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }
