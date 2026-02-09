@@ -23,6 +23,12 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
 
   mvc:
     async:
@@ -108,6 +114,20 @@ proovy:
     host: ${PROOVY_AI_HOST:https://api.proovy.ai.kr/ai}
   api:
     public-base-url: ${PROOVY_API_BASE_URL:}
+
+internal:
+  api:
+    token: ${INTERNAL_API_TOKEN:your-secure-random-token-change-this}
+    port: 8081
+
+embedding:
+  redis:
+    stream:
+      key: embedding_jobs
+      consumer-group: spring-publisher
+    lock:
+      prefix: emb:lock
+      ttl: 3600
 
 ---
 # ===============================
