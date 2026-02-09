@@ -51,8 +51,8 @@ public class SubscriptionService {
         // 4. 플랜 업그레이드 가능 여부 검증
         validateUpgrade(currentPlan.getPlanType(), newPlanType);
 
-        // 5. 기존 플랜 비활성화 (FREE가 아니고 DB에 저장된 경우만)
-        if (currentPlan.getPlanType() != PlanType.FREE && currentPlan.getId() != null) {
+        // 5. 기존 플랜 비활성화 (DB에 저장된 경우만)
+        if (currentPlan.getId() != null) {
             currentPlan.deactivate();
         }
 
