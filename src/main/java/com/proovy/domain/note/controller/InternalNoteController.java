@@ -1,7 +1,6 @@
 package com.proovy.domain.note.controller;
 
 import com.proovy.domain.embedding.service.NoteEmbeddingService;
-import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.global.util.HashUtils;
 import jakarta.validation.Valid;
@@ -41,15 +40,15 @@ public class InternalNoteController {
     public ResponseEntity<EmbeddingSourceResponse> getEmbeddingSource(
             @PathVariable Long noteId
     ) {
-        Note note = noteRepository.findById(noteId)
+        NoteRepository.EmbeddingSourceProjection source = noteRepository.findEmbeddingSourceById(noteId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found"));
 
-        String content = note.getContentMd() == null ? "" : note.getContentMd();
+        String content = source.getContentMd() == null ? "" : source.getContentMd();
         String contentHash = HashUtils.sha256(content);
 
         return ResponseEntity.ok(EmbeddingSourceResponse.builder()
-                .noteId(note.getId())
-                .userId(note.getUser().getId())
+                .noteId(source.getNoteId())
+                .userId(source.getUserId())
                 .content(content)
                 .contentHash(contentHash)
                 .model(DEFAULT_MODEL)
@@ -61,10 +60,10 @@ public class InternalNoteController {
             @PathVariable Long noteId,
             @RequestBody @Valid UpsertEmbeddingRequest request
     ) {
-        Note note = noteRepository.findById(noteId)
+        NoteRepository.EmbeddingSourceProjection source = noteRepository.findEmbeddingSourceById(noteId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Note not found"));
 
-        String currentContent = note.getContentMd() == null ? "" : note.getContentMd();
+        String currentContent = source.getContentMd() == null ? "" : source.getContentMd();
         String currentHash = HashUtils.sha256(currentContent);
         if (!currentHash.equals(request.getContentHash())) {
             log.warn("노트 내용 변경 감지. 임베딩 저장 취소: noteId={}", noteId);
@@ -73,7 +72,7 @@ public class InternalNoteController {
 
         embeddingService.upsertEmbedding(
                 noteId,
-                note.getUser().getId(),
+                source.getUserId(),
                 request.getContentHash(),
                 request.getModel(),
                 request.getVector()

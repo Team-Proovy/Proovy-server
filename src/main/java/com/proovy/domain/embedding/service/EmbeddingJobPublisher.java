@@ -32,6 +32,15 @@ public class EmbeddingJobPublisher {
     private long lockTtl;
 
     public void publishEmbeddingJob(Long noteId, String contentHash, String model) {
+        if (noteId == null) {
+            log.warn("임베딩 작업 발행 생략: noteId가 null입니다.");
+            return;
+        }
+        if (contentHash == null || contentHash.isBlank()) {
+            log.warn("임베딩 작업 발행 생략: contentHash가 비어 있습니다. noteId={}", noteId);
+            return;
+        }
+
         String resolvedModel = (model == null || model.isBlank()) ? DEFAULT_MODEL : model;
         if (TransactionSynchronizationManager.isSynchronizationActive()
                 && TransactionSynchronizationManager.isActualTransactionActive()) {
