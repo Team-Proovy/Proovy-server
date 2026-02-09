@@ -226,8 +226,9 @@ public class ConversationController {
         Long userId = userPrincipal.getUserId();
         log.info("Conversation search - userId: {}, query: {}", userId, query);
 
-        // 페이지 크기 제한
-        size = Math.min(size, 100);
+        // 입력값 검증 및 정규화
+        page = Math.max(0, page);
+        size = Math.max(1, Math.min(size, 100));
         Pageable pageable = PageRequest.of(page, size);
 
         ConversationSearchResponse response = conversationQueryService.searchConversations(

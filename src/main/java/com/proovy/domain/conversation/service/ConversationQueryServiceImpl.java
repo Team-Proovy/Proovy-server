@@ -10,6 +10,7 @@ import com.proovy.domain.conversation.dto.response.ConversationSearchResponse;
 import com.proovy.domain.conversation.entity.Conversation;
 import com.proovy.domain.conversation.entity.Message;
 import com.proovy.domain.conversation.entity.MessageRole;
+import com.proovy.domain.conversation.entity.MessageTool;
 import com.proovy.domain.conversation.repository.ConversationRepository;
 import com.proovy.domain.conversation.repository.MessageAssetRepository;
 import com.proovy.domain.conversation.repository.MessageRepository;
@@ -97,7 +98,44 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
     private String generateCanvasS3Key(Long userId, String fileName) {
         String uuid = UUID.randomUUID().toString();
-        return String.format("users/%d/canvas/%s_%s", userId, uuid, fileName);
+        String sanitizedName = sanitizeFileName(fileName);
+        return String.format("users/%d/canvas/%s_%s", userId, uuid, sanitizedName);
+    }
+
+    /**
+     * 파일명 sanitize - 경로 조작 및 부적절한 문자 방지
+     */
+    private String sanitizeFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return "unnamed";
+        }
+
+        // 디렉토리 구분자 제거
+        String sanitized = fileName.replace("/", "").replace("\\", "");
+
+        // .. 세그먼트 제거
+        sanitized = sanitized.replace("..", "");
+
+        // 허용 문자만 유지 (영문, 숫자, 하이픈, 언더스코어, 점, 한글)
+        sanitized = sanitized.replaceAll("[^a-zA-Z0-9가-힣._-]", "_");
+
+        // 연속된 언더스코어 정리
+        sanitized = sanitized.replaceAll("_+", "_");
+
+        // 앞뒤 언더스코어/점 제거
+        sanitized = sanitized.replaceAll("^[_.-]+|[_.-]+$", "");
+
+        // 최대 길이 제한 (100자)
+        if (sanitized.length() > 100) {
+            sanitized = sanitized.substring(0, 100);
+        }
+
+        // 결과가 비어있으면 기본값
+        if (sanitized.isBlank()) {
+            return "unnamed";
+        }
+
+        return sanitized;
     }
 
     @Override
@@ -135,21 +173,31 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             return buildEmptySearchResponse(query, pageable, System.currentTimeMillis() - startTime);
         }
 
-        // Full-Text Search 수행
-        List<ConversationSearchResponse.ConversationSearchItem> items =
-                searchConversationsWithFullText(userNoteIds, query, toolCode, startDate, endDate, pageable);
+        // 검색 수행 (한 번만 호출하여 전체 결과 획득)
+        List<ConversationSearchResponse.ConversationSearchItem> allResults =
+                searchConversationsWithFilter(userNoteIds, query, toolCode, startDate, endDate);
 
-        long totalCount = countSearchResults(userNoteIds, query, toolCode, startDate, endDate);
+        long totalCount = allResults.size();
         long searchTimeMs = System.currentTimeMillis() - startTime;
 
+        // 페이징 적용
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), allResults.size());
+        List<ConversationSearchResponse.ConversationSearchItem> pagedItems =
+                start >= allResults.size() ? Collections.emptyList() : allResults.subList(start, end);
+
+        int totalPages = pageable.getPageSize() > 0
+                ? (int) Math.ceil((double) totalCount / pageable.getPageSize())
+                : 0;
+
         return ConversationSearchResponse.builder()
-                .conversations(items)
+                .conversations(pagedItems)
                 .pageInfo(ConversationSearchResponse.PageInfo.builder()
                         .page(pageable.getPageNumber())
                         .size(pageable.getPageSize())
                         .totalElements(totalCount)
-                        .totalPages((int) Math.ceil((double) totalCount / pageable.getPageSize()))
-                        .hasNext(pageable.getPageNumber() < (int) Math.ceil((double) totalCount / pageable.getPageSize()) - 1)
+                        .totalPages(totalPages)
+                        .hasNext(pageable.getPageNumber() < totalPages - 1)
                         .build())
                 .searchMetadata(ConversationSearchResponse.SearchMetadata.builder()
                         .query(query)
@@ -159,15 +207,19 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                 .build();
     }
 
-    private List<ConversationSearchResponse.ConversationSearchItem> searchConversationsWithFullText(
+    /**
+     * 대화 검색 (ILIKE 기반 필터링)
+     * 현재는 메모리 기반 필터링을 사용합니다.
+     * TODO: PostgreSQL tsvector/tsquery로 최적화 시 Native Query로 전환
+     */
+    private List<ConversationSearchResponse.ConversationSearchItem> searchConversationsWithFilter(
             List<Long> noteIds,
             String query,
             String toolCode,
             LocalDate startDate,
-            LocalDate endDate,
-            Pageable pageable
+            LocalDate endDate
     ) {
-        // Conversation과 Message를 조인하여 검색
+        // Conversation 조회
         List<Conversation> conversations = conversationRepository.findByNoteIdIn(noteIds);
 
         if (conversations.isEmpty()) {
@@ -178,12 +230,28 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                 .map(Conversation::getId)
                 .collect(Collectors.toList());
 
-        // 메시지 조회
+        // 메시지 일괄 조회
         List<Message> messages = messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds);
 
         // 메시지를 Conversation별로 그룹핑
         Map<Long, List<Message>> messagesByConversation = messages.stream()
                 .collect(Collectors.groupingBy(m -> m.getConversation().getId()));
+
+        // 모든 메시지 ID 수집
+        List<Long> allMessageIds = messages.stream()
+                .map(Message::getId)
+                .collect(Collectors.toList());
+
+        // 도구 코드 일괄 조회 (N+1 방지)
+        Map<Long, Set<String>> toolCodesByMessageId = new HashMap<>();
+        if (toolCode != null && !allMessageIds.isEmpty()) {
+            List<MessageTool> allTools = messageToolRepository.findByMessageIdIn(allMessageIds);
+            for (MessageTool tool : allTools) {
+                toolCodesByMessageId
+                        .computeIfAbsent(tool.getMessage().getId(), k -> new HashSet<>())
+                        .add(tool.getToolCode());
+            }
+        }
 
         // 검색어로 필터링 및 결과 생성
         String lowerQuery = query.toLowerCase();
@@ -222,12 +290,12 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                 continue;
             }
 
-            // 도구 코드 필터링
+            // 도구 코드 필터링 (배치 조회 결과 사용)
             if (toolCode != null) {
-                List<Long> messageIds = convMessages.stream()
-                        .map(Message::getId)
-                        .collect(Collectors.toList());
-                boolean hasToolCode = messageToolRepository.existsByMessageIdInAndToolCode(messageIds, toolCode);
+                boolean hasToolCode = convMessages.stream()
+                        .anyMatch(m -> toolCodesByMessageId
+                                .getOrDefault(m.getId(), Collections.emptySet())
+                                .contains(toolCode));
                 if (!hasToolCode) {
                     continue;
                 }
@@ -243,7 +311,7 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                     .userMessage(buildMessageInfo(userMessage, query))
                     .assistantMessage(buildMessageInfo(assistantMessage, query))
                     .mentionedFiles(getMentionedFiles(convMessages))
-                    .mentionedTools(getMentionedTools(convMessages))
+                    .mentionedTools(getMentionedToolsFromCache(convMessages, toolCodesByMessageId))
                     .relevance(calculateRelevance(userMessage, assistantMessage, query))
                     .createdAt(conv.getCreatedAt())
                     .build());
@@ -252,15 +320,21 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
         // 관련도 순으로 정렬
         results.sort((a, b) -> Double.compare(b.getRelevance(), a.getRelevance()));
 
-        // 페이징 적용
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), results.size());
+        return results;
+    }
 
-        if (start >= results.size()) {
-            return Collections.emptyList();
+    /**
+     * 캐시된 도구 코드에서 도구 목록 반환 (N+1 방지)
+     */
+    private List<String> getMentionedToolsFromCache(List<Message> messages, Map<Long, Set<String>> toolCodesByMessageId) {
+        if (toolCodesByMessageId.isEmpty()) {
+            return getMentionedTools(messages);
         }
 
-        return results.subList(start, end);
+        return messages.stream()
+                .flatMap(m -> toolCodesByMessageId.getOrDefault(m.getId(), Collections.emptySet()).stream())
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private ConversationSearchResponse.MessageInfo buildMessageInfo(Message message, String query) {
@@ -364,19 +438,6 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             index += query.length();
         }
         return count;
-    }
-
-    private long countSearchResults(
-            List<Long> noteIds,
-            String query,
-            String toolCode,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        // 간단한 카운트를 위해 전체 검색 후 카운트
-        // 실제 프로덕션에서는 별도의 count 쿼리 최적화 필요
-        return searchConversationsWithFullText(noteIds, query, toolCode, startDate, endDate,
-                Pageable.unpaged()).size();
     }
 
     private ConversationSearchResponse buildEmptySearchResponse(String query, Pageable pageable, long searchTimeMs) {
