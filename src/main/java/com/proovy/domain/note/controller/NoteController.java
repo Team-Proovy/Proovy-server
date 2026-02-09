@@ -13,6 +13,9 @@ import com.proovy.global.response.ApiResponse;
 import com.proovy.global.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -48,7 +51,30 @@ public class NoteController {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
-                    description = "노트 생성 성공"
+                    description = "노트 생성 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResponse.class),
+                            examples = @ExampleObject(
+                                    name = "노트 생성 성공 예시",
+                                    summary = "새 노트 생성 성공 응답",
+                                    value = """
+                                            {
+                                                \"isSuccess\": true,
+                                                \"code\": \"COMMON201\",
+                                                \"message\": \"노트가 생성되었습니다.\",
+                                                \"result\": {
+                                                    \"noteId\": 1,
+                                                    \"title\": \"새 노트 2026-02-09 19:19\",
+                                                    \"titleGeneratedBy\": \"SYSTEM\",
+                                                    \"conversationLimit\": 50,
+                                                    \"firstConversation\": null,
+                                                    \"createdAt\": \"2026-02-09T19:19:20.8583209\"
+                                                }
+                                            }
+                                            """
+                            )
+                    )
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
