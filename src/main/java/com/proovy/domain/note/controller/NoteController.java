@@ -13,6 +13,9 @@ import com.proovy.global.response.ApiResponse;
 import com.proovy.global.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -34,37 +37,52 @@ public class NoteController {
     @Operation(
             summary = "새 노트 생성",
             description = """
-                    첫 메시지를 전송하면 자동으로 새 노트가 생성됩니다.
-                    
-                    노트 제목은 AI가 대화 내용을 요약하여 자동 생성합니다.
-                    (현재는 임시로 첫 메시지를 제목으로 사용)
-                    
+                    새 노트를 생성합니다.
+
+                    - 이 API는 노트 리소스만 생성하며, 대화/메시지는 생성하지 않습니다.
+                    - 요청 본문에 제목을 전달하지 않으면 서버에서 현재 시각을 포함한 더미 제목을 자동으로 생성합니다.
+
                     **생성 제한 (요금제별)**
                     - Free: 2개
                     - Standard: 10개
                     - Pro: 20개
-                    
-                    **멘션 기능**
-                    - `#` 파일 멘션: mentionedAssetIds
-                    - `@` 도구 멘션: mentionedToolCodes (SOLUTION, GRAPH, VARIATION)
                     """
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
-                    description = "노트 생성 성공"
+                    description = "노트 생성 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ApiResponse.class),
+                            examples = @ExampleObject(
+                                    name = "노트 생성 성공 예시",
+                                    summary = "새 노트 생성 성공 응답",
+                                    value = """
+                                            {
+                                                \"isSuccess\": true,
+                                                \"code\": \"COMMON201\",
+                                                \"message\": \"노트가 생성되었습니다.\",
+                                                \"result\": {
+                                                    \"noteId\": 1,
+                                                    \"title\": \"새 노트 2026-02-09 19:19\",
+                                                    \"titleGeneratedBy\": \"SYSTEM\",
+                                                    \"conversationLimit\": 50,
+                                                    \"firstConversation\": null,
+                                                    \"createdAt\": \"2026-02-09T19:19:20.8583209\"
+                                                }
+                                            }
+                                            """
+                            )
+                    )
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "메시지 내용 없음 (NOTE4002), 메시지 길이 초과 (NOTE4003), 유효하지 않은 도구 코드 (TOOL4001)"
+                    description = "잘못된 요청 (유효성 검사 실패 등)"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
                     description = "노트 생성 한도 초과 (NOTE4031)"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404",
-                    description = "존재하지 않는 파일 (ASSET4041)"
             )
     })
     public ApiResponse<CreateNoteResponse> createNote(
