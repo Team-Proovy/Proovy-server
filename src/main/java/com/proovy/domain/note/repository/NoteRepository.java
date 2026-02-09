@@ -32,4 +32,10 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM Note n WHERE n.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);
+
+    /**
+     * 특정 사용자의 모든 노트 ID 조회
+     */
+    @Query("SELECT n.id FROM Note n WHERE n.user.id = :userId")
+    List<Long> findIdsByUserId(@Param("userId") Long userId);
 }
