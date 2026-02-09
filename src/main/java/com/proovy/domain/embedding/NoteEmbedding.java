@@ -42,7 +42,7 @@ public class NoteEmbedding {
 
     @Access(AccessType.FIELD)
     @Column(name = "vector", nullable = false, columnDefinition = "vector(1536)")
-    @ColumnTransformer(write = "?::vector")
+    @ColumnTransformer(read = "vector::text", write = "?::vector")
     private String vector;
 
     @Column(name = "created_at", nullable = false, updatable = false)

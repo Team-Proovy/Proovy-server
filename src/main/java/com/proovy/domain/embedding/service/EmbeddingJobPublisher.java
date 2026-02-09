@@ -7,6 +7,8 @@ import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Duration;
 import java.util.Map;
@@ -30,12 +32,29 @@ public class EmbeddingJobPublisher {
     private long lockTtl;
 
     public void publishEmbeddingJob(Long noteId, String contentHash, String model) {
-        try {
-            String lockKey = String.format("%s:%d:%s", lockPrefix, noteId, contentHash);
-            Boolean lockAcquired = redisTemplate.opsForValue()
-                    .setIfAbsent(lockKey, "1", Duration.ofSeconds(lockTtl));
+        String resolvedModel = (model == null || model.isBlank()) ? DEFAULT_MODEL : model;
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    publishNow(noteId, contentHash, resolvedModel);
+                }
+            });
+            return;
+        }
 
-            if (Boolean.FALSE.equals(lockAcquired)) {
+        publishNow(noteId, contentHash, resolvedModel);
+    }
+
+    private void publishNow(Long noteId, String contentHash, String model) {
+        String lockKey = String.format("%s:%d:%s", lockPrefix, noteId, contentHash);
+        boolean lockAcquired = false;
+        try {
+            lockAcquired = Boolean.TRUE.equals(
+                    redisTemplate.opsForValue().setIfAbsent(lockKey, "1", Duration.ofSeconds(lockTtl))
+            );
+            if (!lockAcquired) {
                 log.info("임베딩 작업 중복 감지. 발행 생략: noteId={}, hash={}", noteId, contentHash);
                 return;
             }
@@ -43,7 +62,7 @@ public class EmbeddingJobPublisher {
             Map<String, String> message = Map.of(
                     "noteId", String.valueOf(noteId),
                     "contentHash", contentHash,
-                    "model", (model == null || model.isBlank()) ? DEFAULT_MODEL : model,
+                    "model", model,
                     "timestamp", String.valueOf(System.currentTimeMillis())
             );
 
@@ -51,9 +70,15 @@ public class EmbeddingJobPublisher {
                     .add(StreamRecords.newRecord()
                             .ofStrings(message)
                             .withStreamKey(streamKey));
+            if (recordId == null) {
+                throw new IllegalStateException("Redis stream recordId is null");
+            }
 
             log.info("임베딩 작업 발행 완료: noteId={}, recordId={}", noteId, recordId);
         } catch (Exception e) {
+            if (lockAcquired) {
+                redisTemplate.delete(lockKey);
+            }
             log.error("임베딩 작업 발행 실패: noteId={}", noteId, e);
         }
     }

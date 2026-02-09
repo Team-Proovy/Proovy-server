@@ -117,7 +117,7 @@ proovy:
 
 internal:
   api:
-    token: ${INTERNAL_API_TOKEN:your-secure-random-token-change-this}
+    token: ${INTERNAL_API_TOKEN}
     port: 8081
 
 embedding:
