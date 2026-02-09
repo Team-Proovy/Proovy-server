@@ -53,4 +53,8 @@ public class UserPlan {
     public int getStorageLimitMb() {
         return planType.getStorageLimitMb();
     }
+
+    public void deactivate() {
+        this.isActive = false;
+    }
 }
