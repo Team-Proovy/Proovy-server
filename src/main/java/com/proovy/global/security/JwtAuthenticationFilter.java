@@ -35,7 +35,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String INTERNAL_PATH = "/internal";
+    private static final String INTERNAL_PATH_PREFIX = "/internal/";
     public static final String JWT_ERROR_ATTRIBUTE = "jwtError";
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        if (path == null) {
+            return false;
+        }
+        return INTERNAL_PATH.equals(path) || path.startsWith(INTERNAL_PATH_PREFIX);
+    }
 
     @Override
     protected void doFilterInternal(
