@@ -30,15 +30,19 @@ public class UserPlan {
     @Column(name = "expired_at")
     private LocalDateTime expiredAt;
 
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt;
+
     @Column(name = "is_active")
     private Boolean isActive = true;
 
     @Builder
-    public UserPlan(User user, PlanType planType, LocalDateTime startedAt, LocalDateTime expiredAt, Boolean isActive) {
+    public UserPlan(User user, PlanType planType, LocalDateTime startedAt, LocalDateTime expiredAt, LocalDateTime canceledAt, Boolean isActive) {
         this.user = user;
         this.planType = planType != null ? planType : PlanType.FREE;
         this.startedAt = startedAt;
         this.expiredAt = expiredAt;
+        this.canceledAt = canceledAt;
         this.isActive = isActive != null ? isActive : true;
     }
 
@@ -56,5 +60,10 @@ public class UserPlan {
 
     public void deactivate() {
         this.isActive = false;
+    }
+
+    public void cancel(LocalDateTime canceledAt) {
+        this.isActive = false;
+        this.canceledAt = canceledAt;
     }
 }

@@ -103,4 +103,32 @@ public class SubscriptionService {
                 .isActive(true)
                 .build();
     }
+
+    @Transactional
+    public SubscriptionResponse cancelSubscription(Long userId) {
+        // 1. 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+
+        // 2. 현재 활성 구독 조회
+        UserPlan activePlan = userPlanRepository.findActiveByUserId(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER4042));
+
+        // 3. FREE 플랜은 취소 불가
+        if (activePlan.getPlanType() == PlanType.FREE) {
+            throw new BusinessException(ErrorCode.USER4004);
+        }
+
+        // 4. 이미 취소된 구독인지 확인 (isActive가 false이면 취소됨)
+        if (!activePlan.getIsActive()) {
+            throw new BusinessException(ErrorCode.USER4005);
+        }
+
+        // 5. 구독 취소 처리
+        LocalDateTime now = LocalDateTime.now();
+        activePlan.cancel(now);
+
+        // 6. 응답 생성
+        return SubscriptionResponse.fromCanceled(activePlan, now);
+    }
 }

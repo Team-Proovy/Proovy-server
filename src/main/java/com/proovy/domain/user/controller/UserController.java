@@ -115,14 +115,49 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @PatchMapping("/me/subscription/cancel")
+    @Operation(
+            operationId = "04_cancelSubscription",
+            summary = "구독 플랜 취소",
+            description = "유저 플랜을 STANDARD 또는 PRO에서 구독을 취소하고 기본 FREE 요금제를 적용합니다. 기존 결제에 대한 구독 만료날짜까지는 현재 플랜을 유지합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "구독 취소 성공",
+                    content = @Content(schema = @Schema(implementation = SubscriptionResponse.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 요청 (USER4004: FREE 플랜 취소 시도, USER4005: 이미 취소된 구독)",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"USER4004\",\"message\":\"FREE 플랜은 취소할 수 없습니다.\"}"))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"AUTH4013\",\"message\":\"유효하지 않은 토큰입니다.\"}"))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "사용자 또는 활성 구독 없음 (USER4041: 사용자 없음, USER4042: 활성 구독 없음)",
+                    content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"USER4042\",\"message\":\"활성화된 구독을 찾을 수 없습니다.\"}"))
+            )
+    })
+    public ResponseEntity<ApiResponse<SubscriptionResponse>> cancelSubscription(
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        SubscriptionResponse response = subscriptionService.cancelSubscription(userPrincipal.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @DeleteMapping("/me")
     @Operation(
-            operationId = "04_deleteUser",
+            operationId = "05_deleteUser",
             summary = "회원 탈퇴",
             description = "현재 로그인한 사용자의 계정을 영구 삭제합니다. 모든 노트, 파일, 구독 정보가 삭제됩니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "탈퇴 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "활성 구독 존재 (USER4004)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "활성 구독 존재 (USER4006)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 (AUTH4013)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자 없음 (USER4041)")
     })
