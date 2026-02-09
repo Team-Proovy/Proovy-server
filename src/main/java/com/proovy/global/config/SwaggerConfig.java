@@ -5,13 +5,17 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import java.util.List;
 
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.RouterFunctions;
 import org.springframework.web.servlet.function.ServerResponse;
@@ -21,12 +25,16 @@ import org.springframework.web.servlet.function.ServerResponse;
 public class SwaggerConfig {
 
     private static final String BEARER_TOKEN_PREFIX = "Bearer";
+    private final String publicBaseUrl;
+
+    public SwaggerConfig(@Value("${proovy.api.public-base-url:}") String publicBaseUrl) {
+        this.publicBaseUrl = publicBaseUrl;
+    }
 
     @Bean
     public OpenAPI openAPI() {
         String securitySchemeName = "bearerAuth";
-
-        return new OpenAPI()
+        OpenAPI openApi = new OpenAPI()
                 .info(new Info()
                         .title("Proovy API")
                         .description("Proovy 백엔드 API 명세서")
@@ -40,6 +48,14 @@ public class SwaggerConfig {
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
                                         .description("JWT 액세스 토큰을 입력하세요 (Bearer 접두사 없이)")));
+
+        if (StringUtils.hasText(publicBaseUrl)) {
+            openApi.setServers(List.of(new Server()
+                    .url(publicBaseUrl)
+                    .description("Public Server")));
+        }
+
+        return openApi;
     }
 
     @Bean
