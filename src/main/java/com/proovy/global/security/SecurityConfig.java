@@ -49,8 +49,8 @@ public class SecurityConfig {
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(internalApiTokenAuthenticationFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(internalApiTokenAuthenticationFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 
