@@ -65,5 +65,11 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
            "WHERE c.note.id IN :noteIds " +
            "GROUP BY c.note.id")
     List<Map<String, Object>> countByNoteIdIn(@Param("noteIds") List<Long> noteIds);
+
+    /**
+     * 여러 노트의 대화 조회
+     */
+    @Query("SELECT c FROM Conversation c WHERE c.note.id IN :noteIds")
+    List<Conversation> findByNoteIdIn(@Param("noteIds") List<Long> noteIds);
 }
 
