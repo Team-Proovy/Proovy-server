@@ -83,7 +83,7 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.NOTE4031);
         }
 
-        // 5. 노트별 스토리지 용량 검증
+        // 5. 스토리지 용량 검증
         validateStorageCapacity(request.getNoteId(), request.getFileSize());
 
         // 6. S3 Key 생성

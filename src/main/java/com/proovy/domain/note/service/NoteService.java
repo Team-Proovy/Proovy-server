@@ -7,6 +7,7 @@ import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteDetailResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
+import com.proovy.domain.note.dto.response.AssetListResponse;
 
 public interface NoteService {
     CreateNoteResponse createNote(Long userId, CreateNoteRequest request);
@@ -18,5 +19,7 @@ public interface NoteService {
     DeleteNoteResponse deleteNote(Long userId, Long noteId);
 
     NoteDetailResponse getNoteDetail(Long userId, Long noteId, int conversationPage, int conversationSize);
+
+    AssetListResponse getAssetList(Long userId, Long noteId, String query);
 }
 

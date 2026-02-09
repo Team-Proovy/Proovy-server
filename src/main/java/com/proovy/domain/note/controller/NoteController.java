@@ -8,6 +8,7 @@ import com.proovy.domain.note.dto.response.NoteDetailResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.ToolListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
+import com.proovy.domain.note.dto.response.AssetListResponse;
 import com.proovy.domain.note.service.NoteService;
 import com.proovy.global.response.ApiResponse;
 import com.proovy.global.security.UserPrincipal;
@@ -205,7 +206,7 @@ public class NoteController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
-                    description = "권한 없음 (NOTE4032)"
+                    description = "노트 접근 권한 없음 (NOTE4031)"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
@@ -314,5 +315,55 @@ public class NoteController {
         List<Tool> tools = toolService.getToolList(query);
         ToolListResponse response = ToolListResponse.from(tools);
         return ApiResponse.success("도구 목록 조회에 성공했습니다.", response);
+    }
+
+    @GetMapping("/{noteId}/assets")
+    @Operation(
+            summary = "노트의 파일 목록 조회 (#멘션용)",
+            description = """
+                    채팅창에서 `#` 입력 시 해당 노트의 파일 목록을 검색하여 자동완성을 제공합니다.
+                    
+                    **응답 내용**
+                    - 노트에 첨부된 파일 목록
+                    - 파일명, 크기, MIME 타입, 파일 유형
+                    - OCR 처리 상태
+                    - 썸네일 URL (있는 경우)
+                    
+                    **검색 기능**
+                    - query 파라미터로 파일명 검색 가능 (자동완성용)
+                    - 검색어가 없으면 노트의 전체 파일 목록 반환
+                    - 대소문자 구분 없이 파일명에 포함된 문자열로 검색
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "파일 목록 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "노트 접근 권한 없음 (NOTE4031)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "노트를 찾을 수 없음 (NOTE4041)"
+            )
+    })
+    public ApiResponse<AssetListResponse> getAssetList(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "조회할 노트의 고유 ID", example = "10")
+            @PathVariable Long noteId,
+            @Parameter(description = "파일명 검색어 (자동완성용)", example = "Exogenous")
+            @RequestParam(required = false) String query
+    ) {
+        log.info("노트 파일 목록 조회 요청 - userId: {}, noteId: {}, query: {}",
+                userPrincipal.getUserId(), noteId, query);
+
+        AssetListResponse response = noteService.getAssetList(
+                userPrincipal.getUserId(),
+                noteId,
+                query
+        );
+        return ApiResponse.success("파일 목록 조회에 성공했습니다.", response);
     }
 }
