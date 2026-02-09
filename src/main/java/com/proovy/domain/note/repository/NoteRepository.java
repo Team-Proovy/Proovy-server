@@ -22,14 +22,14 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     List<Note> searchByTitleKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
 
     /**
+     * 사용자의 노트 목록 페이지네이션 조회
+     */
+    Page<Note> findByUserId(Long userId, Pageable pageable);
+
+    /**
      * 특정 사용자의 모든 노트 삭제 (회원 탈퇴용)
      */
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM Note n WHERE n.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);
-
-    /**
-     * 사용자의 노트 목록 페이지네이션 조회
-     */
-    Page<Note> findByUserId(Long userId, Pageable pageable);
 }

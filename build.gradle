@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.9'
 	id 'io.spring.dependency-management' version '1.1.7'
+    id "org.flywaydb.flyway" version "11.7.2"
 }
 
 group = 'com.proovy'
@@ -24,11 +25,19 @@ repositories {
 	mavenCentral()
 }
 
+flyway {
+    url = System.getProperty("flyway.url")
+    user = System.getProperty("flyway.user")
+    password = System.getProperty("flyway.password")
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:postgresql'
 
     // Hibernate Types for JSONB support

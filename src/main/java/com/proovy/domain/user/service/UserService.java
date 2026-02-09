@@ -3,6 +3,11 @@ package com.proovy.domain.user.service;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.auth.repository.RefreshTokenRepository;
 import com.proovy.domain.auth.service.AccessTokenBlacklistService;
+import com.proovy.domain.conversation.repository.ChatMessageRepository;
+import com.proovy.domain.conversation.repository.ChatSessionRepository;
+import com.proovy.domain.conversation.repository.MessageAttachmentRepository;
+import com.proovy.domain.credit.repository.CreditBalanceRepository;
+import com.proovy.domain.credit.repository.CreditHistoryRepository;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.dto.response.DeleteUserResponse;
 import com.proovy.domain.user.dto.response.MyProfileResponse;
@@ -39,6 +44,11 @@ public class UserService {
     private final UserPlanRepository userPlanRepository;
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
+    private final CreditBalanceRepository creditBalanceRepository;
+    private final CreditHistoryRepository creditHistoryRepository;
+    private final MessageAttachmentRepository messageAttachmentRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ChatSessionRepository chatSessionRepository;
     private final S3Service s3Service;
     private final RefreshTokenRepository refreshTokenRepository;
     private final AccessTokenBlacklistService accessTokenBlacklistService;
@@ -183,7 +193,12 @@ public class UserService {
             }
         });
 
-        // DB 데이터 삭제
+        // DB 데이터 삭제 (FK 자식 → 부모 순서)
+        messageAttachmentRepository.deleteAllByUserId(userId);
+        chatMessageRepository.deleteAllByUserId(userId);
+        chatSessionRepository.deleteAllByUserId(userId);
+        creditHistoryRepository.deleteAllByUserId(userId);
+        creditBalanceRepository.deleteAllByUserId(userId);
         assetRepository.deleteAllByUserId(userId);
         noteRepository.deleteAllByUserId(userId);
         userPlanRepository.deleteAllByUserId(userId);

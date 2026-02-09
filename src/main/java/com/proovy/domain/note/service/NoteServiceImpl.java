@@ -13,6 +13,7 @@ import com.proovy.domain.note.dto.response.NoteDetailResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
+import com.proovy.domain.note.dto.response.AssetListResponse;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.entity.User;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.proovy.global.infra.s3.S3Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -49,13 +51,9 @@ public class NoteServiceImpl implements NoteService {
     private final com.proovy.domain.user.repository.UserPlanRepository userPlanRepository;
     private final S3Service s3Service;
 
-    // 허용된 도구 코드 목록 (실제로는 별도 관리 필요)
-    private static final Set<String> ALLOWED_TOOL_CODES = Set.of("SOLUTION", "GRAPH", "VARIATION");
-
     @Override
     public CreateNoteResponse createNote(Long userId, CreateNoteRequest request) {
-        log.info("노트 생성 요청 - userId: {}, firstMessage length: {}", userId,
-                request.firstMessage() != null ? request.firstMessage().length() : 0);
+                log.info("노트 생성 요청 - userId: {}, title: {}", userId, request.title());
 
         // 1. 사용자 조회
         User user = userRepository.findById(userId)
@@ -73,170 +71,46 @@ public class NoteServiceImpl implements NoteService {
             throw new BusinessException(ErrorCode.NOTE4031);
         }
 
-        // 3. mentionedAssetIds 검증
-        List<Asset> mentionedAssets = new ArrayList<>();
-        if (request.mentionedAssetIds() != null && !request.mentionedAssetIds().isEmpty()) {
-            List<Long> uniqueAssetIds = request.mentionedAssetIds().stream()
-                    .distinct()
-                    .toList();
-            mentionedAssets = assetRepository.findAllByIdInAndUserId(uniqueAssetIds, userId);
-            if (mentionedAssets.size() != uniqueAssetIds.size()) {
-                throw new BusinessException(ErrorCode.ASSET4041);
-            }
-        }
-
-        // 4. mentionedToolCodes 검증
-        if (request.mentionedToolCodes() != null) {
-            for (String toolCode : request.mentionedToolCodes()) {
-                if (!ALLOWED_TOOL_CODES.contains(toolCode)) {
-                    throw new BusinessException(ErrorCode.TOOL4001);
-                }
-            }
-        }
-
-        // 5. 노트 생성 (제목은 우선 간단하게 생성)
-        String simpleTitle = generateSimpleTitle(request.firstMessage());
+        // 3. 노트 제목 결정 (요청에 제목이 없으면 더미 제목 생성)
+        String resolvedTitle = generateNoteTitle(request.title());
         Note note = Note.builder()
                 .user(user)
-                .title(simpleTitle)
+                .title(resolvedTitle)
                 .contentMd("")
                 .build();
         note = noteRepository.save(note);
-
-        // 6. Conversation 생성
-        Conversation conversation = Conversation.builder()
-                .note(note)
-                .build();
-        conversation = conversationRepository.save(conversation);
-
-        // 7. User Message 생성
-        final Message userMessage = messageRepository.save(Message.builder()
-                .conversation(conversation)
-                .role(MessageRole.USER)
-                .content(request.firstMessage())
-                .status(MessageStatus.COMPLETED)
-                .build());
-
-        // 8. User Message의 Asset 연결
-        if (!mentionedAssets.isEmpty()) {
-            List<MessageAsset> messageAssets = mentionedAssets.stream()
-                    .map(asset -> MessageAsset.builder()
-                            .message(userMessage)
-                            .asset(asset)
-                            .build())
-                    .toList();
-            messageAssetRepository.saveAll(messageAssets);
-        }
-
-        // 9. User Message의 Tool 연결
-        if (request.mentionedToolCodes() != null && !request.mentionedToolCodes().isEmpty()) {
-            List<MessageTool> messageTools = request.mentionedToolCodes().stream()
-                    .map(toolCode -> MessageTool.builder()
-                            .message(userMessage)
-                            .toolCode(toolCode)
-                            .build())
-                    .toList();
-            messageToolRepository.saveAll(messageTools);
-        }
-
-        // 10. Assistant Message 생성 (임시 응답)
-        String assistantContent = "집합론 문제를 분석하고 해설지를 생성하겠습니다...";
-        final Message assistantMessage = messageRepository.save(Message.builder()
-                .conversation(conversation)
-                .role(MessageRole.ASSISTANT)
-                .content(assistantContent)
-                .status(MessageStatus.STREAMING)
-                .build());
-
-        // 11. Assistant Message의 Tool 연결 (사용된 도구)
-        if (request.mentionedToolCodes() != null && !request.mentionedToolCodes().isEmpty()) {
-            List<MessageTool> assistantMessageTools = request.mentionedToolCodes().stream()
-                    .map(toolCode -> MessageTool.builder()
-                            .message(assistantMessage)
-                            .toolCode(toolCode)
-                            .build())
-                    .toList();
-            messageToolRepository.saveAll(assistantMessageTools);
-        }
-
         log.info("노트 생성 완료 - noteId: {}", note.getId());
 
-        // 12. Response 생성
-        return buildCreateNoteResponse(
-                note,
-                conversation,
-                userMessage,
-                assistantMessage,
-                mentionedAssets,
-                request.mentionedToolCodes()
-        );
-    }
+        // 4. 응답 생성 (대화/메시지는 생성하지 않음)
+        int conversationLimit = 50; // TODO: PlanType에 대화 제한 수가 추가되면 해당 값 사용
+        String titleGeneratedBy = (request.title() == null || request.title().isBlank()) ? "SYSTEM" : "USER";
 
-    /**
-     * 간단한 제목 생성 (AI 사용 전까지 임시)
-     */
-    private String generateSimpleTitle(String firstMessage) {
-        // 첫 메시지에서 최대 50자까지 제목으로 사용
-        String title = firstMessage.replaceAll("\\s+", " ").trim();
-        if (title.length() > 50) {
-            title = title.substring(0, 50);
-        }
-        return title;
-    }
-
-    /**
-     * CreateNoteResponse 빌드
-     */
-    private CreateNoteResponse buildCreateNoteResponse(
-            Note note,
-            Conversation conversation,
-            Message userMessage,
-            Message assistantMessage,
-            List<Asset> mentionedAssets,
-            List<String> mentionedToolCodes
-    ) {
-        // MentionedAssets DTO 변환
-        List<CreateNoteResponse.MentionedAssetDto> mentionedAssetDtos = mentionedAssets.stream()
-                .map(asset -> new CreateNoteResponse.MentionedAssetDto(
-                        asset.getId(),
-                        asset.getFileName()
-                ))
-                .collect(Collectors.toList());
-
-        // UserMessage DTO
-        CreateNoteResponse.UserMessageDto userMessageDto = new CreateNoteResponse.UserMessageDto(
-                userMessage.getId(),
-                userMessage.getContent(),
-                mentionedAssetDtos,
-                mentionedToolCodes != null ? mentionedToolCodes : List.of(),
-                userMessage.getCreatedAt()
-        );
-
-        // AssistantMessage DTO
-        CreateNoteResponse.AssistantMessageDto assistantMessageDto = new CreateNoteResponse.AssistantMessageDto(
-                assistantMessage.getId(),
-                assistantMessage.getContent(),
-                mentionedToolCodes != null ? mentionedToolCodes : List.of(),
-                assistantMessage.getStatus().name(),
-                assistantMessage.getCreatedAt()
-        );
-
-        // FirstConversation DTO
-        CreateNoteResponse.FirstConversationDto firstConversationDto = new CreateNoteResponse.FirstConversationDto(
-                conversation.getId(),
-                userMessageDto,
-                assistantMessageDto
-        );
-
-        // CreateNoteResponse
         return new CreateNoteResponse(
                 note.getId(),
                 note.getTitle(),
-                "USER", // 현재는 AI 사용하지 않으므로 USER로 표시
-                50, // 기본 대화 제한
-                firstConversationDto,
+                titleGeneratedBy,
+                conversationLimit,
+                null,
                 note.getCreatedAt()
         );
+    }
+
+    /**
+     * 노트 제목 생성
+     * - 요청에 제목이 있으면 공백/길이만 정리하여 사용
+     * - 없으면 현재 시각 기반의 더미 제목 생성
+     */
+    private String generateNoteTitle(String rawTitle) {
+        if (rawTitle != null && !rawTitle.isBlank()) {
+            String normalized = rawTitle.replaceAll("\\s+", " ").trim();
+            if (normalized.length() > 200) {
+                normalized = normalized.substring(0, 200);
+            }
+            return normalized;
+        }
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        return "새 노트 " + timestamp;
     }
 
     @Override
@@ -420,7 +294,7 @@ public class NoteServiceImpl implements NoteService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
 
         if (!note.getUser().getId().equals(userId)) {
-            throw new BusinessException(ErrorCode.NOTE4032);
+            throw new BusinessException(ErrorCode.NOTE4031);
         }
 
         // 2. 통계용 정보 수집 (엔티티 조회가 아닌 count/sum 쿼리 사용)
@@ -704,6 +578,53 @@ public class NoteServiceImpl implements NoteService {
                 .usedTools(!isUserMessage && !tools.isEmpty() ? tools : null)
                 .generatedFiles(generatedFiles)
                 .createdAt(message.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AssetListResponse getAssetList(Long userId, Long noteId, String query) {
+        // 1. 노트 존재 및 권한 확인
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
+
+        if (!note.getUser().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOTE4031);
+        }
+
+        // 2. 자산 목록 조회 (검색어가 있으면 파일명으로 필터링)
+        List<Asset> assets;
+        if (query != null && !query.trim().isEmpty()) {
+            assets = assetRepository.findAllByNoteIdAndFileNameContainingIgnoreCase(noteId, query.trim());
+        } else {
+            assets = assetRepository.findAllByNoteId(noteId);
+        }
+
+        // 3. 자산 정보 DTO 생성
+        List<AssetListResponse.AssetInfo> assetInfos = assets.stream()
+                .map(asset -> {
+                    String thumbnailUrl = asset.getThumbnailS3Key() != null
+                            ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                            : null;
+                    FileCategory category = FileCategory.fromMimeType(asset.getMimeType());
+
+                    return AssetListResponse.AssetInfo.builder()
+                            .assetId(asset.getId())
+                            .fileName(asset.getFileName())
+                            .fileSize(asset.getFileSize())
+                            .mimeType(asset.getMimeType())
+                            .fileType(category.getValue().toUpperCase())
+                            .source(asset.getSource().name().toUpperCase())
+                            .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name().toUpperCase() : "PENDING")
+                            .thumbnailUrl(thumbnailUrl)
+                            .createdAt(asset.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return AssetListResponse.builder()
+                .assets(assetInfos)
+                .totalCount(assetInfos.size())
                 .build();
     }
 }

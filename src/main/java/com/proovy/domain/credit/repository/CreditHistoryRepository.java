@@ -6,6 +6,7 @@ import com.proovy.domain.credit.entity.CreditType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -47,6 +48,10 @@ public interface CreditHistoryRepository extends JpaRepository<CreditHistory, Lo
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    @Modifying
+    @Query("DELETE FROM CreditHistory ch WHERE ch.user.id = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 
     interface CreditPeriodSummary {
         Long getTotalEarned();

@@ -4,6 +4,7 @@ import com.proovy.domain.credit.entity.CreditBalance;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,4 +18,8 @@ public interface CreditBalanceRepository extends JpaRepository<CreditBalance, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT cb FROM CreditBalance cb WHERE cb.user.id = :userId")
     Optional<CreditBalance> findByUserIdForUpdate(@Param("userId") Long userId);
+
+    @Modifying
+    @Query("DELETE FROM CreditBalance cb WHERE cb.user.id = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
 }

@@ -66,7 +66,6 @@ public enum ErrorCode {
     NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),
     NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
-    NOTE4032("NOTE4032", "해당 노트에 접근할 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
     // Credit
     CREDIT4001("CREDIT4001", "날짜 형식이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
