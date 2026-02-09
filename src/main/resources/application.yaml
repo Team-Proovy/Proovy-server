@@ -32,6 +32,9 @@ spring:
 springdoc:
   swagger-ui:
     tagsSorter: alpha
+    url: /v3/api-docs
+  api-docs:
+    path: /v3/api-docs
 
 server:
   port: 8080
@@ -103,6 +106,8 @@ jwt:
 proovy:
   ai:
     host: ${PROOVY_AI_HOST:https://api.proovy.ai.kr/ai}
+  api:
+    public-base-url: ${PROOVY_API_BASE_URL:}
 
 ---
 # ===============================
@@ -134,3 +139,7 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
+
+proovy:
+  api:
+    public-base-url: ${PROOVY_API_BASE_URL:https://api.proovy.ai.kr}
