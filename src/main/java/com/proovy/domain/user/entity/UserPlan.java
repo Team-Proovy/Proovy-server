@@ -63,7 +63,7 @@ public class UserPlan {
     }
 
     public void cancel(LocalDateTime canceledAt) {
-        this.isActive = false;
         this.canceledAt = canceledAt;
+        this.isActive = false; // 자동갱신 비활성화
     }
 }

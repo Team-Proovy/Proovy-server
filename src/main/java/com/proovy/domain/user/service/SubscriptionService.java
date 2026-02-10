@@ -106,29 +106,25 @@ public class SubscriptionService {
 
     @Transactional
     public SubscriptionResponse cancelSubscription(Long userId) {
-        // 1. 사용자 조회
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
-
-        // 2. 현재 활성 구독 조회
+        // 1. 현재 활성 구독 조회
         UserPlan activePlan = userPlanRepository.findActiveByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4042));
 
-        // 3. FREE 플랜은 취소 불가
+        // 2. FREE 플랜은 취소 불가
         if (activePlan.getPlanType() == PlanType.FREE) {
             throw new BusinessException(ErrorCode.USER4004);
         }
 
-        // 4. 이미 취소된 구독인지 확인 (isActive가 false이면 취소됨)
-        if (!activePlan.getIsActive()) {
+        // 3. 이미 취소된 구독인지 확인
+        if (activePlan.getCanceledAt() != null) {
             throw new BusinessException(ErrorCode.USER4005);
         }
 
-        // 5. 구독 취소 처리
+        // 4. 구독 취소 처리 (자동갱신만 비활성화, 만료일까지 혜택 유지)
         LocalDateTime now = LocalDateTime.now();
         activePlan.cancel(now);
 
-        // 6. 응답 생성
+        // 5. 응답 생성
         return SubscriptionResponse.fromCanceled(activePlan, now);
     }
 }
