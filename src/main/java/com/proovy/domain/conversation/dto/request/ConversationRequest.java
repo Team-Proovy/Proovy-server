@@ -16,6 +16,9 @@ import java.util.List;
 @Schema(description = "대화 생성 요청")
 public class ConversationRequest {
 
+    @Schema(description = "연결할 노트 ID (선택)", example = "123")
+    private Long noteId;
+
     @Schema(description = "사용자 질문/지시문", example = "이 문제를 풀어줘", required = true)
     @NotBlank(message = "질문 내용은 필수입니다.")
     private String text;

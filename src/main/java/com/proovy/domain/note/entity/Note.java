@@ -39,6 +39,9 @@ public class Note {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "thread_id", unique = true, length = 100)
+    private String threadId;  // Proovy-ai와 연동할 대화 맥락 식별자
+
     @Builder
     public Note(User user, String title, String contentMd) {
         this.user = user;
@@ -52,5 +55,9 @@ public class Note {
 
     public void updateContent(String contentMd) {
         this.contentMd = contentMd;
+    }
+
+    public void updateThreadId(String threadId) {
+        this.threadId = threadId;
     }
 }
