@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -73,7 +73,7 @@ jobs:
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --comment "Deploy backend ${SHA:0:7}" \
             --document-name "AWS-RunShellScript" \
-            --parameters commands="[
+            --parameters commands="[ 
               \"set -e\",
               \"echo Deploying $KEY\",
               \"sudo mkdir -p ${DEPLOY_PATH}\",
