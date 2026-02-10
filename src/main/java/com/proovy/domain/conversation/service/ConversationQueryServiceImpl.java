@@ -172,16 +172,17 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             }
         }
 
-        // PostgreSQL Full-Text Search 실행
-        Page<Message> searchResults = executeFullTextSearch(userId, noteId, trimmedQuery, pageable);
+        // PostgreSQL Full-Text Search 실행 (모든 필터 DB 레벨 적용)
+        Page<Conversation> searchResults = executeConversationSearch(
+                userId, trimmedQuery, noteId, toolCode, startDate, endDate, pageable);
 
         if (searchResults.isEmpty()) {
             return buildEmptySearchResponse(query, pageable, System.currentTimeMillis() - startTime);
         }
 
-        // 검색 결과를 Conversation 기반으로 변환
+        // 검색 결과를 ConversationSearchItem으로 변환
         List<ConversationSearchResponse.ConversationSearchItem> items =
-                buildSearchItemsFromMessages(searchResults.getContent(), trimmedQuery, toolCode, startDate, endDate);
+                buildSearchItemsFromConversations(searchResults.getContent(), trimmedQuery);
 
         long searchTimeMs = System.currentTimeMillis() - startTime;
 
@@ -203,47 +204,51 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
     }
 
     /**
-     * PostgreSQL Full-Text Search 실행
+     * PostgreSQL Full-Text Search 실행 (Conversation 레벨, 모든 필터 DB 적용)
      * 한글 포함 시 pg_trgm, 그 외는 tsvector 사용
      */
-    private Page<Message> executeFullTextSearch(Long userId, Long noteId, String query, Pageable pageable) {
+    private Page<Conversation> executeConversationSearch(
+            Long userId,
+            String query,
+            Long noteId,
+            String toolCode,
+            LocalDate startDate,
+            LocalDate endDate,
+            Pageable pageable
+    ) {
         boolean containsKorean = KOREAN_PATTERN.matcher(query).find();
 
         if (containsKorean) {
-            // 한글 검색: pg_trgm ILIKE + similarity
-            if (noteId != null) {
-                return messageRepository.searchByTrigramAndNoteId(userId, noteId, query, pageable);
-            }
-            return messageRepository.searchByTrigram(userId, query, pageable);
+            // 한글 검색: pg_trgm ILIKE
+            return conversationRepository.searchByTrigram(
+                    userId, query, noteId, toolCode, startDate, endDate, pageable);
         } else {
-            // 영문/숫자 검색: tsvector + ts_rank
-            if (noteId != null) {
-                return messageRepository.searchByFullTextAndNoteId(userId, noteId, query, pageable);
-            }
-            return messageRepository.searchByFullText(userId, query, pageable);
+            // 영문/숫자 검색: tsvector
+            return conversationRepository.searchByFullText(
+                    userId, query, noteId, toolCode, startDate, endDate, pageable);
         }
     }
 
     /**
-     * 메시지 검색 결과를 ConversationSearchItem 목록으로 변환
+     * Conversation 검색 결과를 ConversationSearchItem 목록으로 변환
+     * (Java 레벨 필터링 없이 DB에서 이미 필터링된 결과 사용)
      */
-    private List<ConversationSearchResponse.ConversationSearchItem> buildSearchItemsFromMessages(
-            List<Message> messages,
-            String query,
-            String toolCode,
-            LocalDate startDate,
-            LocalDate endDate
+    private List<ConversationSearchResponse.ConversationSearchItem> buildSearchItemsFromConversations(
+            List<Conversation> conversations,
+            String query
     ) {
-        // Conversation ID로 그룹핑
+        if (conversations.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> conversationIds = conversations.stream()
+                .map(Conversation::getId)
+                .collect(Collectors.toList());
+
+        // 메시지 일괄 조회
+        List<Message> messages = messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds);
         Map<Long, List<Message>> messagesByConversation = messages.stream()
                 .collect(Collectors.groupingBy(m -> m.getConversation().getId()));
-
-        List<Long> conversationIds = new ArrayList<>(messagesByConversation.keySet());
-
-        // Conversation 일괄 조회
-        List<Conversation> conversations = conversationRepository.findAllById(conversationIds);
-        Map<Long, Conversation> conversationMap = conversations.stream()
-                .collect(Collectors.toMap(Conversation::getId, c -> c));
 
         // 도구 코드 일괄 조회
         List<Long> allMessageIds = messages.stream().map(Message::getId).collect(Collectors.toList());
@@ -259,24 +264,8 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
         List<ConversationSearchResponse.ConversationSearchItem> results = new ArrayList<>();
 
-        for (Map.Entry<Long, List<Message>> entry : messagesByConversation.entrySet()) {
-            Conversation conv = conversationMap.get(entry.getKey());
-            if (conv == null) continue;
-
-            List<Message> convMessages = entry.getValue();
-
-            // 날짜 필터링
-            if (startDate != null && conv.getCreatedAt().toLocalDate().isBefore(startDate)) continue;
-            if (endDate != null && conv.getCreatedAt().toLocalDate().isAfter(endDate)) continue;
-
-            // 도구 코드 필터링
-            if (toolCode != null) {
-                boolean hasToolCode = convMessages.stream()
-                        .anyMatch(m -> toolCodesByMessageId
-                                .getOrDefault(m.getId(), Collections.emptySet())
-                                .contains(toolCode));
-                if (!hasToolCode) continue;
-            }
+        for (Conversation conv : conversations) {
+            List<Message> convMessages = messagesByConversation.getOrDefault(conv.getId(), Collections.emptyList());
 
             Message userMessage = convMessages.stream()
                     .filter(m -> m.getRole() == MessageRole.USER)

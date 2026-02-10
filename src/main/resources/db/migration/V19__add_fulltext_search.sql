@@ -1,5 +1,5 @@
 -- =============================================
--- V18: PostgreSQL Full-Text Search 최적화
+-- V19: PostgreSQL Full-Text Search 최적화
 -- messages 테이블에 tsvector 컬럼 및 GIN 인덱스 추가
 -- =============================================
 
@@ -34,11 +34,35 @@ CREATE TRIGGER trg_messages_search_vector
     FOR EACH ROW
     EXECUTE FUNCTION messages_search_vector_update();
 
--- 기존 데이터에 대한 search_vector 업데이트
-UPDATE messages
-SET search_vector = to_tsvector('simple', COALESCE(content, ''))
-WHERE search_vector IS NULL;
-
 -- 복합 인덱스: conversation_id + role (자주 사용되는 필터 조합)
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_role
 ON messages(conversation_id, role);
+
+-- =============================================
+-- 기존 데이터 백필 (배치 처리로 테이블 락 방지)
+-- 1000건씩 배치로 처리하여 장시간 락 방지
+-- =============================================
+DO $$
+DECLARE
+    batch_size INT := 1000;
+    updated_count INT;
+BEGIN
+    LOOP
+        UPDATE messages
+        SET search_vector = to_tsvector('simple', COALESCE(content, ''))
+        WHERE id IN (
+            SELECT id FROM messages
+            WHERE search_vector IS NULL
+            LIMIT batch_size
+            FOR UPDATE SKIP LOCKED
+        );
+
+        GET DIAGNOSTICS updated_count = ROW_COUNT;
+
+        -- 더 이상 업데이트할 행이 없으면 종료
+        EXIT WHEN updated_count = 0;
+
+        -- 각 배치 후 짧은 대기 (다른 트랜잭션에 기회 제공)
+        PERFORM pg_sleep(0.1);
+    END LOOP;
+END $$;

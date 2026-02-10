@@ -117,7 +117,7 @@ proovy:
 
 internal:
   api:
-    token: ${INTERNAL_API_TOKEN:local-dev-token}
+    token: ${INTERNAL_API_TOKEN}
     port: 8081
 
 embedding:
@@ -145,6 +145,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+internal:
+  api:
+    token: ${INTERNAL_API_TOKEN:local-dev-token}
 
 ---
 # ===============================
