@@ -11,10 +11,10 @@ import java.util.Optional;
 
 public interface UserPlanRepository extends JpaRepository<UserPlan, Long> {
 
-    @Query("SELECT up FROM UserPlan up WHERE up.user.id = :userId AND up.canceledAt IS NULL AND (up.expiredAt IS NULL OR up.expiredAt > CURRENT_TIMESTAMP) ORDER BY up.startedAt DESC LIMIT 1")
+    @Query("SELECT up FROM UserPlan up WHERE up.user.id = :userId AND up.isActive = true AND (up.expiredAt IS NULL OR up.expiredAt > CURRENT_TIMESTAMP) ORDER BY up.startedAt DESC LIMIT 1")
     Optional<UserPlan> findActiveByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT up.planType FROM UserPlan up WHERE up.user.id = :userId AND up.canceledAt IS NULL AND (up.expiredAt IS NULL OR up.expiredAt > CURRENT_TIMESTAMP) ORDER BY up.startedAt DESC LIMIT 1")
+    @Query("SELECT up.planType FROM UserPlan up WHERE up.user.id = :userId AND up.isActive = true AND (up.expiredAt IS NULL OR up.expiredAt > CURRENT_TIMESTAMP) ORDER BY up.startedAt DESC LIMIT 1")
     Optional<PlanType> findActivePlanTypeByUserId(@Param("userId") Long userId);
 
     /**

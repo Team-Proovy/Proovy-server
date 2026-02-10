@@ -133,7 +133,7 @@ public record SubscriptionResponse(
         return BillingDto.builder()
                 .nextBillingDate(expiredAt != null
                         ? expiredAt.format(DateTimeFormatter.ISO_LOCAL_DATE) : null)
-                .autoRenew(userPlan.getIsActive())
+                .autoRenew(userPlan.getCanceledAt() == null)
                 .build();
     }
 

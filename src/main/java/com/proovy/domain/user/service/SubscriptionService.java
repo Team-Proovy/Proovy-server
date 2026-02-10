@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -24,6 +25,7 @@ public class SubscriptionService {
 
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
+    private final Clock clock;
 
     public SubscriptionResponse getSubscription(Long userId) {
         User user = userRepository.findById(userId)
@@ -57,7 +59,7 @@ public class SubscriptionService {
         }
 
         // 6. 새로운 플랜 생성
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         UserPlan newPlan = UserPlan.builder()
                 .user(user)
                 .planType(newPlanType)
@@ -73,6 +75,11 @@ public class SubscriptionService {
     }
 
     private PlanType validateAndGetPlanType(String planTypeStr) {
+        // null 또는 blank 체크
+        if (planTypeStr == null || planTypeStr.isBlank()) {
+            throw new BusinessException(ErrorCode.USER4001);
+        }
+
         try {
             PlanType planType = PlanType.valueOf(planTypeStr.toUpperCase());
             if (planType == PlanType.FREE) {

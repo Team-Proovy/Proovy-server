@@ -64,6 +64,6 @@ public class UserPlan {
 
     public void cancel(LocalDateTime canceledAt) {
         this.canceledAt = canceledAt;
-        this.isActive = false; // 자동갱신 비활성화
+        // isActive는 그대로 유지 - 만료일까지 혜택 제공
     }
 }
