@@ -146,6 +146,10 @@ spring:
       hibernate:
         format_sql: true
 
+internal:
+  api:
+    token: ${INTERNAL_API_TOKEN:local-dev-token}
+
 ---
 # ===============================
 # Production 환경
