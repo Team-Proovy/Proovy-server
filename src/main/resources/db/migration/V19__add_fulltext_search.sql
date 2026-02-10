@@ -50,8 +50,8 @@ BEGIN
     LOOP
         UPDATE messages
         SET search_vector = to_tsvector('simple', COALESCE(content, ''))
-        WHERE id IN (
-            SELECT id FROM messages
+        WHERE message_id IN (
+            SELECT message_id FROM messages
             WHERE search_vector IS NULL
             LIMIT batch_size
             FOR UPDATE SKIP LOCKED
