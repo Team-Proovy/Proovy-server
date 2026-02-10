@@ -22,6 +22,8 @@ import com.proovy.global.infra.s3.S3Service;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -47,6 +50,9 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final Set<String> ALLOWED_CANVAS_MIME_TYPES = Set.of("image/png", "image/jpeg", "image/webp");
+
+    // 한글 검색 패턴 (한글이 포함되어 있으면 pg_trgm 사용)
+    private static final Pattern KOREAN_PATTERN = Pattern.compile("[가-힣ㄱ-ㅎㅏ-ㅣ]");
 
     @Override
     @Transactional
@@ -155,96 +161,94 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             throw new BusinessException(ErrorCode.STORAGE4003);
         }
 
-        // 사용자의 노트 ID 목록 조회
-        List<Long> userNoteIds;
+        String trimmedQuery = query.trim();
+
+        // 특정 노트 권한 검증
         if (noteId != null) {
-            // 특정 노트 지정 시 권한 검증
             Note note = noteRepository.findById(noteId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
             if (!note.getUser().getId().equals(userId)) {
                 throw new BusinessException(ErrorCode.NOTE4031);
             }
-            userNoteIds = List.of(noteId);
-        } else {
-            userNoteIds = noteRepository.findIdsByUserId(userId);
         }
 
-        if (userNoteIds.isEmpty()) {
+        // PostgreSQL Full-Text Search 실행
+        Page<Message> searchResults = executeFullTextSearch(userId, noteId, trimmedQuery, pageable);
+
+        if (searchResults.isEmpty()) {
             return buildEmptySearchResponse(query, pageable, System.currentTimeMillis() - startTime);
         }
 
-        // 검색 수행 (한 번만 호출하여 전체 결과 획득)
-        List<ConversationSearchResponse.ConversationSearchItem> allResults =
-                searchConversationsWithFilter(userNoteIds, query, toolCode, startDate, endDate);
+        // 검색 결과를 Conversation 기반으로 변환
+        List<ConversationSearchResponse.ConversationSearchItem> items =
+                buildSearchItemsFromMessages(searchResults.getContent(), trimmedQuery, toolCode, startDate, endDate);
 
-        long totalCount = allResults.size();
         long searchTimeMs = System.currentTimeMillis() - startTime;
 
-        // 페이징 적용
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), allResults.size());
-        List<ConversationSearchResponse.ConversationSearchItem> pagedItems =
-                start >= allResults.size() ? Collections.emptyList() : allResults.subList(start, end);
-
-        int totalPages = pageable.getPageSize() > 0
-                ? (int) Math.ceil((double) totalCount / pageable.getPageSize())
-                : 0;
-
         return ConversationSearchResponse.builder()
-                .conversations(pagedItems)
+                .conversations(items)
                 .pageInfo(ConversationSearchResponse.PageInfo.builder()
-                        .page(pageable.getPageNumber())
-                        .size(pageable.getPageSize())
-                        .totalElements(totalCount)
-                        .totalPages(totalPages)
-                        .hasNext(pageable.getPageNumber() < totalPages - 1)
+                        .page(searchResults.getNumber())
+                        .size(searchResults.getSize())
+                        .totalElements(searchResults.getTotalElements())
+                        .totalPages(searchResults.getTotalPages())
+                        .hasNext(searchResults.hasNext())
                         .build())
                 .searchMetadata(ConversationSearchResponse.SearchMetadata.builder()
                         .query(query)
-                        .totalMatches(totalCount)
+                        .totalMatches(searchResults.getTotalElements())
                         .searchTimeMs(searchTimeMs)
                         .build())
                 .build();
     }
 
     /**
-     * 대화 검색 (ILIKE 기반 필터링)
-     * 현재는 메모리 기반 필터링을 사용합니다.
-     * TODO: PostgreSQL tsvector/tsquery로 최적화 시 Native Query로 전환
+     * PostgreSQL Full-Text Search 실행
+     * 한글 포함 시 pg_trgm, 그 외는 tsvector 사용
      */
-    private List<ConversationSearchResponse.ConversationSearchItem> searchConversationsWithFilter(
-            List<Long> noteIds,
+    private Page<Message> executeFullTextSearch(Long userId, Long noteId, String query, Pageable pageable) {
+        boolean containsKorean = KOREAN_PATTERN.matcher(query).find();
+
+        if (containsKorean) {
+            // 한글 검색: pg_trgm ILIKE + similarity
+            if (noteId != null) {
+                return messageRepository.searchByTrigramAndNoteId(userId, noteId, query, pageable);
+            }
+            return messageRepository.searchByTrigram(userId, query, pageable);
+        } else {
+            // 영문/숫자 검색: tsvector + ts_rank
+            if (noteId != null) {
+                return messageRepository.searchByFullTextAndNoteId(userId, noteId, query, pageable);
+            }
+            return messageRepository.searchByFullText(userId, query, pageable);
+        }
+    }
+
+    /**
+     * 메시지 검색 결과를 ConversationSearchItem 목록으로 변환
+     */
+    private List<ConversationSearchResponse.ConversationSearchItem> buildSearchItemsFromMessages(
+            List<Message> messages,
             String query,
             String toolCode,
             LocalDate startDate,
             LocalDate endDate
     ) {
-        // Conversation 조회
-        List<Conversation> conversations = conversationRepository.findByNoteIdIn(noteIds);
-
-        if (conversations.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<Long> conversationIds = conversations.stream()
-                .map(Conversation::getId)
-                .collect(Collectors.toList());
-
-        // 메시지 일괄 조회
-        List<Message> messages = messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds);
-
-        // 메시지를 Conversation별로 그룹핑
+        // Conversation ID로 그룹핑
         Map<Long, List<Message>> messagesByConversation = messages.stream()
                 .collect(Collectors.groupingBy(m -> m.getConversation().getId()));
 
-        // 모든 메시지 ID 수집
-        List<Long> allMessageIds = messages.stream()
-                .map(Message::getId)
-                .collect(Collectors.toList());
+        List<Long> conversationIds = new ArrayList<>(messagesByConversation.keySet());
 
-        // 도구 코드 일괄 조회 (N+1 방지)
+        // Conversation 일괄 조회
+        List<Conversation> conversations = conversationRepository.findAllById(conversationIds);
+        Map<Long, Conversation> conversationMap = conversations.stream()
+                .collect(Collectors.toMap(Conversation::getId, c -> c));
+
+        // 도구 코드 일괄 조회
+        List<Long> allMessageIds = messages.stream().map(Message::getId).collect(Collectors.toList());
         Map<Long, Set<String>> toolCodesByMessageId = new HashMap<>();
-        if (toolCode != null && !allMessageIds.isEmpty()) {
+        if (!allMessageIds.isEmpty()) {
             List<MessageTool> allTools = messageToolRepository.findByMessageIdIn(allMessageIds);
             for (MessageTool tool : allTools) {
                 toolCodesByMessageId
@@ -253,63 +257,45 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             }
         }
 
-        // 검색어로 필터링 및 결과 생성
-        String lowerQuery = query.toLowerCase();
         List<ConversationSearchResponse.ConversationSearchItem> results = new ArrayList<>();
 
-        for (Conversation conv : conversations) {
-            List<Message> convMessages = messagesByConversation.getOrDefault(conv.getId(), Collections.emptyList());
+        for (Map.Entry<Long, List<Message>> entry : messagesByConversation.entrySet()) {
+            Conversation conv = conversationMap.get(entry.getKey());
+            if (conv == null) continue;
+
+            List<Message> convMessages = entry.getValue();
 
             // 날짜 필터링
-            if (startDate != null && conv.getCreatedAt().toLocalDate().isBefore(startDate)) {
-                continue;
-            }
-            if (endDate != null && conv.getCreatedAt().toLocalDate().isAfter(endDate)) {
-                continue;
-            }
+            if (startDate != null && conv.getCreatedAt().toLocalDate().isBefore(startDate)) continue;
+            if (endDate != null && conv.getCreatedAt().toLocalDate().isAfter(endDate)) continue;
 
-            // 사용자 메시지와 어시스턴트 메시지 찾기
-            Message userMessage = convMessages.stream()
-                    .filter(m -> m.getRole() == MessageRole.USER)
-                    .findFirst()
-                    .orElse(null);
-            Message assistantMessage = convMessages.stream()
-                    .filter(m -> m.getRole() == MessageRole.ASSISTANT)
-                    .findFirst()
-                    .orElse(null);
-
-            // 검색어 매칭 확인
-            boolean userMatches = userMessage != null &&
-                    userMessage.getContent() != null &&
-                    userMessage.getContent().toLowerCase().contains(lowerQuery);
-            boolean assistantMatches = assistantMessage != null &&
-                    assistantMessage.getContent() != null &&
-                    assistantMessage.getContent().toLowerCase().contains(lowerQuery);
-
-            if (!userMatches && !assistantMatches) {
-                continue;
-            }
-
-            // 도구 코드 필터링 (배치 조회 결과 사용)
+            // 도구 코드 필터링
             if (toolCode != null) {
                 boolean hasToolCode = convMessages.stream()
                         .anyMatch(m -> toolCodesByMessageId
                                 .getOrDefault(m.getId(), Collections.emptySet())
                                 .contains(toolCode));
-                if (!hasToolCode) {
-                    continue;
-                }
+                if (!hasToolCode) continue;
             }
 
-            // 결과 아이템 생성
+            Message userMessage = convMessages.stream()
+                    .filter(m -> m.getRole() == MessageRole.USER)
+                    .findFirst()
+                    .orElse(null);
+
+            Message assistantMessage = convMessages.stream()
+                    .filter(m -> m.getRole() == MessageRole.ASSISTANT)
+                    .findFirst()
+                    .orElse(null);
+
             Note note = conv.getNote();
 
             results.add(ConversationSearchResponse.ConversationSearchItem.builder()
                     .conversationId(conv.getId())
                     .noteId(note.getId())
                     .noteTitle(note.getTitle())
-                    .userMessage(buildMessageInfo(userMessage, query))
-                    .assistantMessage(buildMessageInfo(assistantMessage, query))
+                    .userMessage(buildMessageInfoWithDbHighlight(userMessage, query))
+                    .assistantMessage(buildMessageInfoWithDbHighlight(assistantMessage, query))
                     .mentionedFiles(getMentionedFiles(convMessages))
                     .mentionedTools(getMentionedToolsFromCache(convMessages, toolCodesByMessageId))
                     .relevance(calculateRelevance(userMessage, assistantMessage, query))
@@ -317,11 +303,41 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                     .build());
         }
 
-        // 관련도 순으로 정렬
-        results.sort((a, b) -> Double.compare(b.getRelevance(), a.getRelevance()));
-
         return results;
     }
+
+    /**
+     * DB 기반 하이라이트 (ts_headline) 사용한 MessageInfo 생성
+     */
+    private ConversationSearchResponse.MessageInfo buildMessageInfoWithDbHighlight(Message message, String query) {
+        if (message == null || message.getContent() == null) {
+            return null;
+        }
+
+        String text = message.getContent();
+        String preview = text.length() > 200 ? text.substring(0, 200) + "..." : text;
+
+        // DB ts_headline 하이라이트 조회 (한글이 아닌 경우에만)
+        String highlight;
+        boolean containsKorean = KOREAN_PATTERN.matcher(query).find();
+        if (!containsKorean) {
+            try {
+                highlight = messageRepository.getSearchHighlight(message.getId(), query);
+            } catch (Exception e) {
+                log.debug("ts_headline 조회 실패, 폴백 사용: {}", e.getMessage());
+                highlight = extractHighlight(text, query);
+            }
+        } else {
+            highlight = extractHighlight(text, query);
+        }
+
+        return ConversationSearchResponse.MessageInfo.builder()
+                .text(text)
+                .preview(preview)
+                .highlight(highlight)
+                .build();
+    }
+
 
     /**
      * 캐시된 도구 코드에서 도구 목록 반환 (N+1 방지)
@@ -335,22 +351,6 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                 .flatMap(m -> toolCodesByMessageId.getOrDefault(m.getId(), Collections.emptySet()).stream())
                 .distinct()
                 .collect(Collectors.toList());
-    }
-
-    private ConversationSearchResponse.MessageInfo buildMessageInfo(Message message, String query) {
-        if (message == null || message.getContent() == null) {
-            return null;
-        }
-
-        String text = message.getContent();
-        String preview = text.length() > 200 ? text.substring(0, 200) + "..." : text;
-        String highlight = extractHighlight(text, query);
-
-        return ConversationSearchResponse.MessageInfo.builder()
-                .text(text)
-                .preview(preview)
-                .highlight(highlight)
-                .build();
     }
 
     private String extractHighlight(String text, String query) {
