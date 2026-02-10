@@ -9,6 +9,8 @@ import com.proovy.domain.conversation.dto.request.ConversationRequest;
 import com.proovy.domain.conversation.dto.request.ProovyAiRequest;
 import com.proovy.domain.conversation.dto.response.ConversationResponse;
 import com.proovy.domain.conversation.dto.response.ProovyAiStreamEvent;
+import com.proovy.domain.note.entity.Note;
+import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.conversation.entity.ChatMessage;
 import com.proovy.domain.conversation.entity.ChatSession;
 import com.proovy.domain.conversation.entity.ChatSessionStatus;
@@ -47,6 +49,7 @@ public class ChatServiceImpl implements ChatService {
     private final MessageAttachmentRepository messageAttachmentRepository;
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
+    private final NoteRepository noteRepository;
     private final S3Service s3Service;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -79,7 +82,25 @@ public class ChatServiceImpl implements ChatService {
             validateFeatures(request.getChosenFeatures());
         }
 
-        // 3. ChatSession 조회 또는 생성 (사용자의 가장 최근 활성 세션 사용)
+        // 3. Note 기반 threadId 조회 또는 ChatSession 사용
+        Note note = null;
+        String threadIdToUse = null;
+
+        if (request.getNoteId() != null) {
+            // Note가 지정된 경우
+            note = noteRepository.findById(request.getNoteId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
+
+            // Note 소유자 검증
+            if (!note.getUser().getId().equals(userId)) {
+                throw new BusinessException(ErrorCode.NOTE4031);
+            }
+
+            threadIdToUse = note.getThreadId();
+            log.debug("[Chat] Note 기반 대화 - noteId: {}, threadId: {}", note.getId(), threadIdToUse);
+        }
+
+        // 4. ChatSession 조회 또는 생성 (Note 없이 대화하거나 메시지 저장용)
         ChatSession chatSession = chatSessionRepository
                 .findFirstByUserIdAndStatusOrderByCreatedAtDesc(userId, ChatSessionStatus.ACTIVE)
                 .orElseGet(() -> {
@@ -90,8 +111,17 @@ public class ChatServiceImpl implements ChatService {
                     return chatSessionRepository.save(newSession);
                 });
 
-        log.debug("[Chat] 사용 중인 ChatSession - id: {}, externalThreadId: {}",
-            chatSession.getId(), chatSession.getExternalThreadId());
+        // Note가 없는 경우 ChatSession의 threadId 사용
+        if (threadIdToUse == null && note == null) {
+            threadIdToUse = chatSession.getExternalThreadId();
+        }
+
+        log.debug("[Chat] 사용 중인 ChatSession - id: {}, externalThreadId: {}, threadIdToUse: {}",
+            chatSession.getId(), chatSession.getExternalThreadId(), threadIdToUse);
+
+        // Note 참조를 final로 캡처 (람다에서 사용)
+        final Note finalNote = note;
+        final String finalThreadIdToUse = threadIdToUse;
 
         // 4. 사용자 메시지 저장
         JsonNode userContentJson = buildUserContentJson(request);
@@ -124,7 +154,7 @@ public class ChatServiceImpl implements ChatService {
         // 7. Proovy-ai 요청 생성 (Proovy-ai StreamInput 스키마에 맞게 구성)
         ProovyAiRequest aiRequest = ProovyAiRequest.builder()
             .message(request.getText())
-            .threadId(chatSession.getExternalThreadId())
+            .threadId(finalThreadIdToUse)  // Note 또는 ChatSession의 threadId
             .userId(String.valueOf(userId))
             .filesUrl(filesUrl)
             .chosenFeatures(request.getChosenFeatures())
@@ -143,10 +173,23 @@ public class ChatServiceImpl implements ChatService {
 
                     // thread_id 업데이트 (payload 내부에 포함되는 경우)
                     if (data != null && data.containsKey("thread_id")) {
-                        String threadId = (String) data.get("thread_id");
-                        if (chatSession.getExternalThreadId() == null && threadId != null) {
-                            chatSession.updateExternalThreadId(threadId);
-                            chatSessionRepository.save(chatSession);
+                        String newThreadId = (String) data.get("thread_id");
+                        
+                        if (newThreadId != null) {
+                            if (finalNote != null) {
+                                // Note가 있으면 Note에 threadId 저장
+                                if (finalNote.getThreadId() == null) {
+                                    finalNote.updateThreadId(newThreadId);
+                                    noteRepository.save(finalNote);
+                                    log.debug("[Chat] Note에 threadId 저장 - noteId: {}, threadId: {}", finalNote.getId(), newThreadId);
+                                }
+                            } else {
+                                // Note가 없으면 ChatSession에 저장 (기존 로직)
+                                if (chatSession.getExternalThreadId() == null) {
+                                    chatSession.updateExternalThreadId(newThreadId);
+                                    chatSessionRepository.save(chatSession);
+                                }
+                            }
                         }
                     }
 
