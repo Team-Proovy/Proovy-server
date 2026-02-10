@@ -40,5 +40,11 @@ public interface MessageAssetRepository extends JpaRepository<MessageAsset, Long
     void deleteByMessageIdInBulk(@Param("messageIds") List<Long> messageIds);
 
     List<MessageAsset> findByMessageIdIn(List<Long> messageIds);
+
+    /**
+     * 특정 메시지들에 연결된 Asset 목록 조회
+     */
+    @Query("SELECT ma.asset FROM MessageAsset ma WHERE ma.message.id IN :messageIds")
+    List<com.proovy.domain.asset.entity.Asset> findAssetsByMessageIds(@Param("messageIds") List<Long> messageIds);
 }
 

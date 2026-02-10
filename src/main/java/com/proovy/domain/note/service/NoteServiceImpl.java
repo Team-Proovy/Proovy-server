@@ -16,10 +16,12 @@ import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.dto.response.AssetListResponse;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
+import com.proovy.domain.embedding.service.EmbeddingJobPublisher;
 import com.proovy.domain.user.entity.User;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
+import com.proovy.global.util.HashUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -50,6 +52,7 @@ public class NoteServiceImpl implements NoteService {
     private final AssetRepository assetRepository;
     private final com.proovy.domain.user.repository.UserPlanRepository userPlanRepository;
     private final S3Service s3Service;
+    private final EmbeddingJobPublisher embeddingJobPublisher;
 
     @Override
     public CreateNoteResponse createNote(Long userId, CreateNoteRequest request) {
@@ -80,6 +83,9 @@ public class NoteServiceImpl implements NoteService {
                 .build();
         note = noteRepository.save(note);
         log.info("노트 생성 완료 - noteId: {}", note.getId());
+
+        String contentHash = HashUtils.sha256(note.getContentMd());
+        embeddingJobPublisher.publishEmbeddingJob(note.getId(), contentHash, "text-embedding-3-small");
 
         // 4. 응답 생성 (대화/메시지는 생성하지 않음)
         int conversationLimit = 50; // TODO: PlanType에 대화 제한 수가 추가되면 해당 값 사용

@@ -25,6 +25,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final JwtAuthenticationEntryPoint jwtAuthEntryPoint;
+    private final InternalApiTokenAuthenticationFilter internalApiTokenAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -40,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/internal/**").authenticated()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**").permitAll()
                     .requestMatchers("/health", "/actuator/health").permitAll()
                     // 에러 디스패치(/error) 시에는 인증 필터가 개입하지 않도록 허용
@@ -48,6 +50,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(internalApiTokenAuthenticationFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 

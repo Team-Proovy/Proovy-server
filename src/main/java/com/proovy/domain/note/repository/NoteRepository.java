@@ -12,6 +12,12 @@ import java.util.List;
 
 public interface NoteRepository extends JpaRepository<Note, Long> {
 
+    interface EmbeddingSourceProjection {
+        Long getNoteId();
+        Long getUserId();
+        String getContentMd();
+    }
+
     List<Note> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     long countByUserId(Long userId);
@@ -26,10 +32,23 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
      */
     Page<Note> findByUserId(Long userId, Pageable pageable);
 
+    @Query("""
+           SELECT n.id AS noteId, n.user.id AS userId, n.contentMd AS contentMd
+           FROM Note n
+           WHERE n.id = :noteId
+           """)
+    java.util.Optional<EmbeddingSourceProjection> findEmbeddingSourceById(@Param("noteId") Long noteId);
+
     /**
      * 특정 사용자의 모든 노트 삭제 (회원 탈퇴용)
      */
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM Note n WHERE n.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);
+
+    /**
+     * 특정 사용자의 모든 노트 ID 조회
+     */
+    @Query("SELECT n.id FROM Note n WHERE n.user.id = :userId")
+    List<Long> findIdsByUserId(@Param("userId") Long userId);
 }

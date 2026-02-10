@@ -26,5 +26,17 @@ public interface MessageToolRepository extends JpaRepository<MessageTool, Long> 
     @Modifying
     @Query("DELETE FROM MessageTool mt WHERE mt.message.id IN :messageIds")
     void deleteByMessageIdInBulk(@Param("messageIds") List<Long> messageIds);
+
+    /**
+     * 특정 메시지들에 특정 도구 코드가 존재하는지 확인
+     */
+    @Query("SELECT COUNT(mt) > 0 FROM MessageTool mt WHERE mt.message.id IN :messageIds AND mt.toolCode = :toolCode")
+    boolean existsByMessageIdInAndToolCode(@Param("messageIds") List<Long> messageIds, @Param("toolCode") String toolCode);
+
+    /**
+     * 특정 메시지들의 도구 코드 목록 조회
+     */
+    @Query("SELECT DISTINCT mt.toolCode FROM MessageTool mt WHERE mt.message.id IN :messageIds")
+    List<String> findToolCodesByMessageIds(@Param("messageIds") List<Long> messageIds);
 }
 
