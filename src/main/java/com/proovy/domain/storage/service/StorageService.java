@@ -146,9 +146,16 @@ public class StorageService {
                             .sum();
                     int noteUsedMb = (int) (noteUsedBytes / (1024 * 1024));
 
-                    // 자산 DTO 변환
+                    // 자산 DTO 변환 (썸네일 URL 생성 포함)
                     List<AssetSummaryDto> assetDtos = noteAssets.stream()
-                            .map(AssetSummaryDto::from)
+                            .map(asset -> {
+                                // 썸네일 S3 키가 있으면 presigned URL 생성
+                                String thumbnailUrl = null;
+                                if (asset.getThumbnailS3Key() != null) {
+                                    thumbnailUrl = s3Service.generatePresignedUrl(asset.getThumbnailS3Key());
+                                }
+                                return AssetSummaryDto.of(asset, thumbnailUrl);
+                            })
                             .toList();
 
                     return NoteStorageDto.of(note.getId(), note.getTitle(), noteUsedMb, assetDtos);
