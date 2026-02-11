@@ -123,16 +123,17 @@ public class SubscriptionService {
     }
 
     private SubscriptionResponse changePlanImmediately(User user, UserPlan currentPlan, PlanType targetPlan) {
-        if (currentPlan.getId() != null) {
-            currentPlan.deactivate();
-            userPlanRepository.flush();
-        }
-
-        LocalDateTime startedAt = nowInBillingZone();
-        UserPlan newPlan = buildNextActivePlan(user, targetPlan, startedAt);
-
         try {
-            return SubscriptionResponse.from(userPlanRepository.save(newPlan));
+            if (currentPlan.getId() != null) {
+                currentPlan.deactivate();
+                userPlanRepository.flush();
+            }
+
+            LocalDateTime startedAt = nowInBillingZone();
+            UserPlan newPlan = buildNextActivePlan(user, targetPlan, startedAt);
+            UserPlan savedPlan = userPlanRepository.save(newPlan);
+            userPlanRepository.flush();
+            return SubscriptionResponse.from(savedPlan);
         } catch (DataIntegrityViolationException e) {
             log.warn("동시 플랜 변경 충돌 감지: userId={}, requestedPlan={}", user.getId(), targetPlan, e);
             throw new BusinessException(ErrorCode.USER4092);

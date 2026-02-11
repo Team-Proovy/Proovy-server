@@ -10,13 +10,14 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 class StorageResponseTest {
+    private static final long MB = 1024L * 1024L;
 
     @Test
     @DisplayName("StorageResponse가 올바르게 생성된다")
     void createStorageResponse() {
         // given & when
         StorageResponse response = StorageResponse.of(
-                430,
+                430 * MB,
                 1024,
                 "free",
                 true,
@@ -35,14 +36,14 @@ class StorageResponseTest {
     @DisplayName("용량이 올바른 형식으로 표시된다")
     @CsvSource({
             "0, 1024, 0MB, 1GB",
-            "430, 1024, 430MB, 1GB",
-            "1024, 3072, 1GB, 3GB",
+            "430, 1024, 430.00MB, 1GB",
+            "1024, 3072, 1.00GB, 3GB",
             "1536, 3072, 1.50GB, 3GB",
             "2560, 102400, 2.50GB, 100GB"
     })
-    void formatStorage(int used, int limit, String expectedUsed, String expectedLimit) {
+    void formatStorage(long usedMb, int limit, String expectedUsed, String expectedLimit) {
         // when
-        StorageResponse response = StorageResponse.of(used, limit, "free", true, List.of());
+        StorageResponse response = StorageResponse.of(usedMb * MB, limit, "free", true, List.of());
 
         // then
         assertThat(response.totalUsedDisplay()).isEqualTo(expectedUsed);
@@ -58,9 +59,9 @@ class StorageResponseTest {
             "922, 1024, 90",
             "1024, 1024, 100"
     })
-    void calculateUsagePercent(int used, int limit, int expectedPercent) {
+    void calculateUsagePercent(long usedMb, int limit, int expectedPercent) {
         // when
-        StorageResponse response = StorageResponse.of(used, limit, "free", true, List.of());
+        StorageResponse response = StorageResponse.of(usedMb * MB, limit, "free", true, List.of());
 
         // then
         assertThat(response.usagePercent()).isEqualTo(expectedPercent);
@@ -70,7 +71,7 @@ class StorageResponseTest {
     @DisplayName("limit이 0이면 usagePercent는 0이다")
     void zeroLimitReturnsZeroPercent() {
         // when
-        StorageResponse response = StorageResponse.of(100, 0, "free", true, List.of());
+        StorageResponse response = StorageResponse.of(100 * MB, 0, "free", true, List.of());
 
         // then
         assertThat(response.usagePercent()).isEqualTo(0);

@@ -127,4 +127,13 @@ public class Asset {
     public void failOcr() {
         this.ocrStatus = OcrStatus.failed;
     }
+
+    /**
+     * 썸네일 S3 키 업데이트
+     */
+    public void updateThumbnail(String thumbnailS3Key) {
+        this.thumbnailS3Key = thumbnailS3Key;
+        this.ocrStatus = OcrStatus.completed; // 썸네일 생성 완료 = OCR 처리 완료
+        this.ocrProcessedAt = LocalDateTime.now();
+    }
 }
