@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 
 @Builder
 public record SubscriptionResponse(
@@ -16,7 +17,8 @@ public record SubscriptionResponse(
         PeriodDto period,
         BenefitsDto benefits,
         BillingDto billing,
-        List<AvailablePlanDto> availablePlans
+        List<AvailablePlanDto> availablePlans,
+        CancelInfoDto cancelInfo
 ) {
     @Builder
     public record CurrentPlanDto(
@@ -60,6 +62,13 @@ public record SubscriptionResponse(
             BenefitsDto benefits
     ) {}
 
+    @Builder
+    public record CancelInfoDto(
+            String canceledAt,
+            String effectiveUntil,
+            String nextPlan
+    ) {}
+
     public static SubscriptionResponse from(UserPlan userPlan) {
         PlanType planType = userPlan.getPlanType();
 
@@ -69,6 +78,7 @@ public record SubscriptionResponse(
                 .benefits(buildBenefits(planType))
                 .billing(buildBilling(userPlan))
                 .availablePlans(buildAvailablePlans(planType))
+                .cancelInfo(null)
                 .build();
     }
 
@@ -124,7 +134,7 @@ public record SubscriptionResponse(
         return BillingDto.builder()
                 .nextBillingDate(expiredAt != null
                         ? expiredAt.format(DateTimeFormatter.ISO_LOCAL_DATE) : null)
-                .autoRenew(userPlan.getIsActive())
+                .autoRenew(userPlan.getCanceledAt() == null)
                 .build();
     }
 
@@ -140,5 +150,31 @@ public record SubscriptionResponse(
                         .benefits(buildBenefits(p))
                         .build())
                 .toList();
+    }
+
+    public static SubscriptionResponse fromCanceled(UserPlan userPlan, LocalDateTime canceledAt) {
+        PlanType planType = userPlan.getPlanType();
+        PlanType nextPlanType = userPlan.getNextPlanType() != null
+                ? userPlan.getNextPlanType()
+                : PlanType.FREE;
+
+        CancelInfoDto cancelInfo = CancelInfoDto.builder()
+                .canceledAt(canceledAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                .effectiveUntil(userPlan.getExpiredAt() != null
+                        ? userPlan.getExpiredAt().format(DateTimeFormatter.ISO_LOCAL_DATE) : null)
+                .nextPlan(nextPlanType.name().toLowerCase(Locale.ROOT))
+                .build();
+
+        return SubscriptionResponse.builder()
+                .currentPlan(buildCurrentPlan(planType))
+                .period(buildPeriod(userPlan))
+                .benefits(buildBenefits(planType))
+                .billing(BillingDto.builder()
+                        .nextBillingDate(null)
+                        .autoRenew(false)
+                        .build())
+                .availablePlans(List.of())
+                .cancelInfo(cancelInfo)
+                .build();
     }
 }

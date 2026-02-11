@@ -6,6 +6,7 @@ import com.proovy.domain.credit.entity.CreditChangeType;
 import com.proovy.domain.credit.entity.CreditHistory;
 import com.proovy.domain.credit.entity.CreditType;
 import com.proovy.domain.credit.repository.CreditHistoryRepository;
+import com.proovy.domain.credit.repository.CreditHistorySpecification;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,20 +67,24 @@ public class CreditHistoryService {
         CreditBalance balance = creditBalanceService.getOrCreateBalance(userId);
 
         // 5. 크레딧 내역 조회
-        Pageable pageable = PageRequest.of(validatedPage, validatedSize);
-        Page<CreditHistory> historyPage = creditHistoryRepository.findByUserIdWithFilters(
-                userId, changeType, creditType, startDate, endDate, pageable
+        Pageable pageable = PageRequest.of(validatedPage, validatedSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<CreditHistory> historyPage = creditHistoryRepository.findAll(
+                CreditHistorySpecification.withFilters(userId, changeType, creditType, startDate, endDate),
+                pageable
         );
 
         // 6. 기간 통계 조회
+        LocalDateTime summaryStartDate = startDate != null ? startDate : LocalDateTime.of(2020, 1, 1, 0, 0);
+        LocalDateTime summaryEndDate = endDate != null ? endDate : LocalDateTime.now().plusDays(1);
+
         CreditHistoryRepository.CreditPeriodSummary periodSummary =
                 creditHistoryRepository.calculatePeriodSummary(
                         userId,
                         CreditChangeType.EARN,
                         CreditChangeType.SPEND,
                         CreditChangeType.EXPIRE,
-                        startDate,
-                        endDate
+                        summaryStartDate,
+                        summaryEndDate
                 );
 
         // 7. DTO 변환 및 반환

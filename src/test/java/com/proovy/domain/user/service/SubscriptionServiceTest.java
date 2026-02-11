@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -40,6 +41,9 @@ class SubscriptionServiceTest {
 
     @Mock
     private UserPlanRepository userPlanRepository;
+
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     private User testUser;
     private UserPlan freePlan;
@@ -77,6 +81,9 @@ class SubscriptionServiceTest {
                 .expiredAt(baseTime.plusDays(20))
                 .isActive(true)
                 .build();
+
+        given(userPlanRepository.findDueScheduledChangeByUserIdForUpdate(anyLong(), any(LocalDateTime.class)))
+                .willReturn(Optional.empty());
     }
 
     @Nested
@@ -236,18 +243,24 @@ class SubscriptionServiceTest {
         }
 
         @Test
-        @DisplayName("실패 - 다운그레이드 요청은 예외를 던진다")
-        void failDowngrade() {
+        @DisplayName("성공 - PRO에서 STANDARD 요청은 만료 시점 예약 다운그레이드로 처리한다")
+        void successScheduleDowngrade() {
             // given
             Long userId = 1L;
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
             given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(proPlan));
 
-            // when & then
-            assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard")))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(ErrorCode.USER4003);
+            // when
+            SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard"));
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("pro");
+            assertThat(response.billing()).isNotNull();
+            assertThat(response.billing().autoRenew()).isFalse();
+            assertThat(response.cancelInfo()).isNotNull();
+            assertThat(response.cancelInfo().nextPlan()).isEqualTo("standard");
+            assertThat(proPlan.getCanceledAt()).isNotNull();
+            assertThat(proPlan.getNextPlanType()).isEqualTo(PlanType.STANDARD);
         }
 
         @Test
@@ -298,6 +311,114 @@ class SubscriptionServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER4001);
+        }
+
+        @Test
+        @DisplayName("성공 - FREE 요청은 구독 취소로 처리한다")
+        void successCancelByFreeRequest() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(standardPlan));
+
+            // when
+            SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest("free"));
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("standard");
+            assertThat(response.billing()).isNotNull();
+            assertThat(response.billing().autoRenew()).isFalse();
+            assertThat(response.cancelInfo()).isNotNull();
+            assertThat(response.cancelInfo().nextPlan()).isEqualTo("free");
+            assertThat(standardPlan.getCanceledAt()).isNotNull();
+            assertThat(standardPlan.getNextPlanType()).isEqualTo(PlanType.FREE);
+        }
+
+        @Test
+        @DisplayName("실패 - FREE 플랜에서 FREE 요청은 USER4004를 반환한다")
+        void failFreeRequestOnFreePlan() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest("free")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4004);
+        }
+
+        @Test
+        @DisplayName("실패 - 이미 취소된 구독에 FREE 요청은 USER4005를 반환한다")
+        void failFreeRequestOnCanceledPlan() {
+            // given
+            Long userId = 1L;
+            standardPlan.schedulePlanChange(PlanType.FREE, LocalDateTime.of(2026, 1, 20, 10, 0));
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(standardPlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest("free")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4005);
+        }
+    }
+
+    @Nested
+    @DisplayName("cancelSubscription 메서드")
+    class CancelSubscription {
+
+        @Test
+        @DisplayName("성공 - STANDARD 플랜 취소")
+        void successCancelStandardPlan() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(standardPlan));
+
+            // when
+            SubscriptionResponse response = subscriptionService.cancelSubscription(userId);
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("standard");
+            assertThat(response.cancelInfo()).isNotNull();
+            assertThat(response.cancelInfo().nextPlan()).isEqualTo("free");
+            assertThat(response.billing()).isNotNull();
+            assertThat(response.billing().autoRenew()).isFalse();
+            assertThat(standardPlan.getCanceledAt()).isNotNull();
+            assertThat(standardPlan.getNextPlanType()).isEqualTo(PlanType.FREE);
+        }
+
+        @Test
+        @DisplayName("실패 - 활성 구독이 없는 경우")
+        void failNoActiveSubscription() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.cancelSubscription(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4042);
+        }
+
+        @Test
+        @DisplayName("실패 - FREE 플랜은 취소 불가")
+        void failCancelFreePlan() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.cancelSubscription(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4004);
         }
     }
 }
