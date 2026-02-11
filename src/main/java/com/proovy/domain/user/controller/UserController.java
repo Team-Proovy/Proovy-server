@@ -125,11 +125,14 @@ public class UserController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     description = "구독 취소 성공",
-                    content = @Content(schema = @Schema(implementation = SubscriptionResponse.class))
+                    content = @Content(schema = @Schema(
+                            implementation = SubscriptionResponse.class,
+                            example = "{\"currentPlan\":{\"name\":\"pro\",\"displayName\":\"Pro\",\"price\":14900,\"currency\":\"KRW\",\"billingCycle\":\"MONTHLY\"},\"cancelInfo\":{\"canceledAt\":\"2026-02-11T10:30:00\",\"effectiveUntil\":\"2026-03-10\",\"nextPlan\":\"free\"},\"billing\":{\"nextBillingDate\":null,\"autoRenew\":false}}"
+                    ))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "잘못된 요청 (USER4004: FREE 플랜 취소 시도, USER4005: 이미 취소된 구독)",
+                    description = "잘못된 요청 (USER4004: FREE 플랜 취소 시도, USER4005: 이미 동일한 플랜 변경 예약)",
                     content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"USER4004\",\"message\":\"FREE 플랜은 취소할 수 없습니다.\"}"))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(

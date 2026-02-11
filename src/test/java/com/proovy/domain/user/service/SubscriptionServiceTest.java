@@ -365,4 +365,60 @@ class SubscriptionServiceTest {
                     .isEqualTo(ErrorCode.USER4005);
         }
     }
+
+    @Nested
+    @DisplayName("cancelSubscription 메서드")
+    class CancelSubscription {
+
+        @Test
+        @DisplayName("성공 - STANDARD 플랜 취소")
+        void successCancelStandardPlan() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(standardPlan));
+
+            // when
+            SubscriptionResponse response = subscriptionService.cancelSubscription(userId);
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("standard");
+            assertThat(response.cancelInfo()).isNotNull();
+            assertThat(response.cancelInfo().nextPlan()).isEqualTo("free");
+            assertThat(response.billing()).isNotNull();
+            assertThat(response.billing().autoRenew()).isFalse();
+            assertThat(standardPlan.getCanceledAt()).isNotNull();
+            assertThat(standardPlan.getNextPlanType()).isEqualTo(PlanType.FREE);
+        }
+
+        @Test
+        @DisplayName("실패 - 활성 구독이 없는 경우")
+        void failNoActiveSubscription() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.cancelSubscription(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4042);
+        }
+
+        @Test
+        @DisplayName("실패 - FREE 플랜은 취소 불가")
+        void failCancelFreePlan() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.cancelSubscription(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4004);
+        }
+    }
 }

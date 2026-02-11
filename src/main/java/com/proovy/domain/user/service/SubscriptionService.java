@@ -94,6 +94,7 @@ public class SubscriptionService {
     }
 
     @Scheduled(fixedDelayString = "${proovy.subscription.plan-transition-fixed-delay-ms:60000}")
+    @Transactional(readOnly = true)
     public void processDuePlanTransitions() {
         LocalDateTime now = nowInBillingZone();
         List<Long> duePlanIds = userPlanRepository.findDueScheduledChangeIds(now, PLAN_TRANSITION_BATCH_SIZE);
