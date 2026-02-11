@@ -54,6 +54,9 @@ dependencies {
     implementation platform('software.amazon.awssdk:bom:2.20.26')
     implementation 'software.amazon.awssdk:s3'
 
+    // PDF/이미지 처리 (썸네일 생성용)
+    implementation 'org.apache.pdfbox:pdfbox:3.0.1'
+
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'

@@ -15,6 +15,7 @@ import com.proovy.domain.user.entity.PlanType;
 import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.infra.s3.S3Service;
+import com.proovy.global.infra.thumbnail.ThumbnailService;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,16 +43,13 @@ public class AssetsServiceImpl implements AssetsService {
     private final NoteRepository noteRepository;
     private final S3Service s3Service;
     private final UserPlanRepository userPlanRepository;
+    private final ThumbnailService thumbnailService;
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final long BYTES_PER_MB = 1024L * 1024L;
     private static final int OCR_TIMEOUT_MINUTES = 30; // OCR 처리 타임아웃
     private static final long NOTE_STORAGE_LIMIT = 536_870_912L; // 512MB
-    private final WebClient webClient;
     private final ApplicationContext applicationContext;
-
-    @Value("${proovy.ai.server-url:http://localhost:8081}")
-    private String aiServerUrl;
 
     /**
      * Self-injection을 통해 트랜잭션 프록시를 가져옴
@@ -168,7 +165,7 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.ASSET4031);
         }
 
-        // 3. 업로드 완료 상태 검증!
+        // 3. 업로드 완료 상태 검증
         if (asset.getStatus() != AssetStatus.UPLOADED) {
             throw new BusinessException(ErrorCode.ASSET4006);
         }
@@ -219,8 +216,7 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.ASSET4091);
         }
 
-        // 6. OCR 처리 요청 (트랜잭션 커밋 후 비동기 실행)
-        // OCR 요청에 필요한 정보 저장 (트랜잭션 외부에서 사용)
+        // 6. 썸네일 생성 (트랜잭션 커밋 후 비동기 실행)
         final Long savedAssetId = asset.getId();
         final String s3Key = asset.getS3Key();
         final String mimeType = asset.getMimeType();
@@ -228,58 +224,13 @@ public class AssetsServiceImpl implements AssetsService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                requestOcrProcessingAsync(savedAssetId, s3Key, mimeType);
+                thumbnailService.generateThumbnailAsync(savedAssetId, s3Key, mimeType);
             }
         });
 
         log.info("[Asset] 업로드 확인 완료 - assetId: {}, userId: {}", assetId, userId);
 
         return UploadConfirmResponse.from(asset);
-    }
-
-    /**
-     * AI 서버에 OCR 처리 요청 (비동기)
-     * 트랜잭션 커밋 후 afterCommit 콜백에서 호출됨
-     * 요청 실패 시 ocrStatus를 failed로 변경
-     *
-     * @param assetId  자산 ID
-     * @param s3Key    S3 저장 경로
-     * @param mimeType MIME 타입
-     */
-    private void requestOcrProcessingAsync(Long assetId, String s3Key, String mimeType) {
-        try {
-            log.info("[OCR] OCR 처리 요청 시작 - assetId: {}, s3Key: {}", assetId, s3Key);
-
-            webClient.post()
-                    .uri(aiServerUrl + "/api/ocr/process")
-                    .bodyValue(java.util.Map.of(
-                            "assetId", assetId,
-                            "s3Key", s3Key,
-                            "mimeType", mimeType
-                    ))
-                    .retrieve()
-                    .bodyToMono(Void.class)
-                    .subscribe(
-                            result -> log.info("[OCR] OCR 처리 요청 완료 - assetId: {}", assetId),
-                            error -> {
-                                log.error("[OCR] OCR 처리 요청 실패 - assetId: {}, error: {}", assetId, error.getMessage());
-                                // 별도 트랜잭션에서 OCR 실패 처리
-                                try {
-                                    getSelf().markOcrFailed(assetId);
-                                } catch (Exception e) {
-                                    log.error("[OCR] OCR 실패 상태 변경 중 오류 - assetId: {}, error: {}", assetId, e.getMessage());
-                                }
-                            }
-                    );
-        } catch (Exception e) {
-            log.error("[OCR] OCR 처리 요청 예외 - assetId: {}, error: {}", assetId, e.getMessage());
-            // 동기 예외 발생 시에도 실패 처리
-            try {
-                getSelf().markOcrFailed(assetId);
-            } catch (Exception ex) {
-                log.error("[OCR] OCR 실패 상태 변경 중 오류 - assetId: {}, error: {}", assetId, ex.getMessage());
-            }
-        }
     }
 
     @Override
@@ -326,7 +277,6 @@ public class AssetsServiceImpl implements AssetsService {
                     s3Service.deleteFile(s3Key);
                     log.info("[Asset] S3 원본 파일 삭제 완료 - s3Key: {}", s3Key);
                 } catch (Exception e) {
-                    // S3 삭제 실패해도 DB는 이미 커밋됨 (로깅만 수행)
                     log.error("[Asset] S3 원본 파일 삭제 실패 - s3Key: {}, error: {}", s3Key, e.getMessage());
                 }
 

@@ -129,22 +129,23 @@ public class StorageService {
         Map<Long, List<Asset>> assetsByNoteId = allAssets.stream()
                 .collect(Collectors.groupingBy(Asset::getNoteId));
 
-        // 전체 사용량 계산 (bytes -> MB)
+        // 전체 사용량 계산 (bytes 단위 그대로 유지)
         long totalUsedBytes = allAssets.stream()
                 .mapToLong(Asset::getFileSize)
                 .sum();
-        int totalUsedMb = (int) (totalUsedBytes / (1024 * 1024));
 
         // 노트별 스토리지 DTO 생성
         List<NoteStorageDto> noteStorageDtos = notes.stream()
                 .map(note -> {
                     List<Asset> noteAssets = assetsByNoteId.getOrDefault(note.getId(), List.of());
 
-                    // 노트별 사용량 계산
+                    // 노트별 사용량 계산 (최소 1MB로 반올림)
                     long noteUsedBytes = noteAssets.stream()
                             .mapToLong(Asset::getFileSize)
                             .sum();
-                    int noteUsedMb = (int) (noteUsedBytes / (1024 * 1024));
+                    // 0바이트가 아니면 최소 1MB로 표시, 아니면 반올림
+                    int noteUsedMb = noteUsedBytes == 0 ? 0 :
+                            Math.max(1, (int) Math.round((double) noteUsedBytes / (1024 * 1024)));
 
                     // 자산 DTO 변환 (썸네일 URL 생성 포함)
                     List<AssetSummaryDto> assetDtos = noteAssets.stream()
@@ -160,7 +161,7 @@ public class StorageService {
                 .toList();
 
         return StorageResponse.of(
-                totalUsedMb,
+                totalUsedBytes,  // bytes 단위로 전달
                 planType.getStorageLimitMb(),
                 planType.getJsonValue(),
                 isActive,
