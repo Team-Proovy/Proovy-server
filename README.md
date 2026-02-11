@@ -12,6 +12,16 @@
 - **API 문서**: Springdoc OpenAPI (Swagger)
 - **아키텍처**: DDD (Domain-Driven Design)
 
+## 배포 환경
+
+| 서비스 | URL |
+|--------|-----|
+| 프론트엔드 | https://proovy.ai.kr/ |
+| API 게이트웨이 | https://api.proovy.ai.kr/ |
+| Spring API | https://api.proovy.ai.kr/api/* |
+| AI API | https://api.proovy.ai.kr/ai/* |
+| Swagger UI | https://api.proovy.ai.kr/swagger-ui/index.html#/ |
+
 ## 프로젝트 구조
 
 ```
@@ -22,15 +32,11 @@ proovy-api/
 │   │   │   ├── ProovyApiApplication.java
 │   │   │   ├── global/                    # 전역 설정 및 공통 기능
 │   │   │   │   ├── config/                # 설정 클래스
-│   │   │   │   │   └── SwaggerConfig.java
 │   │   │   │   ├── response/              # API 공통 응답 포맷
-│   │   │   │   │   ├── ApiResponse.java
-│   │   │   │   │   └── ErrorCode.java
 │   │   │   │   ├── exception/             # 전역 예외 처리
-│   │   │   │   │   ├── BusinessException.java
-│   │   │   │   │   └── GlobalExceptionHandler.java
 │   │   │   │   ├── security/              # 인증/인가 설정 (JWT, OAuth)
 │   │   │   │   ├── util/                  # 유틸리티 클래스
+│   │   │   │   ├── tool/                  # 도구 설정 및 관리
 │   │   │   │   └── infra/                 # 외부 인프라 연동
 │   │   │   │       ├── s3/                # AWS S3 연동
 │   │   │   │       └── http/              # HTTP 클라이언트
@@ -40,8 +46,6 @@ proovy-api/
 │   │   │       │   ├── controller/        # 소셜 로그인, 회원가입, 토큰 갱신
 │   │   │       │   ├── service/
 │   │   │       │   ├── dto/
-│   │   │       │   │   ├── request/
-│   │   │       │   │   └── response/
 │   │   │       │   ├── provider/          # OAuth 제공자별 구현
 │   │   │       │   └── entity/
 │   │   │       │
@@ -49,8 +53,6 @@ proovy-api/
 │   │   │       │   ├── controller/        # 프로필 조회/수정, 회원 탈퇴
 │   │   │       │   ├── service/
 │   │   │       │   ├── dto/
-│   │   │       │   │   ├── request/
-│   │   │       │   │   └── response/
 │   │   │       │   ├── entity/            # User, Plan 엔티티
 │   │   │       │   └── repository/
 │   │   │       │
@@ -58,8 +60,6 @@ proovy-api/
 │   │   │       │   ├── controller/        # 노트 CRUD, 목록 조회
 │   │   │       │   ├── service/
 │   │   │       │   ├── dto/
-│   │   │       │   │   ├── request/
-│   │   │       │   │   └── response/
 │   │   │       │   ├── entity/            # Note 엔티티
 │   │   │       │   └── repository/
 │   │   │       │
@@ -67,40 +67,44 @@ proovy-api/
 │   │   │       │   ├── controller/        # 파일 업로드/다운로드/삭제
 │   │   │       │   ├── service/           # S3 연동, 스토리지 관리
 │   │   │       │   ├── dto/
-│   │   │       │   │   ├── request/
-│   │   │       │   │   └── response/
 │   │   │       │   ├── entity/            # Asset 엔티티
 │   │   │       │   └── repository/
+│   │   │       │
+│   │   │       ├── storage/               # 스토리지 도메인
+│   │   │       │   ├── controller/        # 스토리지 현황 조회
+│   │   │       │   ├── service/
+│   │   │       │   └── dto/
 │   │   │       │
 │   │   │       ├── ocr/                   # OCR 도메인
 │   │   │       │   ├── controller/        # OCR 처리 API
 │   │   │       │   ├── service/           # AI 서버 연동
 │   │   │       │   ├── dto/
-│   │   │       │   │   ├── request/
-│   │   │       │   │   └── response/
 │   │   │       │   └── entity/            # OcrResult 엔티티
 │   │   │       │
 │   │   │       ├── conversation/          # 대화 도메인
 │   │   │       │   ├── controller/        # 대화 전송, 목록 조회
 │   │   │       │   ├── service/           # AI 응답 생성, 도구 실행
 │   │   │       │   ├── dto/
-│   │   │       │   │   ├── request/
-│   │   │       │   │   └── response/
 │   │   │       │   ├── entity/            # Conversation, Message 엔티티
 │   │   │       │   └── repository/
 │   │   │       │
-│   │   │       └── credit/                # 크레딧 도메인
-│   │   │           ├── controller/        # 크레딧 조회, 사용 내역
-│   │   │           ├── service/           # 크레딧 차감/충전 로직
-│   │   │           ├── dto/
-│   │   │           │   └── response/
-│   │   │           ├── entity/            # Credit, CreditTransaction 엔티티
-│   │   │           └── repository/
+│   │   │       ├── credit/                # 크레딧 도메인
+│   │   │       │   ├── controller/        # 크레딧 조회, 사용, 내역
+│   │   │       │   ├── service/           # 크레딧 차감/충전 로직
+│   │   │       │   ├── dto/
+│   │   │       │   │   ├── request/
+│   │   │       │   │   └── response/
+│   │   │       │   ├── entity/            # CreditBalance, CreditHistory 엔티티
+│   │   │       │   └── repository/
+│   │   │       │
+│   │   │       └── embedding/             # 임베딩 도메인
+│   │   │           ├── NoteEmbedding.java
+│   │   │           ├── NoteEmbeddingRepository.java
+│   │   │           └── service/
 │   │   │
 │   │   └── resources/
 │   │       ├── application.yaml           # 애플리케이션 설정
-│   │       ├── db/migration/              # DB 마이그레이션
-│   │       └── static/                    # 정적 리소스
+│   │       └── db/migration/              # DB 마이그레이션
 │   │
 │   └── test/                              # 테스트 코드
 │       └── java/com/proovy/
@@ -137,29 +141,34 @@ proovy-api/
 - 파일 뷰어 URL 발급
 - 파일 목록 조회
 - 파일 삭제 (단일/일괄)
+
+### 5. Storage 도메인
 - 전체 스토리지 현황 조회
 
-### 5. OCR 도메인
+### 6. OCR 도메인
 - 이미지/PDF에서 텍스트 추출
 - OCR 처리 상태 조회
 - AI 서버 연동
 
-### 6. Conversation 도메인
+### 7. Conversation 도메인
 - 사용 가능한 도구 목록 조회
 - 멘션용 파일 검색 (자동완성)
 - 캔버스 이미지 업로드
-- 대화 전송 (질문 + AI 응답)
+- 대화 전송 (질문 + AI 응답, SSE 스트리밍)
 - 대화 목록 조회 (검색)
 - 대화 상세 조회
 
-### 7. Credit 도메인
+### 8. Credit 도메인
 - 크레딧 잔액 조회
-- 크레딧 사용 내역 조회 (페이징)
-- 크레딧 비용 정보 조회 (OCR, 문제 풀이 등)
+- 크레딧 사용 (차감)
+- 크레딧 사용 내역 조회 (페이징, 필터링)
+- 크레딧 비용 정보 조회
+- 예상 크레딧 비용 조회
+
+### 9. Embedding 도메인
+- 노트 임베딩 저장/조회
+- 유사 노트 검색
 
 ## API 문서
 
-애플리케이션 실행 후 다음 URL에서 API 문서를 확인할 수 있습니다:
-
-- **Swagger UI**: http://localhost:8080/swagger-ui/index.html
-- **API Docs (JSON)**: http://localhost:8080/api-docs
+- **Swagger UI**: https://api.proovy.ai.kr/swagger-ui/index.html#/
