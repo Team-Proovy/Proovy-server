@@ -88,6 +88,24 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, Long> {
         return findDueScheduledChangesForUpdate(now, PageRequest.of(0, batchSize));
     }
 
+    @Query("""
+            SELECT up.id FROM UserPlan up
+            WHERE up.isActive = true
+              AND up.canceledAt IS NOT NULL
+              AND up.expiredAt IS NOT NULL
+              AND up.expiredAt <= :now
+            ORDER BY up.expiredAt ASC, up.id ASC
+            """)
+    List<Long> findDueScheduledChangeIds(@Param("now") LocalDateTime now, Pageable pageable);
+
+    default List<Long> findDueScheduledChangeIds(LocalDateTime now, int batchSize) {
+        return findDueScheduledChangeIds(now, PageRequest.of(0, batchSize));
+    }
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT up FROM UserPlan up WHERE up.id = :userPlanId")
+    Optional<UserPlan> findByIdWithLock(@Param("userPlanId") Long userPlanId);
+
     /**
      * 특정 사용자의 모든 플랜 삭제 (회원 탈퇴용)
      */

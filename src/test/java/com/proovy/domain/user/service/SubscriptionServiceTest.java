@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -40,6 +41,9 @@ class SubscriptionServiceTest {
 
     @Mock
     private UserPlanRepository userPlanRepository;
+
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     private User testUser;
     private UserPlan freePlan;

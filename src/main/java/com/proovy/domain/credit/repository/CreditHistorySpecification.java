@@ -40,8 +40,6 @@ public class CreditHistorySpecification {
                 predicates.add(cb.lessThan(root.get("createdAt"), endDate));
             }
 
-            query.orderBy(cb.desc(root.get("createdAt")));
-
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }

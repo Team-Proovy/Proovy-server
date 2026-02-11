@@ -14,7 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -32,6 +35,7 @@ public class SubscriptionService {
 
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional
     public SubscriptionResponse getSubscription(Long userId) {
@@ -90,16 +94,19 @@ public class SubscriptionService {
     }
 
     @Scheduled(fixedDelayString = "${proovy.subscription.plan-transition-fixed-delay-ms:60000}")
-    @Transactional
     public void processDuePlanTransitions() {
         LocalDateTime now = nowInBillingZone();
-        List<UserPlan> duePlans = userPlanRepository.findDueScheduledChangesForUpdate(now, PLAN_TRANSITION_BATCH_SIZE);
-        for (UserPlan duePlan : duePlans) {
-            applyDuePlanChange(duePlan);
+        List<Long> duePlanIds = userPlanRepository.findDueScheduledChangeIds(now, PLAN_TRANSITION_BATCH_SIZE);
+        int processedCount = 0;
+
+        for (Long duePlanId : duePlanIds) {
+            if (processDuePlanTransitionInNewTransaction(duePlanId, now)) {
+                processedCount++;
+            }
         }
 
-        if (!duePlans.isEmpty()) {
-            log.info("예약된 플랜 변경 처리 완료: count={}", duePlans.size());
+        if (!duePlanIds.isEmpty()) {
+            log.info("예약된 플랜 변경 처리 완료: requestedCount={}, processedCount={}", duePlanIds.size(), processedCount);
         }
     }
 
@@ -152,8 +159,13 @@ public class SubscriptionService {
 
     private void applyDuePlanChangeForUser(Long userId) {
         LocalDateTime now = nowInBillingZone();
-        userPlanRepository.findDueScheduledChangeByUserIdForUpdate(userId, now)
-                .ifPresent(this::applyDuePlanChange);
+        try {
+            userPlanRepository.findDueScheduledChangeByUserIdForUpdate(userId, now)
+                    .ifPresent(this::applyDuePlanChange);
+        } catch (DataIntegrityViolationException e) {
+            log.warn("사용자별 만료 플랜 전환 충돌 감지: userId={}", userId, e);
+            throw new BusinessException(ErrorCode.USER4092);
+        }
     }
 
     private void applyDuePlanChange(UserPlan duePlan) {
@@ -168,11 +180,37 @@ public class SubscriptionService {
         userPlanRepository.flush();
 
         UserPlan nextPlan = buildNextActivePlan(duePlan.getUser(), nextPlanType, transitionAt);
+        userPlanRepository.save(nextPlan);
+    }
+
+    private boolean processDuePlanTransitionInNewTransaction(Long duePlanId, LocalDateTime now) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
         try {
-            userPlanRepository.save(nextPlan);
+            return Boolean.TRUE.equals(transactionTemplate.execute(status ->
+                    userPlanRepository.findByIdWithLock(duePlanId)
+                            .filter(plan -> isDueScheduledChange(plan, now))
+                            .map(plan -> {
+                                applyDuePlanChange(plan);
+                                return true;
+                            })
+                            .orElse(false)
+            ));
         } catch (DataIntegrityViolationException e) {
-            log.warn("예약 플랜 전환 충돌 감지: userId={}, nextPlan={}", duePlan.getUser().getId(), nextPlanType, e);
+            log.warn("예약 플랜 전환 충돌 감지: userPlanId={}", duePlanId, e);
+            return false;
+        } catch (RuntimeException e) {
+            log.warn("예약 플랜 전환 처리 실패: userPlanId={}", duePlanId, e);
+            return false;
         }
+    }
+
+    private boolean isDueScheduledChange(UserPlan plan, LocalDateTime now) {
+        return Boolean.TRUE.equals(plan.getIsActive())
+                && plan.getCanceledAt() != null
+                && plan.getExpiredAt() != null
+                && !plan.getExpiredAt().isAfter(now);
     }
 
     private UserPlan buildNextActivePlan(User user, PlanType planType, LocalDateTime startedAt) {
