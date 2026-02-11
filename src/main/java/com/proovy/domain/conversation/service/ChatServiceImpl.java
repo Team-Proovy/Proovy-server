@@ -7,6 +7,8 @@ import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.conversation.dto.request.ConversationRequest;
 import com.proovy.domain.conversation.dto.request.ProovyAiRequest;
+import com.proovy.domain.credit.dto.request.CreditUseRequest;
+import com.proovy.domain.credit.service.CreditUseService;
 import com.proovy.domain.conversation.dto.response.ConversationResponse;
 import com.proovy.domain.conversation.dto.response.ProovyAiStreamEvent;
 import com.proovy.domain.note.entity.Note;
@@ -53,6 +55,7 @@ public class ChatServiceImpl implements ChatService {
     private final S3Service s3Service;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final CreditUseService creditUseService;
 
     @Value("${proovy.ai.host}")
     private String proovyAiHost;
@@ -207,8 +210,26 @@ public class ChatServiceImpl implements ChatService {
                     finalContent.put("text", contentBuilder.toString());
                     savedAiMessage.updateContent(finalContent);
                     chatMessageRepository.save(savedAiMessage);
-                    
-                    log.info("Streaming completed for session: {}, message: {}", 
+
+                    // 크레딧 차감
+                    if (request.getChosenFeatures() != null && !request.getChosenFeatures().isEmpty()) {
+                        for (String feature : request.getChosenFeatures()) {
+                            try {
+                                CreditUseRequest creditRequest = CreditUseRequest.builder()
+                                        .eventType("LLM_QUERY")
+                                        .featureName(feature)
+                                        .difficulty("easy")
+                                        .description(feature + " 실행")
+                                        .build();
+                                creditUseService.useCredit(userId, creditRequest);
+                                log.info("크레딧 차감 완료: userId={}, feature={}", userId, feature);
+                            } catch (Exception e) {
+                                log.error("크레딧 차감 실패: userId={}, feature={}", userId, feature, e);
+                            }
+                        }
+                    }
+
+                    log.info("Streaming completed for session: {}, message: {}",
                             chatSession.getId(), savedAiMessage.getId());
                 })
                 .doOnError(error -> {
