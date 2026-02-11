@@ -3,7 +3,6 @@ package com.proovy.domain.asset.controller;
 import com.proovy.domain.asset.dto.request.UploadUrlRequest;
 import com.proovy.domain.asset.dto.response.AssetDetailResponse;
 import com.proovy.domain.asset.dto.response.DownloadUrlResponse;
-import com.proovy.domain.asset.dto.response.UploadConfirmResponse;
 import com.proovy.domain.asset.dto.response.UploadUrlResponse;
 import com.proovy.domain.asset.service.AssetsService;
 import com.proovy.global.response.ApiResponse;
@@ -99,28 +98,28 @@ public class AssetsController {
             description = """
                     클라이언트가 S3에 파일 업로드를 완료한 후 서버에 알림을 보냅니다.
 
-                    이 API 호출로 OCR 처리가 시작됩니다.
+                    **이미지 파일**: 썸네일이 즉시 생성되어 응답에 포함됩니다.
+                    **PDF 파일**: 썸네일은 비동기로 생성됩니다 (완료 시 폴링 필요).
 
                     **주의사항**:
                     - 반드시 Presigned URL로 S3 업로드를 완료한 후 호출해야 합니다
                     - 중복 호출 시 409 Conflict 에러가 반환됩니다
-                    - OCR 처리는 비동기로 진행됩니다 (파일 크기에 따라 수초~수분 소요)
                     """
     )
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "업로드 확인 완료, OCR 처리 시작"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "업로드 확인 완료 (이미지는 썸네일 URL 포함)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "S3에 파일이 업로드되지 않음 (ASSET4007)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패 (AUTH4010, AUTH4012, AUTH4013)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음 (ASSET4031)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "자산을 찾을 수 없음 (ASSET4041)"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 확인된 자산 (ASSET4091)")
     })
-    public ApiResponse<UploadConfirmResponse> confirmUpload(
+    public ApiResponse<AssetDetailResponse> confirmUpload(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Parameter(description = "자산 ID", required = true)
             @PathVariable Long assetId) {
 
-        UploadConfirmResponse response = assetsService.confirmUpload(userPrincipal.getUserId(), assetId);
+        AssetDetailResponse response = assetsService.confirmUpload(userPrincipal.getUserId(), assetId);
         return ApiResponse.success("업로드가 확인되었습니다.", response);
     }
 

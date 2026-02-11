@@ -3,7 +3,6 @@ package com.proovy.domain.asset.service;
 import com.proovy.domain.asset.dto.request.UploadUrlRequest;
 import com.proovy.domain.asset.dto.response.AssetDetailResponse;
 import com.proovy.domain.asset.dto.response.DownloadUrlResponse;
-import com.proovy.domain.asset.dto.response.UploadConfirmResponse;
 import com.proovy.domain.asset.dto.response.UploadUrlResponse;
 
 public interface AssetsService {
@@ -25,12 +24,12 @@ public interface AssetsService {
     DownloadUrlResponse generateDownloadUrl(Long userId, Long assetId);
 
     /**
-     * S3 업로드 완료 확인 및 OCR 처리 시작
+     * S3 업로드 완료 확인 및 썸네일 생성
      * @param userId 사용자 ID
      * @param assetId 자산 ID
-     * @return 업로드 확인 결과
+     * @return 업로드 확인 결과 (썸네일 URL 포함)
      */
-    UploadConfirmResponse confirmUpload(Long userId, Long assetId);
+    AssetDetailResponse confirmUpload(Long userId, Long assetId);
 
     /**
      * 자산 상세 정보 + OCR 결과 조회
@@ -57,4 +56,11 @@ public interface AssetsService {
      * 타임아웃된 OCR 처리 자산들을 실패로 변경
      */
     void markTimedOutOcrAsFailed();
+
+    /**
+     * Asset 썸네일 정보 업데이트 (별도 트랜잭션)
+     * @param assetId 자산 ID
+     * @param thumbnailS3Key 썸네일 S3 키
+     */
+    void updateAssetThumbnail(Long assetId, String thumbnailS3Key);
 }

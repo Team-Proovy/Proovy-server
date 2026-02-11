@@ -4,7 +4,6 @@ import com.proovy.domain.asset.constant.AllowedMimeType;
 import com.proovy.domain.asset.dto.request.UploadUrlRequest;
 import com.proovy.domain.asset.dto.response.AssetDetailResponse;
 import com.proovy.domain.asset.dto.response.DownloadUrlResponse;
-import com.proovy.domain.asset.dto.response.UploadConfirmResponse;
 import com.proovy.domain.asset.dto.response.UploadUrlResponse;
 import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.entity.AssetStatus;
@@ -185,7 +184,7 @@ public class AssetsServiceImpl implements AssetsService {
 
     @Override
     @Transactional
-    public UploadConfirmResponse confirmUpload(Long userId, Long assetId) {
+    public AssetDetailResponse confirmUpload(Long userId, Long assetId) {
         // 1. Asset 존재 확인
         Asset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ASSET4041));
@@ -216,21 +215,48 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.ASSET4091);
         }
 
-        // 6. 썸네일 생성 (트랜잭션 커밋 후 비동기 실행)
+        // 6. 썸네일 생성
         final Long savedAssetId = asset.getId();
         final String s3Key = asset.getS3Key();
         final String mimeType = asset.getMimeType();
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                thumbnailService.generateThumbnailAsync(savedAssetId, s3Key, mimeType);
+        // 이미지 파일인 경우: 동기적으로 썸네일 생성 (빠른 응답)
+        if (mimeType.startsWith("image/")) {
+            try {
+                String thumbnailS3Key = thumbnailService.generateThumbnailSync(s3Key, mimeType);
+                if (thumbnailS3Key != null) {
+                    // 썸네일 생성 성공 - Asset 업데이트 (별도 트랜잭션)
+                    getSelf().updateAssetThumbnail(savedAssetId, thumbnailS3Key);
+                    log.info("[Asset] 이미지 썸네일 생성 완료 (동기) - assetId: {}", savedAssetId);
+
+                    // 썸네일 생성 후 최신 Asset 정보 다시 조회
+                    asset = assetRepository.findById(savedAssetId)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.ASSET4041));
+                } else {
+                    log.warn("[Asset] 이미지 썸네일 생성 실패 - assetId: {}", savedAssetId);
+                }
+            } catch (Exception e) {
+                log.error("[Asset] 이미지 썸네일 생성 중 오류 - assetId: {}, error: {}", savedAssetId, e.getMessage(), e);
             }
-        });
+        }
+        // PDF 파일인 경우: 비동기로 썸네일 생성 (시간 소요)
+        else if (mimeType.equals("application/pdf")) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    thumbnailService.generateThumbnailAsync(savedAssetId, s3Key, mimeType);
+                }
+            });
+        }
 
         log.info("[Asset] 업로드 확인 완료 - assetId: {}, userId: {}", assetId, userId);
 
-        return UploadConfirmResponse.from(asset);
+        // 썸네일 URL 생성 (있는 경우)
+        String thumbnailUrl = asset.getThumbnailS3Key() != null
+                ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                : null;
+
+        return AssetDetailResponse.from(asset, thumbnailUrl);
     }
 
     @Override
@@ -246,7 +272,12 @@ public class AssetsServiceImpl implements AssetsService {
 
         log.debug("[Asset] 자산 상세 조회 - assetId: {}, ocrStatus: {}", assetId, asset.getOcrStatus());
 
-        return AssetDetailResponse.from(asset);
+        // 썸네일 URL 생성 (있는 경우)
+        String thumbnailUrl = asset.getThumbnailS3Key() != null
+                ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                : null;
+
+        return AssetDetailResponse.from(asset, thumbnailUrl);
     }
 
     @Override
@@ -328,5 +359,21 @@ public class AssetsServiceImpl implements AssetsService {
                         asset.getId(), asset.getUpdatedAt());
             }
         }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateAssetThumbnail(Long assetId, String thumbnailS3Key) {
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> {
+                    log.warn("[Asset] Asset 미존재로 썸네일 연결 실패 - assetId: {}, thumbnailS3Key: {}",
+                            assetId, thumbnailS3Key);
+                    return new BusinessException(ErrorCode.ASSET4041);
+                });
+
+        asset.updateThumbnail(thumbnailS3Key);
+        assetRepository.save(asset);
+        log.info("[Asset] Asset 썸네일 업데이트 완료 - assetId: {}, thumbnailS3Key: {}",
+                assetId, thumbnailS3Key);
     }
 }
