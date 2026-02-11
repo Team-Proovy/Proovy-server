@@ -6,24 +6,41 @@ UPDATE user_plans
 SET is_active = false
 WHERE is_active IS NULL;
 
-WITH ranked_active AS (
-    SELECT
-        user_plan_id,
-        ROW_NUMBER() OVER (
-            PARTITION BY user_id
-            ORDER BY
-                CASE WHEN started_at IS NULL THEN 1 ELSE 0 END,
-                started_at DESC,
-                user_plan_id DESC
-        ) AS rn
-    FROM user_plans
-    WHERE is_active = true
-)
-UPDATE user_plans up
-SET is_active = false
-FROM ranked_active ra
-WHERE up.user_plan_id = ra.user_plan_id
-  AND ra.rn > 1;
+DO $$
+DECLARE
+    batch_size INT := 5000;
+    updated_count INT;
+BEGIN
+    LOOP
+        WITH duplicate_active AS (
+            SELECT user_plan_id
+            FROM (
+                SELECT
+                    user_plan_id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY user_id
+                        ORDER BY
+                            CASE WHEN started_at IS NULL THEN 1 ELSE 0 END,
+                            started_at DESC,
+                            user_plan_id DESC
+                    ) AS rn
+                FROM user_plans
+                WHERE is_active = true
+            ) ranked
+            WHERE rn > 1
+            LIMIT batch_size
+        )
+        UPDATE user_plans up
+        SET is_active = false
+        WHERE up.user_plan_id IN (SELECT user_plan_id FROM duplicate_active);
+
+        GET DIAGNOSTICS updated_count = ROW_COUNT;
+        EXIT WHEN updated_count = 0;
+
+        -- 대량 데이터에서 장시간 락 점유를 줄이기 위해 짧게 양보
+        PERFORM pg_sleep(0.05);
+    END LOOP;
+END $$;
 
 ALTER TABLE user_plans
     ALTER COLUMN is_active SET NOT NULL;

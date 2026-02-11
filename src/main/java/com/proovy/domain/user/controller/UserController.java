@@ -83,7 +83,7 @@ public class UserController {
     @Operation(
             operationId = "03_upgradePlan",
             summary = "구독 플랜 업그레이드",
-            description = "유저 플랜을 STANDARD 또는 PRO로 업그레이드하고 DB에 변경사항을 반영합니다."
+            description = "유저 플랜을 변경합니다. 상위 플랜은 즉시 반영되고, 하위 플랜(FREE 포함)은 만료일 기준 예약 변경(자동갱신 해지)으로 처리됩니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -93,7 +93,7 @@ public class UserController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "잘못된 요청 (USER4001: 유효하지 않은 플랜 타입, USER4002: 동일한 플랜, USER4003: 다운그레이드 시도)",
+                    description = "잘못된 요청 (USER4001: 유효하지 않은 플랜 타입, USER4002: 동일한 플랜, USER4004: FREE 플랜 취소 시도, USER4005: 이미 예약된 변경 요청)",
                     content = @Content(schema = @Schema(example = "{\"isSuccess\":false,\"code\":\"USER4001\",\"message\":\"유효하지 않은 플랜 타입입니다.\"}"))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(

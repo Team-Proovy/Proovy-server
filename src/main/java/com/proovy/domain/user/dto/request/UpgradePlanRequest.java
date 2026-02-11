@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 
 public record UpgradePlanRequest(
         @NotBlank(message = "플랜 타입은 필수입니다.")
-        @Schema(description = "업그레이드할 플랜 타입 (standard, pro)", example = "standard", allowableValues = {"standard", "pro"})
+        @Schema(description = "변경할 플랜 타입 (free, standard, pro)", example = "standard", allowableValues = {"free", "standard", "pro"})
         @JsonProperty("planType")
         String planType
 ) {

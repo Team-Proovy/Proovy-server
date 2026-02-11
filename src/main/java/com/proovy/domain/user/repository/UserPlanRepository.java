@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,6 +51,41 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, Long> {
     default Optional<PlanType> findActivePlanTypeByUserId(Long userId) {
         return findActiveByUserId(userId)
                 .map(UserPlan::getPlanType);
+    }
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT up FROM UserPlan up
+            WHERE up.user.id = :userId
+              AND up.isActive = true
+              AND up.canceledAt IS NOT NULL
+              AND up.expiredAt IS NOT NULL
+              AND up.expiredAt <= :now
+            ORDER BY up.expiredAt ASC, up.id ASC
+            """)
+    List<UserPlan> findDueScheduledChangeByUserIdForUpdate(
+            @Param("userId") Long userId,
+            @Param("now") LocalDateTime now,
+            Pageable pageable
+    );
+
+    default Optional<UserPlan> findDueScheduledChangeByUserIdForUpdate(Long userId, LocalDateTime now) {
+        return findDueScheduledChangeByUserIdForUpdate(userId, now, PageRequest.of(0, 1)).stream().findFirst();
+    }
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT up FROM UserPlan up
+            WHERE up.isActive = true
+              AND up.canceledAt IS NOT NULL
+              AND up.expiredAt IS NOT NULL
+              AND up.expiredAt <= :now
+            ORDER BY up.expiredAt ASC, up.id ASC
+            """)
+    List<UserPlan> findDueScheduledChangesForUpdate(@Param("now") LocalDateTime now, Pageable pageable);
+
+    default List<UserPlan> findDueScheduledChangesForUpdate(LocalDateTime now, int batchSize) {
+        return findDueScheduledChangesForUpdate(now, PageRequest.of(0, batchSize));
     }
 
     /**

@@ -12,12 +12,14 @@ import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Locale;
 
 @Slf4j
@@ -26,13 +28,17 @@ import java.util.Locale;
 @Transactional(readOnly = true)
 public class SubscriptionService {
     private static final ZoneId BILLING_ZONE = ZoneId.of("Asia/Seoul");
+    private static final int PLAN_TRANSITION_BATCH_SIZE = 200;
 
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
 
+    @Transactional
     public SubscriptionResponse getSubscription(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+
+        applyDuePlanChangeForUser(userId);
 
         UserPlan userPlan = userPlanRepository.findActiveByUserId(userId)
                 .orElseGet(() -> createDefaultFreePlan(user));
@@ -42,45 +48,59 @@ public class SubscriptionService {
 
     @Transactional
     public SubscriptionResponse upgradePlan(Long userId, UpgradePlanRequest request) {
-        // 1. 사용자 행을 선점해 동시 업그레이드 요청을 직렬화
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
 
-        // 2. 요청한 플랜 타입 검증
-        PlanType newPlanType = validateAndGetPlanType(request.planType());
+        applyDuePlanChangeForUser(userId);
 
-        // 3. 현재 활성 플랜 조회 (비관적 잠금)
+        PlanType requestedPlanType = validateAndGetPlanType(request.planType());
+
         UserPlan currentPlan = userPlanRepository.findActiveByUserIdForUpdate(userId)
                 .orElseGet(() -> createDefaultFreePlan(user));
 
-        // 4. 플랜 업그레이드 가능 여부 검증
-        validateUpgrade(currentPlan.getPlanType(), newPlanType);
-
-        // 5. 기존 플랜 비활성화 (DB에 저장된 경우만)
-        if (currentPlan.getId() != null) {
-            currentPlan.deactivate();
+        if (requestedPlanType == currentPlan.getPlanType()) {
+            if (requestedPlanType == PlanType.FREE) {
+                throw new BusinessException(ErrorCode.USER4004);
+            }
+            if (currentPlan.getCanceledAt() != null) {
+                currentPlan.resumeAutoRenew();
+                return SubscriptionResponse.from(currentPlan);
+            }
+            throw new BusinessException(ErrorCode.USER4002);
         }
 
-        // 6. 새로운 플랜 생성
-        ZonedDateTime now = ZonedDateTime.now(BILLING_ZONE);
-        UserPlan newPlan = UserPlan.builder()
-                .user(user)
-                .planType(newPlanType)
-                .startedAt(now.toLocalDateTime())
-                .expiredAt(now.plusMonths(1).toLocalDateTime())
-                .isActive(true)
-                .build();
-
-        UserPlan savedPlan;
-        try {
-            savedPlan = userPlanRepository.save(newPlan);
-        } catch (DataIntegrityViolationException e) {
-            log.warn("동시 업그레이드 충돌 감지: userId={}, requestedPlan={}", userId, newPlanType, e);
-            throw new BusinessException(ErrorCode.USER4092);
+        if (requestedPlanType.getLevel() > currentPlan.getPlanType().getLevel()) {
+            return changePlanImmediately(user, currentPlan, requestedPlanType);
         }
 
-        // 7. 응답 생성
-        return SubscriptionResponse.from(savedPlan);
+        return schedulePlanChange(currentPlan, requestedPlanType);
+    }
+
+    @Transactional
+    public SubscriptionResponse cancelSubscription(Long userId) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+
+        applyDuePlanChangeForUser(userId);
+
+        UserPlan activePlan = userPlanRepository.findActiveByUserIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER4042));
+
+        return schedulePlanChange(activePlan, PlanType.FREE);
+    }
+
+    @Scheduled(fixedDelayString = "${proovy.subscription.plan-transition-fixed-delay-ms:60000}")
+    @Transactional
+    public void processDuePlanTransitions() {
+        LocalDateTime now = nowInBillingZone();
+        List<UserPlan> duePlans = userPlanRepository.findDueScheduledChangesForUpdate(now, PLAN_TRANSITION_BATCH_SIZE);
+        for (UserPlan duePlan : duePlans) {
+            applyDuePlanChange(duePlan);
+        }
+
+        if (!duePlans.isEmpty()) {
+            log.info("예약된 플랜 변경 처리 완료: count={}", duePlans.size());
+        }
     }
 
     private PlanType validateAndGetPlanType(String planTypeStr) {
@@ -88,26 +108,93 @@ public class SubscriptionService {
             throw new BusinessException(ErrorCode.USER4001);
         }
         try {
-            PlanType planType = PlanType.valueOf(planTypeStr.trim().toUpperCase(Locale.ROOT));
-            if (planType == PlanType.FREE) {
-                throw new BusinessException(ErrorCode.USER4001);
-            }
-            return planType;
+            return PlanType.valueOf(planTypeStr.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.USER4001);
         }
     }
 
-    private void validateUpgrade(PlanType currentPlan, PlanType newPlan) {
-        // 동일한 플랜으로 업그레이드 시도
-        if (currentPlan == newPlan) {
-            throw new BusinessException(ErrorCode.USER4002);
+    private SubscriptionResponse changePlanImmediately(User user, UserPlan currentPlan, PlanType targetPlan) {
+        if (currentPlan.getId() != null) {
+            currentPlan.deactivate();
+            userPlanRepository.flush();
         }
 
-        // 다운그레이드 시도
-        if (currentPlan.getLevel() > newPlan.getLevel()) {
-            throw new BusinessException(ErrorCode.USER4003);
+        LocalDateTime startedAt = nowInBillingZone();
+        UserPlan newPlan = buildNextActivePlan(user, targetPlan, startedAt);
+
+        try {
+            return SubscriptionResponse.from(userPlanRepository.save(newPlan));
+        } catch (DataIntegrityViolationException e) {
+            log.warn("동시 플랜 변경 충돌 감지: userId={}, requestedPlan={}", user.getId(), targetPlan, e);
+            throw new BusinessException(ErrorCode.USER4092);
         }
+    }
+
+    private SubscriptionResponse schedulePlanChange(UserPlan activePlan, PlanType targetPlan) {
+        if (activePlan.getPlanType() == PlanType.FREE) {
+            throw new BusinessException(ErrorCode.USER4004);
+        }
+
+        PlanType currentScheduledNextPlan = resolveNextPlanType(activePlan);
+        if (activePlan.getCanceledAt() != null && currentScheduledNextPlan == targetPlan) {
+            throw new BusinessException(ErrorCode.USER4005);
+        }
+
+        if (activePlan.getExpiredAt() == null) {
+            return changePlanImmediately(activePlan.getUser(), activePlan, targetPlan);
+        }
+
+        LocalDateTime canceledAt = nowInBillingZone();
+        activePlan.schedulePlanChange(targetPlan, canceledAt);
+        return SubscriptionResponse.fromCanceled(activePlan, canceledAt);
+    }
+
+    private void applyDuePlanChangeForUser(Long userId) {
+        LocalDateTime now = nowInBillingZone();
+        userPlanRepository.findDueScheduledChangeByUserIdForUpdate(userId, now)
+                .ifPresent(this::applyDuePlanChange);
+    }
+
+    private void applyDuePlanChange(UserPlan duePlan) {
+        if (duePlan.getId() == null) {
+            return;
+        }
+
+        PlanType nextPlanType = resolveNextPlanType(duePlan);
+        LocalDateTime transitionAt = duePlan.getExpiredAt() != null ? duePlan.getExpiredAt() : nowInBillingZone();
+
+        duePlan.deactivate();
+        userPlanRepository.flush();
+
+        UserPlan nextPlan = buildNextActivePlan(duePlan.getUser(), nextPlanType, transitionAt);
+        try {
+            userPlanRepository.save(nextPlan);
+        } catch (DataIntegrityViolationException e) {
+            log.warn("예약 플랜 전환 충돌 감지: userId={}, nextPlan={}", duePlan.getUser().getId(), nextPlanType, e);
+        }
+    }
+
+    private UserPlan buildNextActivePlan(User user, PlanType planType, LocalDateTime startedAt) {
+        if (planType == PlanType.FREE) {
+            return UserPlan.builder()
+                    .user(user)
+                    .planType(PlanType.FREE)
+                    .isActive(true)
+                    .build();
+        }
+
+        return UserPlan.builder()
+                .user(user)
+                .planType(planType)
+                .startedAt(startedAt)
+                .expiredAt(startedAt.plusMonths(1))
+                .isActive(true)
+                .build();
+    }
+
+    private PlanType resolveNextPlanType(UserPlan userPlan) {
+        return userPlan.getNextPlanType() != null ? userPlan.getNextPlanType() : PlanType.FREE;
     }
 
     private UserPlan createDefaultFreePlan(User user) {
@@ -118,27 +205,7 @@ public class SubscriptionService {
                 .build();
     }
 
-    @Transactional
-    public SubscriptionResponse cancelSubscription(Long userId) {
-        // 1. 현재 활성 구독 조회
-        UserPlan activePlan = userPlanRepository.findActiveByUserId(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER4042));
-
-        // 2. FREE 플랜은 취소 불가
-        if (activePlan.getPlanType() == PlanType.FREE) {
-            throw new BusinessException(ErrorCode.USER4004);
-        }
-
-        // 3. 이미 취소된 구독인지 확인
-        if (activePlan.getCanceledAt() != null) {
-            throw new BusinessException(ErrorCode.USER4005);
-        }
-
-        // 4. 구독 취소 처리 (자동갱신만 비활성화, 만료일까지 혜택 유지)
-        LocalDateTime now = LocalDateTime.now();
-        activePlan.cancel(now);
-
-        // 5. 응답 생성
-        return SubscriptionResponse.fromCanceled(activePlan, now);
+    private LocalDateTime nowInBillingZone() {
+        return ZonedDateTime.now(BILLING_ZONE).toLocalDateTime();
     }
 }

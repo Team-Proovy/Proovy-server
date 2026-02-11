@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 
 @Builder
 public record SubscriptionResponse(
@@ -153,12 +154,15 @@ public record SubscriptionResponse(
 
     public static SubscriptionResponse fromCanceled(UserPlan userPlan, LocalDateTime canceledAt) {
         PlanType planType = userPlan.getPlanType();
+        PlanType nextPlanType = userPlan.getNextPlanType() != null
+                ? userPlan.getNextPlanType()
+                : PlanType.FREE;
 
         CancelInfoDto cancelInfo = CancelInfoDto.builder()
                 .canceledAt(canceledAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .effectiveUntil(userPlan.getExpiredAt() != null
                         ? userPlan.getExpiredAt().format(DateTimeFormatter.ISO_LOCAL_DATE) : null)
-                .nextPlan("free")
+                .nextPlan(nextPlanType.name().toLowerCase(Locale.ROOT))
                 .build();
 
         return SubscriptionResponse.builder()
