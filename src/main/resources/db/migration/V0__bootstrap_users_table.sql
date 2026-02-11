@@ -1,3 +1,5 @@
+-- Legacy migrations (V1+) reference users FK before V21.
+-- Create users table upfront so fresh database migration order is valid.
 CREATE TABLE IF NOT EXISTS users (
     user_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(50),
@@ -10,5 +12,3 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP,
     updated_at TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_user_provider ON users(provider, provider_user_id);
