@@ -129,7 +129,7 @@ class StorageServiceTest {
             String keyword = "테스트";
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
             given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
-            given(noteRepository.searchByTitleKeyword(userId, keyword)).willReturn(List.of(testNote));
+            given(noteRepository.searchByTitleOrFileName(userId, keyword)).willReturn(List.of(testNote));
             given(assetRepository.findAllByUserId(userId)).willReturn(List.of(testAsset));
 
             // when

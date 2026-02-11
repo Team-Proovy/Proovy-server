@@ -114,10 +114,10 @@ public class StorageService {
         PlanType planType = userPlan != null ? userPlan.getPlanType() : PlanType.FREE;
         boolean isActive = userPlan != null ? userPlan.getIsActive() : true;
 
-        // 노트 목록 조회 (검색어 있으면 필터링)
+        // 노트 목록 조회 (검색어 있으면 노트 제목 또는 파일명으로 필터링)
         List<Note> notes;
         if (keyword != null && !keyword.isBlank()) {
-            notes = noteRepository.searchByTitleKeyword(userId, keyword);
+            notes = noteRepository.searchByTitleOrFileName(userId, keyword);
         } else {
             notes = noteRepository.findByUserIdOrderByCreatedAtDesc(userId);
         }
