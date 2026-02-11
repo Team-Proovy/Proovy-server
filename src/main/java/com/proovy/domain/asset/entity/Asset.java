@@ -133,7 +133,10 @@ public class Asset {
      */
     public void updateThumbnail(String thumbnailS3Key) {
         this.thumbnailS3Key = thumbnailS3Key;
-        this.ocrStatus = OcrStatus.completed; // 썸네일 생성 완료 = OCR 처리 완료
-        this.ocrProcessedAt = LocalDateTime.now();
+        // 이미지 파일은 썸네일만 있으면 완료 (OCR 불필요)
+        if (this.ocrStatus == OcrStatus.processing) {
+            this.ocrStatus = OcrStatus.completed;
+            this.ocrProcessedAt = LocalDateTime.now();
+        }
     }
 }

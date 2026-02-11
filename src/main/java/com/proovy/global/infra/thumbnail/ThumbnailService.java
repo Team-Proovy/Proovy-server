@@ -64,8 +64,47 @@ public class ThumbnailService {
     }
 
     /**
-     * 썸네일 생성 (비동기)
-     * - 이미지: 리사이즈
+     * 썸네일 생성 (동기) - 이미지 전용
+     * 빠른 응답을 위해 이미지는 동기적으로 처리
+     */
+    public String generateThumbnailSync(String s3Key, String mimeType) {
+        try {
+            log.info("[Thumbnail] 썸네일 생성 시작 (동기) - s3Key: {}, mimeType: {}", s3Key, mimeType);
+
+            if (!mimeType.startsWith("image/")) {
+                log.warn("[Thumbnail] 동기 처리는 이미지만 지원 - mimeType: {}", mimeType);
+                return null;
+            }
+
+            // 1. 원본 파일 다운로드 URL 생성
+            String fileUrl = s3Service.getFileUrl(s3Key);
+
+            // 2. 파일 다운로드
+            byte[] fileBytes = downloadFile(fileUrl);
+
+            // 3. 썸네일 생성
+            byte[] thumbnailBytes = createImageThumbnail(fileBytes);
+
+            // 4. 썸네일 S3 키 생성
+            String thumbnailS3Key = generateThumbnailS3Key(s3Key);
+
+            // 5. 썸네일 S3 업로드
+            try (InputStream thumbnailStream = new ByteArrayInputStream(thumbnailBytes)) {
+                s3Service.uploadFile(thumbnailS3Key, thumbnailStream,
+                        thumbnailBytes.length, "image/jpeg");
+            }
+
+            log.info("[Thumbnail] 썸네일 생성 완료 (동기) - thumbnailS3Key: {}", thumbnailS3Key);
+            return thumbnailS3Key;
+
+        } catch (Exception e) {
+            log.error("[Thumbnail] 썸네일 생성 실패 (동기) - s3Key: {}, error: {}", s3Key, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * 썸네일 생성 (비동기) - PDF 전용
      * - PDF: 첫 페이지를 이미지로 변환 후 리사이즈
      */
     @Async

@@ -34,6 +34,9 @@ public class AssetDetailResponse {
     @Schema(description = "MIME 타입", example = "application/pdf")
     private String mimeType;
 
+    @Schema(description = "썸네일 URL (이미지는 즉시 생성, PDF는 비동기 처리)")
+    private String thumbnailUrl;
+
     @Schema(description = "총 페이지 수 (PDF/PPT인 경우)", example = "12")
     private Integer totalPages;
 
@@ -77,6 +80,10 @@ public class AssetDetailResponse {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public static AssetDetailResponse from(Asset asset) {
+        return from(asset, null);
+    }
+
+    public static AssetDetailResponse from(Asset asset, String thumbnailUrl) {
         AssetDetailResponseBuilder builder = AssetDetailResponse.builder()
                 .assetId(asset.getId())
                 .noteId(asset.getNoteId())
@@ -84,6 +91,7 @@ public class AssetDetailResponse {
                 .fileName(asset.getFileName())
                 .fileSize(asset.getFileSize())
                 .mimeType(asset.getMimeType())
+                .thumbnailUrl(thumbnailUrl)
                 .totalPages(asset.getTotalPages())
                 .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name() : null)
                 .ocrProcessedAt(asset.getOcrProcessedAt())

@@ -30,6 +30,9 @@ public class UploadConfirmResponse {
     @Schema(description = "OCR 처리 상태", example = "processing")
     private String ocrStatus;
 
+    @Schema(description = "썸네일 S3 키 (이미지만 즉시 생성, PDF는 비동기 처리)", example = "users/1/notes/1/thumbnails/uuid_thumb.jpg")
+    private String thumbnailS3Key;
+
     @Schema(description = "생성 시각", example = "2025-01-05T10:00:00")
     private LocalDateTime createdAt;
 
@@ -41,6 +44,7 @@ public class UploadConfirmResponse {
                 .mimeType(asset.getMimeType())
                 .source(asset.getSource().name())
                 .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name() : null)
+                .thumbnailS3Key(asset.getThumbnailS3Key())
                 .createdAt(asset.getCreatedAt())
                 .build();
     }
