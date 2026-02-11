@@ -15,10 +15,10 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock"
 
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: proovy-postgres
     ports:
-      - "5432:5432"
+      - "15432:5432"
     environment:
       - POSTGRES_DB=proovy
       - POSTGRES_USER=proovy
