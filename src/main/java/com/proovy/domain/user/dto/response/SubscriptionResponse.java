@@ -139,7 +139,7 @@ public record SubscriptionResponse(
 
     private static List<AvailablePlanDto> buildAvailablePlans(PlanType currentPlan) {
         return java.util.Arrays.stream(PlanType.values())
-                .filter(p -> p.ordinal() > currentPlan.ordinal())
+                .filter(p -> p.getLevel() > currentPlan.getLevel())
                 .map(p -> AvailablePlanDto.builder()
                         .name(p.name().toLowerCase())
                         .displayName(p.getDisplayName())

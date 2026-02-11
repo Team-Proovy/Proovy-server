@@ -6,9 +6,9 @@ spring:
     active: local
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:proovy}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15432}/${DB_NAME:proovy}
+    username: ${DB_USERNAME:proovy}
+    password: ${DB_PASSWORD:proovy123}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -145,6 +145,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+internal:
+  api:
+    token: ${INTERNAL_API_TOKEN:local-dev-token}
 
 ---
 # ===============================

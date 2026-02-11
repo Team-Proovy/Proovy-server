@@ -1,5 +1,6 @@
 package com.proovy.domain.user.service;
 
+import com.proovy.domain.user.dto.request.UpgradePlanRequest;
 import com.proovy.domain.user.dto.response.SubscriptionResponse;
 import com.proovy.domain.user.entity.PlanType;
 import com.proovy.domain.user.entity.User;
@@ -8,6 +9,7 @@ import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -191,6 +193,111 @@ class SubscriptionServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER4041);
+        }
+    }
+
+    @Nested
+    @DisplayName("upgradePlan 메서드")
+    class UpgradePlan {
+
+        @Test
+        @DisplayName("성공 - Free에서 Standard로 업그레이드한다")
+        void successUpgradeFromFreeToStandard() {
+            // given
+            Long userId = 1L;
+            ReflectionTestUtils.setField(freePlan, "id", 10L);
+
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
+            given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard"));
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("standard");
+            assertThat(freePlan.getIsActive()).isFalse();
+            then(userPlanRepository).should().save(any(UserPlan.class));
+        }
+
+        @Test
+        @DisplayName("실패 - 동일 플랜 업그레이드는 예외를 던진다")
+        void failSamePlanUpgrade() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(standardPlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4002);
+        }
+
+        @Test
+        @DisplayName("실패 - 다운그레이드 요청은 예외를 던진다")
+        void failDowngrade() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(proPlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4003);
+        }
+
+        @Test
+        @DisplayName("실패 - 동시 업그레이드 충돌 시 USER4092를 반환한다")
+        void failConcurrentUpgradeConflict() {
+            // given
+            Long userId = 1L;
+            ReflectionTestUtils.setField(freePlan, "id", 10L);
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
+            given(userPlanRepository.save(any(UserPlan.class)))
+                    .willThrow(new DataIntegrityViolationException("duplicate active plan"));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4092);
+        }
+
+        @Test
+        @DisplayName("성공 - 공백이 포함된 플랜 타입도 정상 처리한다")
+        void successTrimmedPlanType() {
+            // given
+            Long userId = 1L;
+            ReflectionTestUtils.setField(freePlan, "id", 10L);
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
+            given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest(" pro "));
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("pro");
+        }
+
+        @Test
+        @DisplayName("실패 - null 플랜 타입은 USER4001을 반환한다")
+        void failNullPlanType() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest(null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4001);
         }
     }
 }

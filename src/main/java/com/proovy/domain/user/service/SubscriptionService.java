@@ -11,17 +11,22 @@ import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Locale;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SubscriptionService {
+    private static final ZoneId BILLING_ZONE = ZoneId.of("Asia/Seoul");
 
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
@@ -39,49 +44,53 @@ public class SubscriptionService {
 
     @Transactional
     public SubscriptionResponse upgradePlan(Long userId, UpgradePlanRequest request) {
-        // 1. 사용자 조회
-        User user = userRepository.findById(userId)
+        // 1. 사용자 행을 선점해 동시 업그레이드 요청을 직렬화
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
 
         // 2. 요청한 플랜 타입 검증
         PlanType newPlanType = validateAndGetPlanType(request.planType());
 
-        // 3. 현재 활성 플랜 조회
-        UserPlan currentPlan = userPlanRepository.findActiveByUserId(userId)
+        // 3. 현재 활성 플랜 조회 (비관적 잠금)
+        UserPlan currentPlan = userPlanRepository.findActiveByUserIdForUpdate(userId)
                 .orElseGet(() -> createDefaultFreePlan(user));
 
         // 4. 플랜 업그레이드 가능 여부 검증
         validateUpgrade(currentPlan.getPlanType(), newPlanType);
 
-        // 5. 기존 플랜 비활성화 (FREE가 아니고 DB에 저장된 경우만)
-        if (currentPlan.getPlanType() != PlanType.FREE && currentPlan.getId() != null) {
+        // 5. 기존 플랜 비활성화 (DB에 저장된 경우만)
+        if (currentPlan.getId() != null) {
             currentPlan.deactivate();
         }
 
         // 6. 새로운 플랜 생성
-        LocalDateTime now = LocalDateTime.now(clock);
+        ZonedDateTime now = ZonedDateTime.now(BILLING_ZONE);
         UserPlan newPlan = UserPlan.builder()
                 .user(user)
                 .planType(newPlanType)
-                .startedAt(now)
-                .expiredAt(now.plusMonths(1))
+                .startedAt(now.toLocalDateTime())
+                .expiredAt(now.plusMonths(1).toLocalDateTime())
                 .isActive(true)
                 .build();
 
-        UserPlan savedPlan = userPlanRepository.save(newPlan);
+        UserPlan savedPlan;
+        try {
+            savedPlan = userPlanRepository.save(newPlan);
+        } catch (DataIntegrityViolationException e) {
+            log.warn("동시 업그레이드 충돌 감지: userId={}, requestedPlan={}", userId, newPlanType, e);
+            throw new BusinessException(ErrorCode.USER4092);
+        }
 
         // 7. 응답 생성
         return SubscriptionResponse.from(savedPlan);
     }
 
     private PlanType validateAndGetPlanType(String planTypeStr) {
-        // null 또는 blank 체크
-        if (planTypeStr == null || planTypeStr.isBlank()) {
+        if (planTypeStr == null || planTypeStr.trim().isEmpty()) {
             throw new BusinessException(ErrorCode.USER4001);
         }
-
         try {
-            PlanType planType = PlanType.valueOf(planTypeStr.toUpperCase());
+            PlanType planType = PlanType.valueOf(planTypeStr.trim().toUpperCase(Locale.ROOT));
             if (planType == PlanType.FREE) {
                 throw new BusinessException(ErrorCode.USER4001);
             }
@@ -98,7 +107,7 @@ public class SubscriptionService {
         }
 
         // 다운그레이드 시도
-        if (currentPlan.ordinal() > newPlan.ordinal()) {
+        if (currentPlan.getLevel() > newPlan.getLevel()) {
             throw new BusinessException(ErrorCode.USER4003);
         }
     }
