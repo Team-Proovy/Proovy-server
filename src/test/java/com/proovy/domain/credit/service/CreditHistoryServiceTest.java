@@ -18,8 +18,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,8 +69,8 @@ class CreditHistoryServiceTest {
         Page<CreditHistory> historyPage = new PageImpl<>(List.of(history));
 
         when(creditBalanceService.getOrCreateBalance(userId)).thenReturn(balance);
-        when(creditHistoryRepository.findByUserIdWithFilters(
-                eq(userId), any(), any(), any(), any(), any(Pageable.class)
+        when(creditHistoryRepository.findAll(
+                org.mockito.ArgumentMatchers.<Specification<CreditHistory>>any(), any(Pageable.class)
         )).thenReturn(historyPage);
 
         when(creditHistoryRepository.calculatePeriodSummary(
