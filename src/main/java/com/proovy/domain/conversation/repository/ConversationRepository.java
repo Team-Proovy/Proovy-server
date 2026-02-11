@@ -82,28 +82,28 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
      */
     @Query(value = """
             SELECT DISTINCT c.* FROM conversations c
-            JOIN notes n ON c.note_id = n.id
-            JOIN messages m ON m.conversation_id = c.id
-            LEFT JOIN message_tools mt ON mt.message_id = m.id
+            JOIN notes n ON c.note_id = n.note_id
+            JOIN messages m ON m.conversation_id = c.conversation_id
+            LEFT JOIN message_tools mt ON mt.message_id = m.message_id
             WHERE n.user_id = :userId
               AND m.search_vector @@ plainto_tsquery('simple', :query)
-              AND (:noteId IS NULL OR n.id = :noteId)
-              AND (:toolCode IS NULL OR mt.tool_code = :toolCode)
-              AND (:startDate IS NULL OR DATE(c.created_at) >= :startDate)
-              AND (:endDate IS NULL OR DATE(c.created_at) <= :endDate)
+              AND (CAST(:noteId AS BIGINT) IS NULL OR n.note_id = CAST(:noteId AS BIGINT))
+              AND (CAST(:toolCode AS VARCHAR) IS NULL OR mt.tool_code = CAST(:toolCode AS VARCHAR))
+              AND (CAST(:startDate AS DATE) IS NULL OR DATE(c.created_at) >= CAST(:startDate AS DATE))
+              AND (CAST(:endDate AS DATE) IS NULL OR DATE(c.created_at) <= CAST(:endDate AS DATE))
             ORDER BY c.created_at DESC
             """,
             countQuery = """
-            SELECT COUNT(DISTINCT c.id) FROM conversations c
-            JOIN notes n ON c.note_id = n.id
-            JOIN messages m ON m.conversation_id = c.id
-            LEFT JOIN message_tools mt ON mt.message_id = m.id
+            SELECT COUNT(DISTINCT c.conversation_id) FROM conversations c
+            JOIN notes n ON c.note_id = n.note_id
+            JOIN messages m ON m.conversation_id = c.conversation_id
+            LEFT JOIN message_tools mt ON mt.message_id = m.message_id
             WHERE n.user_id = :userId
               AND m.search_vector @@ plainto_tsquery('simple', :query)
-              AND (:noteId IS NULL OR n.id = :noteId)
-              AND (:toolCode IS NULL OR mt.tool_code = :toolCode)
-              AND (:startDate IS NULL OR DATE(c.created_at) >= :startDate)
-              AND (:endDate IS NULL OR DATE(c.created_at) <= :endDate)
+              AND (CAST(:noteId AS BIGINT) IS NULL OR n.note_id = CAST(:noteId AS BIGINT))
+              AND (CAST(:toolCode AS VARCHAR) IS NULL OR mt.tool_code = CAST(:toolCode AS VARCHAR))
+              AND (CAST(:startDate AS DATE) IS NULL OR DATE(c.created_at) >= CAST(:startDate AS DATE))
+              AND (CAST(:endDate AS DATE) IS NULL OR DATE(c.created_at) <= CAST(:endDate AS DATE))
             """,
             nativeQuery = true)
     Page<Conversation> searchByFullText(
@@ -120,28 +120,28 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
      */
     @Query(value = """
             SELECT DISTINCT c.* FROM conversations c
-            JOIN notes n ON c.note_id = n.id
-            JOIN messages m ON m.conversation_id = c.id
-            LEFT JOIN message_tools mt ON mt.message_id = m.id
+            JOIN notes n ON c.note_id = n.note_id
+            JOIN messages m ON m.conversation_id = c.conversation_id
+            LEFT JOIN message_tools mt ON mt.message_id = m.message_id
             WHERE n.user_id = :userId
               AND m.content ILIKE '%' || :query || '%'
-              AND (:noteId IS NULL OR n.id = :noteId)
-              AND (:toolCode IS NULL OR mt.tool_code = :toolCode)
-              AND (:startDate IS NULL OR DATE(c.created_at) >= :startDate)
-              AND (:endDate IS NULL OR DATE(c.created_at) <= :endDate)
+              AND (CAST(:noteId AS BIGINT) IS NULL OR n.note_id = CAST(:noteId AS BIGINT))
+              AND (CAST(:toolCode AS VARCHAR) IS NULL OR mt.tool_code = CAST(:toolCode AS VARCHAR))
+              AND (CAST(:startDate AS DATE) IS NULL OR DATE(c.created_at) >= CAST(:startDate AS DATE))
+              AND (CAST(:endDate AS DATE) IS NULL OR DATE(c.created_at) <= CAST(:endDate AS DATE))
             ORDER BY c.created_at DESC
             """,
             countQuery = """
-            SELECT COUNT(DISTINCT c.id) FROM conversations c
-            JOIN notes n ON c.note_id = n.id
-            JOIN messages m ON m.conversation_id = c.id
-            LEFT JOIN message_tools mt ON mt.message_id = m.id
+            SELECT COUNT(DISTINCT c.conversation_id) FROM conversations c
+            JOIN notes n ON c.note_id = n.note_id
+            JOIN messages m ON m.conversation_id = c.conversation_id
+            LEFT JOIN message_tools mt ON mt.message_id = m.message_id
             WHERE n.user_id = :userId
               AND m.content ILIKE '%' || :query || '%'
-              AND (:noteId IS NULL OR n.id = :noteId)
-              AND (:toolCode IS NULL OR mt.tool_code = :toolCode)
-              AND (:startDate IS NULL OR DATE(c.created_at) >= :startDate)
-              AND (:endDate IS NULL OR DATE(c.created_at) <= :endDate)
+              AND (CAST(:noteId AS BIGINT) IS NULL OR n.note_id = CAST(:noteId AS BIGINT))
+              AND (CAST(:toolCode AS VARCHAR) IS NULL OR mt.tool_code = CAST(:toolCode AS VARCHAR))
+              AND (CAST(:startDate AS DATE) IS NULL OR DATE(c.created_at) >= CAST(:startDate AS DATE))
+              AND (CAST(:endDate AS DATE) IS NULL OR DATE(c.created_at) <= CAST(:endDate AS DATE))
             """,
             nativeQuery = true)
     Page<Conversation> searchByTrigram(

@@ -28,6 +28,19 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     List<Note> searchByTitleKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
 
     /**
+     * 노트 제목 또는 파일명으로 검색 (스토리지용)
+     */
+    @Query(value = """
+            SELECT DISTINCT n.* FROM notes n
+            LEFT JOIN assets a ON a.note_id = n.note_id
+            WHERE n.user_id = :userId
+              AND (LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR LOWER(a.file_name) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            ORDER BY n.created_at DESC
+            """, nativeQuery = true)
+    List<Note> searchByTitleOrFileName(@Param("userId") Long userId, @Param("keyword") String keyword);
+
+    /**
      * 사용자의 노트 목록 페이지네이션 조회
      */
     Page<Note> findByUserId(Long userId, Pageable pageable);
