@@ -11,6 +11,7 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -35,6 +36,7 @@ public class ThumbnailService {
 
     private final S3Service s3Service;
     private final AssetRepository assetRepository;
+    private final ApplicationContext applicationContext;
 
     @Value("${aws.s3.bucket}")
     private String bucketName;
@@ -43,10 +45,18 @@ public class ThumbnailService {
     private static final int THUMBNAIL_HEIGHT = 400;
     private static final float THUMBNAIL_QUALITY = 0.85f;
     private static final int PDF_DPI = 150;
+    private static final long MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 제한
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(30))
             .build();
+
+    /**
+     * 셀프 프록시 주입 (트랜잭션 AOP 적용용)
+     */
+    private ThumbnailService getSelf() {
+        return applicationContext.getBean(ThumbnailService.class);
+    }
 
     /**
      * 썸네일 생성 (비동기)
@@ -88,8 +98,8 @@ public class ThumbnailService {
                         thumbnailBytes.length, "image/jpeg");
             }
 
-            // 6. Asset 엔티티 업데이트 (별도 트랜잭션)
-            updateAssetThumbnail(assetId, thumbnailS3Key);
+            // 6. Asset 엔티티 업데이트 (별도 트랜잭션, 프록시를 통해 호출)
+            getSelf().updateAssetThumbnail(assetId, thumbnailS3Key);
 
             log.info("[Thumbnail] 썸네일 생성 완료 - assetId: {}, thumbnailS3Key: {}",
                     assetId, thumbnailS3Key);
@@ -134,7 +144,7 @@ public class ThumbnailService {
     }
 
     /**
-     * 이미지 리사이즈 및 JPEG 변환
+     * 이미지 리사이즈 및 JPEG 변환 (투명 배경 처리 포함)
      */
     private byte[] resizeAndConvertToJpeg(BufferedImage originalImage) throws Exception {
         // 원본 비율 유지하면서 리사이즈
@@ -148,14 +158,20 @@ public class ThumbnailService {
         int newWidth = (int) (originalWidth * ratio);
         int newHeight = (int) (originalHeight * ratio);
 
-        // 고품질 리사이즈
+        // 고품질 리사이즈 (TYPE_INT_RGB로 생성)
         BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = resizedImage.createGraphics();
 
+        // 투명 PNG 처리: 흰색 배경으로 채우기
+        graphics.setColor(Color.WHITE);
+        graphics.fillRect(0, 0, newWidth, newHeight);
+
+        // 렌더링 힌트 설정
         graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+        // 원본 이미지 그리기
         graphics.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
         graphics.dispose();
 
@@ -166,7 +182,7 @@ public class ThumbnailService {
     }
 
     /**
-     * 파일 다운로드 (HTTP)
+     * 파일 다운로드 (HTTP) - 크기 체크 포함
      */
     private byte[] downloadFile(String fileUrl) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
@@ -182,7 +198,16 @@ public class ThumbnailService {
             throw new RuntimeException("파일 다운로드 실패: HTTP " + response.statusCode());
         }
 
-        return response.body();
+        byte[] body = response.body();
+
+        // 파일 크기 체크 (OOM 방지)
+        if (body.length > MAX_FILE_SIZE_BYTES) {
+            throw new IllegalArgumentException(
+                    String.format("파일 크기가 너무 큽니다: %d bytes (최대 %d bytes)",
+                            body.length, MAX_FILE_SIZE_BYTES));
+        }
+
+        return body;
     }
 
     /**
