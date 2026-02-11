@@ -17,7 +17,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -28,6 +32,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Iterator;
 
 @Slf4j
 @Service
@@ -65,6 +70,8 @@ public class ThumbnailService {
      */
     @Async
     public void generateThumbnailAsync(Long assetId, String s3Key, String mimeType) {
+        String thumbnailS3Key = null;
+        boolean thumbnailUploaded = false;
         try {
             log.info("[Thumbnail] 썸네일 생성 시작 - assetId: {}, s3Key: {}, mimeType: {}",
                     assetId, s3Key, mimeType);
@@ -90,12 +97,13 @@ public class ThumbnailService {
             // 4. 썸네일 S3 키 생성
             // 원본: users/{userId}/notes/{noteId}/assets/{uuid}_{filename}
             // 썸네일: users/{userId}/notes/{noteId}/thumbnails/{uuid}_thumb.jpg
-            String thumbnailS3Key = generateThumbnailS3Key(s3Key);
+            thumbnailS3Key = generateThumbnailS3Key(s3Key);
 
             // 5. 썸네일 S3 업로드
             try (InputStream thumbnailStream = new ByteArrayInputStream(thumbnailBytes)) {
                 s3Service.uploadFile(thumbnailS3Key, thumbnailStream,
                         thumbnailBytes.length, "image/jpeg");
+                thumbnailUploaded = true;
             }
 
             // 6. Asset 엔티티 업데이트 (별도 트랜잭션, 프록시를 통해 호출)
@@ -105,6 +113,16 @@ public class ThumbnailService {
                     assetId, thumbnailS3Key);
 
         } catch (Exception e) {
+            if (thumbnailUploaded && thumbnailS3Key != null) {
+                try {
+                    s3Service.deleteFile(thumbnailS3Key);
+                    log.warn("[Thumbnail] Asset 업데이트 실패로 고아 썸네일 삭제 - assetId: {}, thumbnailS3Key: {}",
+                            assetId, thumbnailS3Key);
+                } catch (Exception deleteException) {
+                    log.error("[Thumbnail] 고아 썸네일 삭제 실패 - assetId: {}, thumbnailS3Key: {}, error: {}",
+                            assetId, thumbnailS3Key, deleteException.getMessage(), deleteException);
+                }
+            }
             log.error("[Thumbnail] 썸네일 생성 실패 - assetId: {}, error: {}",
                     assetId, e.getMessage(), e);
             // 썸네일 생성 실패해도 에러를 throw하지 않음 (비동기이므로)
@@ -175,9 +193,25 @@ public class ThumbnailService {
         graphics.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
         graphics.dispose();
 
-        // JPEG로 변환
+        // JPEG 품질을 명시적으로 제어해서 썸네일 용량/품질 균형을 맞춘다.
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(resizedImage, "jpeg", baos);
+        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpeg");
+        if (!writers.hasNext()) {
+            throw new IllegalStateException("JPEG writer를 찾을 수 없습니다.");
+        }
+
+        ImageWriter writer = writers.next();
+        try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+            writer.setOutput(ios);
+            ImageWriteParam writeParam = writer.getDefaultWriteParam();
+            if (writeParam.canWriteCompressed()) {
+                writeParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                writeParam.setCompressionQuality(THUMBNAIL_QUALITY);
+            }
+            writer.write(null, new IIOImage(resizedImage, null, null), writeParam);
+        } finally {
+            writer.dispose();
+        }
         return baos.toByteArray();
     }
 
@@ -235,11 +269,16 @@ public class ThumbnailService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateAssetThumbnail(Long assetId, String thumbnailS3Key) {
-        assetRepository.findById(assetId).ifPresent(asset -> {
-            asset.updateThumbnail(thumbnailS3Key);
-            assetRepository.save(asset);
-            log.info("[Thumbnail] Asset 업데이트 완료 - assetId: {}, thumbnailS3Key: {}",
-                    assetId, thumbnailS3Key);
-        });
+        Asset asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> {
+                    log.warn("[Thumbnail] Asset 미존재로 썸네일 연결 실패 - assetId: {}, thumbnailS3Key: {}",
+                            assetId, thumbnailS3Key);
+                    return new BusinessException(ErrorCode.ASSET4041);
+                });
+
+        asset.updateThumbnail(thumbnailS3Key);
+        assetRepository.save(asset);
+        log.info("[Thumbnail] Asset 업데이트 완료 - assetId: {}, thumbnailS3Key: {}",
+                assetId, thumbnailS3Key);
     }
 }
