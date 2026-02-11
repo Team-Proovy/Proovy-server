@@ -225,13 +225,10 @@ public class AssetsServiceImpl implements AssetsService {
             try {
                 String thumbnailS3Key = thumbnailService.generateThumbnailSync(s3Key, mimeType);
                 if (thumbnailS3Key != null) {
-                    // 썸네일 생성 성공 - Asset 업데이트 (별도 트랜잭션)
-                    getSelf().updateAssetThumbnail(savedAssetId, thumbnailS3Key);
-                    log.info("[Asset] 이미지 썸네일 생성 완료 (동기) - assetId: {}", savedAssetId);
-
-                    // 썸네일 생성 후 최신 Asset 정보 다시 조회
-                    asset = assetRepository.findById(savedAssetId)
-                            .orElseThrow(() -> new BusinessException(ErrorCode.ASSET4041));
+                    // 썸네일 생성 성공 - 같은 트랜잭션 내에서 직접 업데이트
+                    asset.updateThumbnail(thumbnailS3Key);
+                    assetRepository.save(asset);
+                    log.info("[Asset] 이미지 썸네일 생성 완료 (동기) - assetId: {}, thumbnailS3Key: {}", savedAssetId, thumbnailS3Key);
                 } else {
                     log.warn("[Asset] 이미지 썸네일 생성 실패 - assetId: {}", savedAssetId);
                 }
@@ -249,7 +246,8 @@ public class AssetsServiceImpl implements AssetsService {
             });
         }
 
-        log.info("[Asset] 업로드 확인 완료 - assetId: {}, userId: {}", assetId, userId);
+        log.info("[Asset] 업로드 확인 완료 - assetId: {}, userId: {}, ocrStatus: {}",
+                assetId, userId, asset.getOcrStatus());
 
         // 썸네일 URL 생성 (있는 경우)
         String thumbnailUrl = asset.getThumbnailS3Key() != null
