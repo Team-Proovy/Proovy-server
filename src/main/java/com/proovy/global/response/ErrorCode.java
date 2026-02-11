@@ -39,6 +39,7 @@ public enum ErrorCode {
     USER4041("USER4041", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     USER4042("USER4042", "활성화된 구독을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     USER4091("USER4091", "이미 존재하는 사용자입니다.", HttpStatus.CONFLICT),
+    USER4092("USER4092", "동시에 처리된 구독 변경 요청이 있습니다. 다시 시도해주세요.", HttpStatus.CONFLICT),
 
     // Storage
     STORAGE4001("STORAGE4001", "파일을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
