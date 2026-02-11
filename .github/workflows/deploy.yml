@@ -80,6 +80,8 @@ jobs:
               \"sudo chown -R ec2-user:ec2-user ${DEPLOY_PATH}\",
               \"sudo aws s3 cp s3://${BUCKET}/${KEY} ${DEPLOY_PATH}/app.jar\",
               \"sudo chmod 644 ${DEPLOY_PATH}/app.jar\",
+              \"echo Running Flyway migrations\",
+              \"cd ${DEPLOY_PATH} && java -Dspring.profiles.active=prod -jar app.jar migrate\",
               \"sudo systemctl daemon-reload\",
               \"sudo systemctl restart ${SERVICE_NAME}\",
               \"sudo systemctl is-active ${SERVICE_NAME}\"
