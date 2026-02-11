@@ -43,7 +43,7 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, Long> {
         return findActiveByUserIdOrderByRecent(userId, PageRequest.of(0, 1)).stream().findFirst();
     }
 
-    default Optional<UserPlan> findActiveByUserIdWithLock(Long userId) {
+    default Optional<UserPlan> findActiveByUserIdForUpdate(Long userId) {
         return findActiveByUserIdForUpdate(userId, PageRequest.of(0, 1)).stream().findFirst();
     }
 

@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Locale;
 
 @Slf4j
@@ -23,6 +25,7 @@ import java.util.Locale;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SubscriptionService {
+    private static final ZoneId BILLING_ZONE = ZoneId.of("Asia/Seoul");
 
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
@@ -47,7 +50,7 @@ public class SubscriptionService {
         PlanType newPlanType = validateAndGetPlanType(request.planType());
 
         // 3. 현재 활성 플랜 조회 (비관적 잠금)
-        UserPlan currentPlan = userPlanRepository.findActiveByUserIdWithLock(userId)
+        UserPlan currentPlan = userPlanRepository.findActiveByUserIdForUpdate(userId)
                 .orElseGet(() -> createDefaultFreePlan(user));
 
         // 4. 플랜 업그레이드 가능 여부 검증
@@ -59,12 +62,12 @@ public class SubscriptionService {
         }
 
         // 6. 새로운 플랜 생성
-        LocalDateTime now = LocalDateTime.now();
+        ZonedDateTime now = ZonedDateTime.now(BILLING_ZONE);
         UserPlan newPlan = UserPlan.builder()
                 .user(user)
                 .planType(newPlanType)
-                .startedAt(now)
-                .expiredAt(now.plusMonths(1))
+                .startedAt(now.toLocalDateTime())
+                .expiredAt(now.plusMonths(1).toLocalDateTime())
                 .isActive(true)
                 .build();
 
@@ -81,13 +84,16 @@ public class SubscriptionService {
     }
 
     private PlanType validateAndGetPlanType(String planTypeStr) {
+        if (planTypeStr == null || planTypeStr.trim().isEmpty()) {
+            throw new BusinessException(ErrorCode.USER4001);
+        }
         try {
             PlanType planType = PlanType.valueOf(planTypeStr.trim().toUpperCase(Locale.ROOT));
             if (planType == PlanType.FREE) {
                 throw new BusinessException(ErrorCode.USER4001);
             }
             return planType;
-        } catch (IllegalArgumentException | NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.USER4001);
         }
     }

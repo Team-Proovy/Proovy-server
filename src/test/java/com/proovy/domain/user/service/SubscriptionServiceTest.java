@@ -208,7 +208,7 @@ class SubscriptionServiceTest {
             ReflectionTestUtils.setField(freePlan, "id", 10L);
 
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActiveByUserIdWithLock(userId)).willReturn(Optional.of(freePlan));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
             given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> invocation.getArgument(0));
 
             // when
@@ -226,7 +226,7 @@ class SubscriptionServiceTest {
             // given
             Long userId = 1L;
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActiveByUserIdWithLock(userId)).willReturn(Optional.of(standardPlan));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(standardPlan));
 
             // when & then
             assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard")))
@@ -241,7 +241,7 @@ class SubscriptionServiceTest {
             // given
             Long userId = 1L;
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActiveByUserIdWithLock(userId)).willReturn(Optional.of(proPlan));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(proPlan));
 
             // when & then
             assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard")))
@@ -257,7 +257,7 @@ class SubscriptionServiceTest {
             Long userId = 1L;
             ReflectionTestUtils.setField(freePlan, "id", 10L);
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActiveByUserIdWithLock(userId)).willReturn(Optional.of(freePlan));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
             given(userPlanRepository.save(any(UserPlan.class)))
                     .willThrow(new DataIntegrityViolationException("duplicate active plan"));
 
@@ -275,7 +275,7 @@ class SubscriptionServiceTest {
             Long userId = 1L;
             ReflectionTestUtils.setField(freePlan, "id", 10L);
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActiveByUserIdWithLock(userId)).willReturn(Optional.of(freePlan));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
             given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> invocation.getArgument(0));
 
             // when
@@ -291,7 +291,7 @@ class SubscriptionServiceTest {
             // given
             Long userId = 1L;
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
-            given(userPlanRepository.findActiveByUserIdWithLock(userId)).willReturn(Optional.of(freePlan));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
 
             // when & then
             assertThatThrownBy(() -> subscriptionService.upgradePlan(userId, new UpgradePlanRequest(null)))
