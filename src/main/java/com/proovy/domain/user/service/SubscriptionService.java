@@ -15,7 +15,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -30,7 +29,6 @@ public class SubscriptionService {
 
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
-    private final Clock clock;
 
     public SubscriptionResponse getSubscription(Long userId) {
         User user = userRepository.findById(userId)
