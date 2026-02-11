@@ -30,9 +30,16 @@ public enum ErrorCode {
     AUTH5023("AUTH5023", "구글 서버 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // User
-    USER4004("USER4004", "활성화된 구독이 있습니다. 구독 취소 후 탈퇴해주세요.", HttpStatus.BAD_REQUEST),
+    USER4001("USER4001", "유효하지 않은 플랜 타입입니다.", HttpStatus.BAD_REQUEST),
+    USER4002("USER4002", "이미 해당 플랜을 사용 중입니다.", HttpStatus.BAD_REQUEST),
+    USER4003("USER4003", "하위 플랜으로는 변경할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    USER4004("USER4004", "FREE 플랜은 취소할 수 없습니다.", HttpStatus.BAD_REQUEST),
+    USER4005("USER4005", "이미 취소된 구독입니다.", HttpStatus.BAD_REQUEST),
+    USER4006("USER4006", "활성화된 구독이 있습니다. 구독 취소 후 탈퇴해주세요.", HttpStatus.BAD_REQUEST),
     USER4041("USER4041", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    USER4042("USER4042", "활성화된 구독을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     USER4091("USER4091", "이미 존재하는 사용자입니다.", HttpStatus.CONFLICT),
+    USER4092("USER4092", "동시에 처리된 구독 변경 요청이 있습니다. 다시 시도해주세요.", HttpStatus.CONFLICT),
 
     // Storage
     STORAGE4001("STORAGE4001", "파일을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

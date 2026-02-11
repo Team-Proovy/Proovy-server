@@ -149,7 +149,7 @@ public class UserService {
         // 2. 활성 구독 확인 (FREE가 아닌 플랜이 활성 상태면 탈퇴 불가)
         Optional<UserPlan> activePlan = userPlanRepository.findActiveByUserId(userId);
         if (activePlan.isPresent() && activePlan.get().getPlanType() != PlanType.FREE) {
-            throw new BusinessException(ErrorCode.USER4004);
+            throw new BusinessException(ErrorCode.USER4006);
         }
 
         // 3. 사용자 관련 데이터 삭제

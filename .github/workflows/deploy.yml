@@ -69,6 +69,9 @@ jobs:
           KEY="${{ env.S3_KEY }}"
           SHA="${{ github.event.workflow_run.head_sha }}"
 
+          # Flyway runs automatically on Spring Boot startup.
+          # Do not run `java -jar app.jar migrate` in this pipeline.
+
           aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --comment "Deploy backend ${SHA:0:7}" \

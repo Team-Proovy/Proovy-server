@@ -7,10 +7,11 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum PlanType {
-    FREE("Free", 0, "KRW", null, 100, 0, 2, 10, 1),
-    STANDARD("Standard", 6900, "KRW", "MONTHLY", 100, 2000, 10, 50, 5),
-    PRO("Pro", 14900, "KRW", "MONTHLY", 100, 5000, 20, 100, 10);
+    FREE(0, "Free", 0, "KRW", null, 100, 0, 2, 10, 1),
+    STANDARD(1, "Standard", 6900, "KRW", "MONTHLY", 100, 2000, 10, 50, 5),
+    PRO(2, "Pro", 14900, "KRW", "MONTHLY", 100, 5000, 20, 100, 10);
 
+    private final int level;
     private final String displayName;
     private final int price;
     private final String currency;
