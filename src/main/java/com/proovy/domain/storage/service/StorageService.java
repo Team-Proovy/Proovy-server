@@ -149,11 +149,8 @@ public class StorageService {
                     // 자산 DTO 변환 (썸네일 URL 생성 포함)
                     List<AssetSummaryDto> assetDtos = noteAssets.stream()
                             .map(asset -> {
-                                // 썸네일 S3 키가 있으면 presigned URL 생성
-                                String thumbnailUrl = null;
-                                if (asset.getThumbnailS3Key() != null) {
-                                    thumbnailUrl = s3Service.generatePresignedUrl(asset.getThumbnailS3Key());
-                                }
+                                // S3Service 인터페이스에 정의된 썸네일 URL 생성 메서드 사용
+                                String thumbnailUrl = s3Service.getThumbnailUrl(asset.getThumbnailS3Key());
                                 return AssetSummaryDto.of(asset, thumbnailUrl);
                             })
                             .toList();
