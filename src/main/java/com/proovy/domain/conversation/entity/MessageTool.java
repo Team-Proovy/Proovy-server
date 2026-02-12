@@ -18,14 +18,14 @@ public class MessageTool {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "message_id", nullable = false)
-    private Message message;
+    private ChatMessage chatMessage;
 
     @Column(nullable = false, length = 50)
     private String toolCode;
 
     @Builder
-    public MessageTool(Message message, String toolCode) {
-        this.message = message;
+    public MessageTool(ChatMessage chatMessage, String toolCode) {
+        this.chatMessage = chatMessage;
         this.toolCode = toolCode;
     }
 }

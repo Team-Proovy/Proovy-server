@@ -19,15 +19,15 @@ public class MessageAsset {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "message_id", nullable = false)
-    private Message message;
+    private ChatMessage chatMessage;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "asset_id", nullable = false)
     private Asset asset;
 
     @Builder
-    public MessageAsset(Message message, Asset asset) {
-        this.message = message;
+    public MessageAsset(ChatMessage chatMessage, Asset asset) {
+        this.chatMessage = chatMessage;
         this.asset = asset;
     }
 }

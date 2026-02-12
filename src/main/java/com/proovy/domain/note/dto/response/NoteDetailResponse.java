@@ -80,7 +80,7 @@ public class NoteDetailResponse {
     @Getter
     @Builder
     public static class ConversationInfo {
-        @Schema(description = "대화 ID", example = "100")
+        @Schema(description = "대화 ID (USER 메시지의 ChatMessage ID)", example = "100")
         private Long conversationId;
 
         @Schema(description = "사용자 메시지")

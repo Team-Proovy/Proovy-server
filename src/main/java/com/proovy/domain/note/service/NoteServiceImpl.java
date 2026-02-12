@@ -45,8 +45,7 @@ public class NoteServiceImpl implements NoteService {
 
     private final NoteRepository noteRepository;
     private final UserRepository userRepository;
-    private final ConversationRepository conversationRepository;
-    private final MessageRepository messageRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final MessageAssetRepository messageAssetRepository;
     private final MessageToolRepository messageToolRepository;
     private final AssetRepository assetRepository;
@@ -145,15 +144,15 @@ public class NoteServiceImpl implements NoteService {
                 .map(Note::getId)
                 .collect(Collectors.toList());
 
-        // 7. 배치 쿼리로 대화 개수 조회 (N+1 문제 해결)
+        // 7. 배치 쿼리로 대화(메시지) 개수 조회 (N+1 문제 해결)
         java.util.Map<Long, Long> conversationCountMap = new java.util.HashMap<>();
         if (!noteIds.isEmpty()) {
-            List<java.util.Map<String, Object>> conversationCounts =
-                conversationRepository.countByNoteIdIn(noteIds);
-            for (java.util.Map<String, Object> row : conversationCounts) {
-                Long noteId = ((Number) row.get("noteId")).longValue();
-                Long count = ((Number) row.get("count")).longValue();
-                conversationCountMap.put(noteId, count);
+            List<Object[]> messageCounts = chatMessageRepository.countByNoteIdIn(noteIds);
+            for (Object[] row : messageCounts) {
+                Long noteId = ((Number) row[0]).longValue();
+                Long count = ((Number) row[1]).longValue();
+                // 메시지 쌍(USER + ASSISTANT)을 대화로 계산
+                conversationCountMap.put(noteId, count / 2);
             }
         }
 
@@ -303,8 +302,9 @@ public class NoteServiceImpl implements NoteService {
             throw new BusinessException(ErrorCode.NOTE4031);
         }
 
-        // 2. 통계용 정보 수집 (엔티티 조회가 아닌 count/sum 쿼리 사용)
-        long conversationCount = conversationRepository.countByNote_Id(noteId);
+        // 2. 통계용 정보 수집 - ChatMessage 개수 (메시지 쌍을 대화로 계산)
+        long messageCount = chatMessageRepository.countByNoteId(noteId);
+        long conversationCount = messageCount / 2;
 
         // 3. S3 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
         List<Asset> assets = assetRepository.findAllByNoteId(noteId);
@@ -334,47 +334,36 @@ public class NoteServiceImpl implements NoteService {
             log.info("S3 파일 삭제 완료 - {} 개 파일", s3KeysToDelete.size());
         }
 
-        // 6. Conversation ID 목록 조회 (엔티티가 아닌 ID만 조회)
-        List<Long> conversationIds = conversationRepository.findIdsByNoteId(noteId);
-
-        // 7. Message ID 목록 조회
-        List<Long> messageIds = conversationIds.isEmpty()
-                ? List.of()
-                : messageRepository.findIdsByConversationIdIn(conversationIds);
+        // 6. ChatMessage ID 목록 조회
+        List<Long> chatMessageIds = chatMessageRepository.findIdsByNoteId(noteId);
 
         // ========== JPQL 벌크 삭제 시작 (영속성 컨텍스트를 거치지 않음) ==========
 
-        // 8. MessageAsset 삭제 (Asset 기준 + Message 기준 모두)
+        // 7. MessageAsset 삭제 (Asset 기준 + ChatMessage 기준 모두)
         if (!assetIds.isEmpty()) {
             messageAssetRepository.deleteByAssetIdInBulk(assetIds);
             log.info("Asset 관련 MessageAsset 삭제 완료");
         }
-        if (!messageIds.isEmpty()) {
-            messageAssetRepository.deleteByMessageIdInBulk(messageIds);
-            log.info("Message 관련 MessageAsset 삭제 완료");
+        if (!chatMessageIds.isEmpty()) {
+            messageAssetRepository.deleteByChatMessageIdInBulk(chatMessageIds);
+            log.info("ChatMessage 관련 MessageAsset 삭제 완료");
         }
 
-        // 9. MessageTool 삭제
-        if (!messageIds.isEmpty()) {
-            messageToolRepository.deleteByMessageIdInBulk(messageIds);
+        // 8. MessageTool 삭제
+        if (!chatMessageIds.isEmpty()) {
+            messageToolRepository.deleteByChatMessageIdInBulk(chatMessageIds);
             log.info("MessageTool 삭제 완료");
         }
 
-        // 10. Message 삭제
-        if (!conversationIds.isEmpty()) {
-            messageRepository.deleteByConversationIdInBulk(conversationIds);
-            log.info("Message 삭제 완료");
-        }
+        // 9. ChatMessage 삭제
+        chatMessageRepository.deleteByNoteIdInBulk(noteId);
+        log.info("ChatMessage 삭제 완료 - {} 개", messageCount);
 
-        // 11. Conversation 삭제
-        conversationRepository.deleteByNoteIdInBulk(noteId);
-        log.info("대화 삭제 완료 - {} 개", conversationCount);
-
-        // 12. Asset 삭제
+        // 10. Asset 삭제
         assetRepository.deleteByNoteIdInBulk(noteId);
         log.info("자산 삭제 완료 - {} 개", assetCount);
 
-        // 13. Note 삭제 (이제 안전하게 삭제 가능)
+        // 11. Note 삭제 (이제 안전하게 삭제 가능)
         noteRepository.deleteById(noteId);
 
         log.info("노트 삭제 완료 - noteId: {}, conversations: {}, assets: {}, freedStorage: {} bytes",
@@ -406,50 +395,56 @@ public class NoteServiceImpl implements NoteService {
         // 3. 사용자 플랜 정보 조회 (대화 제한 수 계산)
         com.proovy.domain.user.entity.PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
                 .orElse(com.proovy.domain.user.entity.PlanType.FREE);
-        // TODO: PlanType에 conversationLimit 필드 추가 필요. 현재는 고정값 사용
         int conversationLimit = 50; // 기본 대화 제한 수
 
-        // 4. 전체 대화 수 조회
-        long totalConversations = conversationRepository.countByNote_Id(noteId);
+        // 4. 전체 메시지 개수 조회 (대화 쌍으로 나눠서 계산)
+        long totalMessages = chatMessageRepository.countByNoteId(noteId);
+        long totalConversations = totalMessages / 2;
 
-        // 5. 대화 페이징 조회
-        Pageable pageable = PageRequest.of(conversationPage, conversationSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Conversation> conversationPage1 = conversationRepository.findByNote_IdOrderByCreatedAtDesc(noteId, pageable);
+        // 5. 노트의 모든 ChatMessage 조회 (시간순)
+        List<ChatMessage> allMessages = chatMessageRepository.findByNoteIdOrderByCreatedAtAsc(noteId);
 
-        // 6. 대화 ID 목록 추출
-        List<Long> conversationIds = conversationPage1.getContent().stream()
-                .map(Conversation::getId)
-                .toList();
+        // 6. USER + ASSISTANT 쌍으로 대화 그룹화
+        List<ChatMessagePair> conversationPairs = groupMessagesIntoConversations(allMessages);
 
-        // 7. 메시지 조회 (대화별로 user/assistant 쌍)
-        List<Message> messages = conversationIds.isEmpty()
-                ? List.of()
-                : messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds);
+        // 7. 페이징 적용
+        int startIndex = conversationPage * conversationSize;
+        int endIndex = Math.min(startIndex + conversationSize, conversationPairs.size());
+        List<ChatMessagePair> pagedPairs = (startIndex < conversationPairs.size())
+                ? conversationPairs.subList(startIndex, endIndex)
+                : List.of();
 
         // 8. 메시지 ID 목록 추출
-        List<Long> messageIds = messages.stream()
-                .map(Message::getId)
+        List<Long> chatMessageIds = pagedPairs.stream()
+                .flatMap(pair -> {
+                    List<Long> ids = new ArrayList<>();
+                    if (pair.userMessage != null) ids.add(pair.userMessage.getId());
+                    if (pair.assistantMessage != null) ids.add(pair.assistantMessage.getId());
+                    return ids.stream();
+                })
                 .toList();
 
         // 9. 메시지-자산 연결 조회
-        List<MessageAsset> messageAssets = messageIds.isEmpty()
-                ? List.of()
-                : messageAssetRepository.findByMessageIdIn(messageIds);
-        Map<Long, List<Asset>> messageAssetMap = messageAssets.stream()
-                .collect(Collectors.groupingBy(
-                        ma -> ma.getMessage().getId(),
-                        Collectors.mapping(MessageAsset::getAsset, Collectors.toList())
-                ));
+        Map<Long, List<Asset>> messageAssetMap = new HashMap<>();
+        if (!chatMessageIds.isEmpty()) {
+            List<MessageAsset> messageAssets = messageAssetRepository.findByChatMessageIdIn(chatMessageIds);
+            messageAssetMap = messageAssets.stream()
+                    .collect(Collectors.groupingBy(
+                            ma -> ma.getChatMessage().getId(),
+                            Collectors.mapping(MessageAsset::getAsset, Collectors.toList())
+                    ));
+        }
 
         // 10. 메시지-도구 연결 조회
-        List<MessageTool> messageTools = messageIds.isEmpty()
-                ? List.of()
-                : messageToolRepository.findByMessageIdIn(messageIds);
-        Map<Long, List<String>> messageToolMap = messageTools.stream()
-                .collect(Collectors.groupingBy(
-                        mt -> mt.getMessage().getId(),
-                        Collectors.mapping(MessageTool::getToolCode, Collectors.toList())
-                ));
+        Map<Long, List<String>> messageToolMap = new HashMap<>();
+        if (!chatMessageIds.isEmpty()) {
+            List<MessageTool> messageTools = messageToolRepository.findByChatMessageIdIn(chatMessageIds);
+            messageToolMap = messageTools.stream()
+                    .collect(Collectors.groupingBy(
+                            mt -> mt.getChatMessage().getId(),
+                            Collectors.mapping(MessageTool::getToolCode, Collectors.toList())
+                    ));
+        }
 
         // 11. 노트의 모든 자산 조회
         List<Asset> noteAssets = assetRepository.findAllByNoteId(noteId);
@@ -474,35 +469,34 @@ public class NoteServiceImpl implements NoteService {
                 })
                 .collect(Collectors.toList());
 
-        // 13. 대화별로 메시지 그룹화
-        Map<Long, List<Message>> conversationMessageMap = messages.stream()
-                .collect(Collectors.groupingBy(msg -> msg.getConversation().getId()));
+        // 13. 대화 정보 DTO 생성 (역순으로 정렬하여 최신 대화가 먼저 오도록)
+        final Map<Long, List<Asset>> finalMessageAssetMap = messageAssetMap;
+        final Map<Long, List<String>> finalMessageToolMap = messageToolMap;
 
-        // 14. 대화 정보 DTO 생성
-        List<NoteDetailResponse.ConversationInfo> conversationInfos = conversationPage1.getContent().stream()
-                .map(conversation -> {
-                    List<Message> conversationMessages = conversationMessageMap.getOrDefault(conversation.getId(), List.of());
-
-                    Message userMessage = conversationMessages.stream()
-                            .filter(msg -> msg.getRole() == MessageRole.USER)
-                            .findFirst()
-                            .orElse(null);
-
-                    Message assistantMessage = conversationMessages.stream()
-                            .filter(msg -> msg.getRole() == MessageRole.ASSISTANT)
-                            .findFirst()
-                            .orElse(null);
+        List<NoteDetailResponse.ConversationInfo> conversationInfos = pagedPairs.stream()
+                .sorted((a, b) -> {
+                    LocalDateTime aTime = a.userMessage != null ? a.userMessage.getCreatedAt() : LocalDateTime.MIN;
+                    LocalDateTime bTime = b.userMessage != null ? b.userMessage.getCreatedAt() : LocalDateTime.MIN;
+                    return bTime.compareTo(aTime); // 최신순
+                })
+                .map(pair -> {
+                    Long conversationId = pair.userMessage != null ? pair.userMessage.getId() : 
+                            (pair.assistantMessage != null ? pair.assistantMessage.getId() : 0L);
+                    LocalDateTime createdAt = pair.userMessage != null ? pair.userMessage.getCreatedAt() :
+                            (pair.assistantMessage != null ? pair.assistantMessage.getCreatedAt() : LocalDateTime.now());
 
                     return NoteDetailResponse.ConversationInfo.builder()
-                            .conversationId(conversation.getId())
-                            .userMessage(userMessage != null ? buildMessageInfo(userMessage, messageAssetMap, messageToolMap, true) : null)
-                            .assistantMessage(assistantMessage != null ? buildMessageInfo(assistantMessage, messageAssetMap, messageToolMap, false) : null)
-                            .createdAt(conversation.getCreatedAt())
+                            .conversationId(conversationId)
+                            .userMessage(pair.userMessage != null ? 
+                                    buildChatMessageInfo(pair.userMessage, finalMessageAssetMap, finalMessageToolMap, true) : null)
+                            .assistantMessage(pair.assistantMessage != null ? 
+                                    buildChatMessageInfo(pair.assistantMessage, finalMessageAssetMap, finalMessageToolMap, false) : null)
+                            .createdAt(createdAt)
                             .build();
                 })
                 .collect(Collectors.toList());
 
-        // 15. 사용량 정보 생성
+        // 14. 사용량 정보 생성
         int conversationUsagePercent = conversationLimit > 0
                 ? (int) Math.round((double) totalConversations / conversationLimit * 100)
                 : 0;
@@ -513,16 +507,17 @@ public class NoteServiceImpl implements NoteService {
                 .conversationUsagePercent(conversationUsagePercent)
                 .build();
 
-        // 16. 페이지 정보 생성
+        // 15. 페이지 정보 생성
+        int totalPages = (int) Math.ceil((double) conversationPairs.size() / conversationSize);
         NoteDetailResponse.PageInfo pageInfo = NoteDetailResponse.PageInfo.builder()
-                .page(conversationPage1.getNumber())
-                .size(conversationPage1.getSize())
-                .totalElements(conversationPage1.getTotalElements())
-                .totalPages(conversationPage1.getTotalPages())
-                .hasNext(conversationPage1.hasNext())
+                .page(conversationPage)
+                .size(conversationSize)
+                .totalElements((long) conversationPairs.size())
+                .totalPages(totalPages)
+                .hasNext(conversationPage < totalPages - 1)
                 .build();
 
-        // 17. lastUsedAt 계산 (updatedAt 또는 createdAt 사용)
+        // 16. lastUsedAt 계산 (updatedAt 또는 createdAt 사용)
         LocalDateTime lastUsedAt = note.getUpdatedAt() != null ? note.getUpdatedAt() : note.getCreatedAt();
 
         return NoteDetailResponse.builder()
@@ -537,14 +532,63 @@ public class NoteServiceImpl implements NoteService {
                 .build();
     }
 
-    private NoteDetailResponse.MessageInfo buildMessageInfo(
-            Message message,
+    /**
+     * 메시지를 USER + ASSISTANT 쌍으로 그룹화
+     */
+    private List<ChatMessagePair> groupMessagesIntoConversations(List<ChatMessage> messages) {
+        List<ChatMessagePair> pairs = new ArrayList<>();
+        ChatMessage pendingUserMessage = null;
+
+        for (ChatMessage msg : messages) {
+            if (msg.getRole() == MessageRole.USER) {
+                // 이전에 매칭되지 않은 USER 메시지가 있으면 단독으로 저장
+                if (pendingUserMessage != null) {
+                    pairs.add(new ChatMessagePair(pendingUserMessage, null));
+                }
+                pendingUserMessage = msg;
+            } else if (msg.getRole() == MessageRole.ASSISTANT) {
+                if (pendingUserMessage != null) {
+                    pairs.add(new ChatMessagePair(pendingUserMessage, msg));
+                    pendingUserMessage = null;
+                } else {
+                    // USER 없이 ASSISTANT만 있는 경우
+                    pairs.add(new ChatMessagePair(null, msg));
+                }
+            }
+        }
+
+        // 마지막으로 남은 USER 메시지 처리
+        if (pendingUserMessage != null) {
+            pairs.add(new ChatMessagePair(pendingUserMessage, null));
+        }
+
+        return pairs;
+    }
+
+    /**
+     * USER + ASSISTANT 메시지 쌍 내부 클래스
+     */
+    private static class ChatMessagePair {
+        final ChatMessage userMessage;
+        final ChatMessage assistantMessage;
+
+        ChatMessagePair(ChatMessage userMessage, ChatMessage assistantMessage) {
+            this.userMessage = userMessage;
+            this.assistantMessage = assistantMessage;
+        }
+    }
+
+    private NoteDetailResponse.MessageInfo buildChatMessageInfo(
+            ChatMessage chatMessage,
             Map<Long, List<Asset>> messageAssetMap,
             Map<Long, List<String>> messageToolMap,
             boolean isUserMessage) {
 
-        List<Asset> assets = messageAssetMap.getOrDefault(message.getId(), List.of());
-        List<String> tools = messageToolMap.getOrDefault(message.getId(), List.of());
+        List<Asset> assets = messageAssetMap.getOrDefault(chatMessage.getId(), List.of());
+        List<String> tools = messageToolMap.getOrDefault(chatMessage.getId(), List.of());
+
+        // content에서 텍스트 추출
+        String content = chatMessage.getTextContent();
 
         // 멘션된 자산 정보
         List<NoteDetailResponse.MentionedAsset> mentionedAssets = null;
@@ -557,17 +601,15 @@ public class NoteServiceImpl implements NoteService {
                     .collect(Collectors.toList());
         }
 
-        // AI가 생성한 파일 정보 (현재는 없지만 구조 준비)
+        // AI가 생성한 파일 정보
         List<NoteDetailResponse.GeneratedFile> generatedFiles = null;
         if (!isUserMessage) {
-            // TODO: AI가 생성한 파일 조회 로직 추가
-            // 현재는 asset source가 ai_generated인 것들을 찾아야 함
             generatedFiles = assets.stream()
                     .filter(asset -> asset.getSource() == Asset.AssetSource.ai_generated)
                     .map(asset -> NoteDetailResponse.GeneratedFile.builder()
                             .fileId(asset.getId())
                             .fileName(asset.getFileName())
-                            .fileType("SOLUTION") // TODO: 실제 타입 매핑 필요
+                            .fileType("SOLUTION")
                             .downloadUrl(s3Service.getFileUrl(asset.getS3Key()))
                             .build())
                     .collect(Collectors.toList());
@@ -577,13 +619,13 @@ public class NoteServiceImpl implements NoteService {
         }
 
         return NoteDetailResponse.MessageInfo.builder()
-                .messageId(message.getId())
-                .content(message.getContent())
+                .messageId(chatMessage.getId())
+                .content(content)
                 .mentionedAssets(mentionedAssets)
                 .mentionedTools(isUserMessage && !tools.isEmpty() ? tools : null)
                 .usedTools(!isUserMessage && !tools.isEmpty() ? tools : null)
                 .generatedFiles(generatedFiles)
-                .createdAt(message.getCreatedAt())
+                .createdAt(chatMessage.getCreatedAt())
                 .build();
     }
 
