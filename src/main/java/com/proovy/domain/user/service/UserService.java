@@ -147,9 +147,16 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
 
         // 2. 활성 구독 확인 (FREE가 아닌 플랜이 활성 상태면 탈퇴 불가)
+        // 단, 취소 예약이 걸려있으면(canceledAt != null && nextPlanType == FREE) 탈퇴 허용
         Optional<UserPlan> activePlan = userPlanRepository.findActiveByUserId(userId);
         if (activePlan.isPresent() && activePlan.get().getPlanType() != PlanType.FREE) {
-            throw new BusinessException(ErrorCode.USER4006);
+            UserPlan plan = activePlan.get();
+            // 취소 예약 상태가 아니면 탈퇴 불가
+            boolean isCancelScheduled = plan.getCanceledAt() != null &&
+                                         plan.getNextPlanType() == PlanType.FREE;
+            if (!isCancelScheduled) {
+                throw new BusinessException(ErrorCode.USER4006);
+            }
         }
 
         // 3. 사용자 관련 데이터 삭제
