@@ -400,8 +400,10 @@ public class ChatServiceImpl implements ChatService {
 
         List<String> urls = assets.stream()
                 .map(asset -> {
-                    String url = s3Service.getFileUrl(asset.getS3Key());
-                    log.info("[Chat] S3 URL 생성 - assetId: {}, s3Key: {}, url: {}",
+                    // Presigned URL 생성 (15분 유효)
+                    String url = s3Service.generatePresignedDownloadUrl(
+                            asset.getS3Key(), asset.getFileName(), 15);
+                    log.info("[Chat] Presigned URL 생성 - assetId: {}, s3Key: {}, url: {}",
                             asset.getId(), asset.getS3Key(), url);
                     return url;
                 })
