@@ -1,5 +1,6 @@
 package com.proovy.domain.user.service;
 
+import com.proovy.domain.credit.service.CreditBalanceService;
 import com.proovy.domain.user.dto.request.UpgradePlanRequest;
 import com.proovy.domain.user.dto.response.SubscriptionResponse;
 import com.proovy.domain.user.entity.PlanType;
@@ -36,6 +37,7 @@ public class SubscriptionService {
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
     private final PlatformTransactionManager transactionManager;
+    private final CreditBalanceService creditBalanceService;
 
     @Transactional
     public SubscriptionResponse getSubscription(Long userId) {
@@ -133,6 +135,12 @@ public class SubscriptionService {
             UserPlan newPlan = buildNextActivePlan(user, targetPlan, startedAt);
             UserPlan savedPlan = userPlanRepository.save(newPlan);
             userPlanRepository.flush();
+
+            // 유료 플랜으로 변경 시 월간 크레딧 부여
+            if (targetPlan != PlanType.FREE) {
+                creditBalanceService.grantMonthlyCredit(user.getId(), targetPlan);
+            }
+
             return SubscriptionResponse.from(savedPlan);
         } catch (DataIntegrityViolationException e) {
             log.warn("동시 플랜 변경 충돌 감지: userId={}, requestedPlan={}", user.getId(), targetPlan, e);
@@ -183,6 +191,11 @@ public class SubscriptionService {
 
         UserPlan nextPlan = buildNextActivePlan(duePlan.getUser(), nextPlanType, transitionAt);
         userPlanRepository.save(nextPlan);
+
+        // 유료 플랜으로 전환 시 월간 크레딧 부여
+        if (nextPlanType != PlanType.FREE) {
+            creditBalanceService.grantMonthlyCredit(duePlan.getUser().getId(), nextPlanType);
+        }
     }
 
     private boolean processDuePlanTransitionInNewTransaction(Long duePlanId, LocalDateTime now) {

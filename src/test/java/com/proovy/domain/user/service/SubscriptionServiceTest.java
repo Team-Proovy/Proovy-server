@@ -1,5 +1,6 @@
 package com.proovy.domain.user.service;
 
+import com.proovy.domain.credit.service.CreditBalanceService;
 import com.proovy.domain.user.dto.request.UpgradePlanRequest;
 import com.proovy.domain.user.dto.response.SubscriptionResponse;
 import com.proovy.domain.user.entity.PlanType;
@@ -44,6 +45,9 @@ class SubscriptionServiceTest {
 
     @Mock
     private PlatformTransactionManager transactionManager;
+
+    @Mock
+    private CreditBalanceService creditBalanceService;
 
     private User testUser;
     private UserPlan freePlan;
@@ -217,6 +221,7 @@ class SubscriptionServiceTest {
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
             given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
             given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> invocation.getArgument(0));
+            willDoNothing().given(creditBalanceService).grantMonthlyCredit(userId, PlanType.STANDARD);
 
             // when
             SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard"));
@@ -225,6 +230,7 @@ class SubscriptionServiceTest {
             assertThat(response.currentPlan().name()).isEqualTo("standard");
             assertThat(freePlan.getIsActive()).isFalse();
             then(userPlanRepository).should().save(any(UserPlan.class));
+            then(creditBalanceService).should().grantMonthlyCredit(userId, PlanType.STANDARD);
         }
 
         @Test
@@ -290,12 +296,14 @@ class SubscriptionServiceTest {
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
             given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
             given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> invocation.getArgument(0));
+            willDoNothing().given(creditBalanceService).grantMonthlyCredit(userId, PlanType.PRO);
 
             // when
             SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest(" pro "));
 
             // then
             assertThat(response.currentPlan().name()).isEqualTo("pro");
+            then(creditBalanceService).should().grantMonthlyCredit(userId, PlanType.PRO);
         }
 
         @Test
