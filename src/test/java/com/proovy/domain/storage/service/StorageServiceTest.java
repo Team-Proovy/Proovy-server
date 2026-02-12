@@ -122,11 +122,11 @@ class StorageServiceTest {
         }
 
         @Test
-        @DisplayName("성공 - 검색어로 노트를 필터링한다")
+        @DisplayName("성공 - 검색어로 파일명을 필터링한다")
         void successWithKeyword() {
             // given
             Long userId = 1L;
-            String keyword = "테스트";
+            String keyword = "test";
             given(userRepository.findById(userId)).willReturn(Optional.of(testUser));
             given(userPlanRepository.findActiveByUserId(userId)).willReturn(Optional.of(freePlan));
             given(noteRepository.searchByTitleOrFileName(userId, keyword)).willReturn(List.of(testNote));
@@ -138,6 +138,7 @@ class StorageServiceTest {
             // then
             assertThat(response).isNotNull();
             assertThat(response.notes()).hasSize(1);
+            assertThat(response.notes().getFirst().assets()).hasSize(1);
         }
 
         @Test
