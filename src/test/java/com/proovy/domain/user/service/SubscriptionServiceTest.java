@@ -221,8 +221,11 @@ class SubscriptionServiceTest {
 
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
             given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
-            given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> invocation.getArgument(0));
-            willDoNothing().given(creditBalanceService).grantMonthlyCredit(userId, PlanType.STANDARD);
+            given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> {
+                UserPlan savedPlan = invocation.getArgument(0);
+                ReflectionTestUtils.setField(savedPlan, "id", 11L);
+                return savedPlan;
+            });
 
             // when
             SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest("standard"));
@@ -231,7 +234,31 @@ class SubscriptionServiceTest {
             assertThat(response.currentPlan().name()).isEqualTo("standard");
             assertThat(freePlan.getIsActive()).isFalse();
             then(userPlanRepository).should().save(any(UserPlan.class));
-            then(creditBalanceService).should().grantMonthlyCredit(userId, PlanType.STANDARD);
+            then(creditBalanceService).should().grantMonthlyCredit(userId, PlanType.STANDARD, 11L, 2000);
+        }
+
+        @Test
+        @DisplayName("성공 - Standard에서 Pro 즉시 업그레이드 시 월간 크레딧은 차액만 지급한다")
+        void successUpgradeFromStandardToProWithDeltaCredit() {
+            // given
+            Long userId = 1L;
+            ReflectionTestUtils.setField(standardPlan, "id", 20L);
+
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(standardPlan));
+            given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> {
+                UserPlan savedPlan = invocation.getArgument(0);
+                ReflectionTestUtils.setField(savedPlan, "id", 21L);
+                return savedPlan;
+            });
+
+            // when
+            SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest("pro"));
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("pro");
+            assertThat(standardPlan.getIsActive()).isFalse();
+            then(creditBalanceService).should().grantMonthlyCredit(userId, PlanType.PRO, 21L, 3000);
         }
 
         @Test
@@ -296,15 +323,18 @@ class SubscriptionServiceTest {
             ReflectionTestUtils.setField(freePlan, "id", 10L);
             given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
             given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
-            given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> invocation.getArgument(0));
-            willDoNothing().given(creditBalanceService).grantMonthlyCredit(userId, PlanType.PRO);
+            given(userPlanRepository.save(any(UserPlan.class))).willAnswer(invocation -> {
+                UserPlan savedPlan = invocation.getArgument(0);
+                ReflectionTestUtils.setField(savedPlan, "id", 12L);
+                return savedPlan;
+            });
 
             // when
             SubscriptionResponse response = subscriptionService.upgradePlan(userId, new UpgradePlanRequest(" pro "));
 
             // then
             assertThat(response.currentPlan().name()).isEqualTo("pro");
-            then(creditBalanceService).should().grantMonthlyCredit(userId, PlanType.PRO);
+            then(creditBalanceService).should().grantMonthlyCredit(userId, PlanType.PRO, 12L, 5000);
         }
 
         @Test
