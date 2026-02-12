@@ -56,5 +56,13 @@ public class Message {
         this.content = content;
         this.status = status;
     }
+
+    /**
+     * 메시지 내용과 상태를 업데이트합니다.
+     */
+    public void updateContentAndStatus(String content, MessageStatus status) {
+        this.content = content;
+        this.status = status;
+    }
 }
 
