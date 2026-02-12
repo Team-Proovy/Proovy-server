@@ -96,6 +96,7 @@ public class UserService {
         PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
                 .orElse(PlanType.FREE);
 
+        // 일일 크레딧: 매일 00:00에 100으로 리셋
         DailyCreditDto dailyCredit = DailyCreditDto.builder()
                 .balance(balance.getDailyFreeCredit())
                 .limit(balance.getDailyFreeLimit())
@@ -104,8 +105,9 @@ public class UserService {
                         : LocalDate.now().plusDays(1).atStartOfDay().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .build();
 
-        // monthlyCredit = freeCredit + paidCredit
-        int monthlyBalance = balance.getFreeCredit() + balance.getPaidCredit();
+        // 월간 크레딧: 유료 플랜 구독 시 부여되는 크레딧
+        // FREE: 0, STANDARD: 2000, PRO: 5000
+        int monthlyBalance = balance.getPaidCredit();  // paidCredit만 월간 크레딧
         int monthlyLimit = planType.getMonthlyCreditLimit();
 
         MonthlyCreditDto monthlyCredit = MonthlyCreditDto.builder()

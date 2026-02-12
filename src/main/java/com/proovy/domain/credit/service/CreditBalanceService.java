@@ -48,36 +48,19 @@ public class CreditBalanceService {
 
     @Transactional
     public CreditBalance createSignupBalance(User user) {
-        // FREE 플랜의 dailyCreditLimit 사용
+        // FREE 플랜의 dailyCreditLimit 사용 (100)
         int dailyCreditLimit = PlanType.FREE.getDailyCreditLimit();
-        int signupBonus = 100;
 
         CreditBalance balance = CreditBalance.builder()
                 .user(user)
                 .dailyFreeCredit(dailyCreditLimit)
                 .dailyFreeLimit(dailyCreditLimit)
                 .dailyExpiresAt(LocalDate.now().plusDays(1).atStartOfDay())
-                .freeCredit(signupBonus)
-                .paidCredit(0)
+                .freeCredit(0)  // 가입 보너스 없음
+                .paidCredit(0)  // FREE 플랜은 월간 크레딧 없음
                 .build();
-        CreditBalance savedBalance = creditBalanceRepository.save(balance);
 
-        // 가입 보너스 히스토리 기록
-        CreditHistory history = CreditHistory.builder()
-                .user(user)
-                .eventType(CreditEventType.SIGNUP_BONUS)
-                .eventName("가입 보너스")
-                .description("회원가입 축하 크레딧")
-                .amount(signupBonus)
-                .changeType(CreditChangeType.EARN)
-                .creditType(CreditType.FREE)
-                .balanceAfterDaily(savedBalance.getDailyFreeCredit())
-                .balanceAfterFree(savedBalance.getFreeCredit())
-                .balanceAfterPaid(savedBalance.getPaidCredit())
-                .build();
-        creditHistoryRepository.save(history);
-
-        return savedBalance;
+        return creditBalanceRepository.save(balance);
     }
 
     /**

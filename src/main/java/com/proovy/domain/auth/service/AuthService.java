@@ -242,7 +242,7 @@ public class AuthService {
         User savedUser = userRepository.save(user);
         log.info("신규 유저 가입 완료, userId: {}, provider: {}, createdAt: {}", savedUser.getId(), provider, savedUser.getCreatedAt());
 
-        // 3-1. 크레딧 잔액 초기화 (일일 100 + 가입 보너스 100)
+        // 3-1. 크레딧 잔액 초기화 (일일 100 크레딧)
         try {
             creditBalanceService.createSignupBalance(savedUser);
             log.info("크레딧 잔액 초기화 완료, userId: {}", savedUser.getId());
@@ -273,7 +273,7 @@ public class AuthService {
         return SignupCompleteResponse.builder()
                 .user(userDto)
                 .token(tokens)
-                .welcomeCredit(100)
+                .welcomeCredit(0)  // 가입 보너스 없음
                 .build();
     }
 
