@@ -1,6 +1,7 @@
 package com.proovy.domain.conversation.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.proovy.domain.note.entity.Note;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -14,7 +15,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "chat_messages")
+@Table(name = "chat_messages", indexes = {
+    @Index(name = "idx_chat_messages_note_id", columnList = "note_id")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
@@ -28,6 +31,10 @@ public class ChatMessage {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_session_id", nullable = false)
     private ChatSession chatSession;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "note_id")
+    private Note note;  // Note와 연결 (선택적)
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
@@ -45,8 +52,9 @@ public class ChatMessage {
     private LocalDateTime createdAt;
 
     @Builder
-    public ChatMessage(ChatSession chatSession, MessageRole role, JsonNode content, String messageType) {
+    public ChatMessage(ChatSession chatSession, Note note, MessageRole role, JsonNode content, String messageType) {
         this.chatSession = chatSession;
+        this.note = note;
         this.role = role;
         this.content = content;
         this.messageType = messageType != null ? messageType : "text";

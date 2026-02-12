@@ -14,11 +14,15 @@ import java.time.LocalDateTime;
 /**
  * Note 도메인 전용 Conversation 엔티티
  * 
- * ⚠️ 주의: 이 엔티티는 Note 도메인(NoteService.createNote)에서만 사용됩니다.
- * 채팅 기능은 ChatSession 엔티티를 사용하세요.
- * 
- * TODO: Note 도메인을 ChatSession 기반으로 마이그레이션하면 이 엔티티는 삭제 가능
+ * @deprecated 이 엔티티는 더 이상 사용되지 않습니다. ChatMessage를 사용하세요.
+ * ⚠️ 주의: 마이그레이션 완료 후 이 파일은 삭제 예정입니다.
+ *
+ * 마이그레이션 단계:
+ * 1. V28 마이그레이션으로 데이터가 chat_messages로 이동됨
+ * 2. ConversationQueryService를 ChatMessage 기반으로 전환 필요
+ * 3. 완료 후 messages/conversations 테이블 삭제
  */
+@Deprecated(since = "2026-02-12", forRemoval = true)
 @Entity
 @Table(name = "conversations")
 @Getter

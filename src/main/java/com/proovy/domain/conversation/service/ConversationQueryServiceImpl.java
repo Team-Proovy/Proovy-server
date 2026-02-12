@@ -1,5 +1,6 @@
 package com.proovy.domain.conversation.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.entity.AssetStatus;
 import com.proovy.domain.asset.repository.AssetRepository;
@@ -7,14 +8,9 @@ import com.proovy.domain.conversation.dto.request.CanvasImageUploadRequest;
 import com.proovy.domain.conversation.dto.response.CanvasImageUploadResponse;
 import com.proovy.domain.conversation.dto.response.ConversationDetailResponse;
 import com.proovy.domain.conversation.dto.response.ConversationSearchResponse;
-import com.proovy.domain.conversation.entity.Conversation;
-import com.proovy.domain.conversation.entity.Message;
+import com.proovy.domain.conversation.entity.ChatMessage;
 import com.proovy.domain.conversation.entity.MessageRole;
-import com.proovy.domain.conversation.entity.MessageTool;
-import com.proovy.domain.conversation.repository.ConversationRepository;
-import com.proovy.domain.conversation.repository.MessageAssetRepository;
-import com.proovy.domain.conversation.repository.MessageRepository;
-import com.proovy.domain.conversation.repository.MessageToolRepository;
+import com.proovy.domain.conversation.repository.ChatMessageRepository;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.global.exception.BusinessException;
@@ -23,6 +19,7 @@ import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -34,16 +31,16 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * 대화 검색 및 조회 서비스 구현체 (ChatMessage 기반)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ConversationQueryServiceImpl implements ConversationQueryService {
 
-    private final ConversationRepository conversationRepository;
-    private final MessageRepository messageRepository;
-    private final MessageToolRepository messageToolRepository;
-    private final MessageAssetRepository messageAssetRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
     private final S3Service s3Service;
@@ -172,153 +169,109 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             }
         }
 
-        // PostgreSQL Full-Text Search 실행 (모든 필터 DB 레벨 적용)
-        Page<Conversation> searchResults = executeConversationSearch(
-                userId, trimmedQuery, noteId, toolCode, startDate, endDate, pageable);
+        // ChatMessage 기반 검색 실행
+        List<ChatMessage> allMessages = chatMessageRepository.findByNoteIdOrderByCreatedAtAsc(noteId);
 
-        if (searchResults.isEmpty()) {
-            return buildEmptySearchResponse(query, pageable, System.currentTimeMillis() - startTime);
-        }
-
-        // 검색 결과를 ConversationSearchItem으로 변환
+        // 메모리에서 필터링 및 검색
         List<ConversationSearchResponse.ConversationSearchItem> items =
-                buildSearchItemsFromConversations(searchResults.getContent(), trimmedQuery);
+                searchAndFilterMessages(allMessages, trimmedQuery, startDate, endDate, userId);
+
+        // 페이징 처리
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), items.size());
+        List<ConversationSearchResponse.ConversationSearchItem> pagedItems =
+                start < items.size() ? items.subList(start, end) : Collections.emptyList();
 
         long searchTimeMs = System.currentTimeMillis() - startTime;
 
         return ConversationSearchResponse.builder()
-                .conversations(items)
+                .conversations(pagedItems)
                 .pageInfo(ConversationSearchResponse.PageInfo.builder()
-                        .page(searchResults.getNumber())
-                        .size(searchResults.getSize())
-                        .totalElements(searchResults.getTotalElements())
-                        .totalPages(searchResults.getTotalPages())
-                        .hasNext(searchResults.hasNext())
+                        .page(pageable.getPageNumber())
+                        .size(pageable.getPageSize())
+                        .totalElements((long) items.size())
+                        .totalPages((int) Math.ceil((double) items.size() / pageable.getPageSize()))
+                        .hasNext(end < items.size())
                         .build())
                 .searchMetadata(ConversationSearchResponse.SearchMetadata.builder()
                         .query(query)
-                        .totalMatches(searchResults.getTotalElements())
+                        .totalMatches((long) items.size())
                         .searchTimeMs(searchTimeMs)
                         .build())
                 .build();
     }
 
     /**
-     * PostgreSQL Full-Text Search 실행 (Conversation 레벨, 모든 필터 DB 적용)
-     * 한글 포함 시 pg_trgm, 그 외는 tsvector 사용
+     * ChatMessage 목록에서 검색어에 매칭되는 대화 추출
      */
-    private Page<Conversation> executeConversationSearch(
-            Long userId,
+    private List<ConversationSearchResponse.ConversationSearchItem> searchAndFilterMessages(
+            List<ChatMessage> messages,
             String query,
-            Long noteId,
-            String toolCode,
             LocalDate startDate,
             LocalDate endDate,
-            Pageable pageable
+            Long userId
     ) {
-        boolean containsKorean = KOREAN_PATTERN.matcher(query).find();
+        List<ConversationSearchResponse.ConversationSearchItem> results = new ArrayList<>();
+        ChatMessage userMsg = null;
 
-        if (containsKorean) {
-            // 한글 검색: pg_trgm ILIKE
-            return conversationRepository.searchByTrigram(
-                    userId, query, noteId, toolCode, startDate, endDate, pageable);
-        } else {
-            // 영문/숫자 검색: tsvector
-            return conversationRepository.searchByFullText(
-                    userId, query, noteId, toolCode, startDate, endDate, pageable);
-        }
-    }
+        for (ChatMessage msg : messages) {
+            // 날짜 필터
+            if (startDate != null && msg.getCreatedAt().toLocalDate().isBefore(startDate)) continue;
+            if (endDate != null && msg.getCreatedAt().toLocalDate().isAfter(endDate)) continue;
 
-    /**
-     * Conversation 검색 결과를 ConversationSearchItem 목록으로 변환
-     * (Java 레벨 필터링 없이 DB에서 이미 필터링된 결과 사용)
-     */
-    private List<ConversationSearchResponse.ConversationSearchItem> buildSearchItemsFromConversations(
-            List<Conversation> conversations,
-            String query
-    ) {
-        if (conversations.isEmpty()) {
-            return Collections.emptyList();
-        }
+            if (msg.getRole() == MessageRole.USER) {
+                userMsg = msg;
+            } else if (msg.getRole() == MessageRole.ASSISTANT && userMsg != null) {
+                // 검색어 매칭 확인
+                String userContent = extractTextFromJsonContent(userMsg.getContent());
+                String assistantContent = extractTextFromJsonContent(msg.getContent());
 
-        List<Long> conversationIds = conversations.stream()
-                .map(Conversation::getId)
-                .collect(Collectors.toList());
+                boolean matches = userContent.toLowerCase().contains(query.toLowerCase()) ||
+                                assistantContent.toLowerCase().contains(query.toLowerCase());
 
-        // 메시지 일괄 조회
-        List<Message> messages = messageRepository.findByConversationIdInOrderByCreatedAtAsc(conversationIds);
-        Map<Long, List<Message>> messagesByConversation = messages.stream()
-                .collect(Collectors.groupingBy(m -> m.getConversation().getId()));
+                if (matches) {
+                    Note note = userMsg.getNote();
+                    results.add(ConversationSearchResponse.ConversationSearchItem.builder()
+                            .conversationId(msg.getId()) // ASSISTANT 메시지 ID를 대화 ID로 사용
+                            .noteId(note != null ? note.getId() : null)
+                            .noteTitle(note != null ? note.getTitle() : "제목 없음")
+                            .userMessage(buildMessageInfo(userMsg, query))
+                            .assistantMessage(buildMessageInfo(msg, query))
+                            .mentionedFiles(Collections.emptyList()) // TODO: JSONB에서 추출
+                            .mentionedTools(Collections.emptyList()) // TODO: JSONB에서 추출
+                            .relevance(calculateSimpleRelevance(userContent, assistantContent, query))
+                            .createdAt(userMsg.getCreatedAt())
+                            .build());
+                }
 
-        // 도구 코드 일괄 조회
-        List<Long> allMessageIds = messages.stream().map(Message::getId).collect(Collectors.toList());
-        Map<Long, Set<String>> toolCodesByMessageId = new HashMap<>();
-        if (!allMessageIds.isEmpty()) {
-            List<MessageTool> allTools = messageToolRepository.findByMessageIdIn(allMessageIds);
-            for (MessageTool tool : allTools) {
-                toolCodesByMessageId
-                        .computeIfAbsent(tool.getMessage().getId(), k -> new HashSet<>())
-                        .add(tool.getToolCode());
+                userMsg = null;
             }
         }
 
-        List<ConversationSearchResponse.ConversationSearchItem> results = new ArrayList<>();
-
-        for (Conversation conv : conversations) {
-            List<Message> convMessages = messagesByConversation.getOrDefault(conv.getId(), Collections.emptyList());
-
-            Message userMessage = convMessages.stream()
-                    .filter(m -> m.getRole() == MessageRole.USER)
-                    .findFirst()
-                    .orElse(null);
-
-            Message assistantMessage = convMessages.stream()
-                    .filter(m -> m.getRole() == MessageRole.ASSISTANT)
-                    .findFirst()
-                    .orElse(null);
-
-            Note note = conv.getNote();
-
-            results.add(ConversationSearchResponse.ConversationSearchItem.builder()
-                    .conversationId(conv.getId())
-                    .noteId(note.getId())
-                    .noteTitle(note.getTitle())
-                    .userMessage(buildMessageInfoWithDbHighlight(userMessage, query))
-                    .assistantMessage(buildMessageInfoWithDbHighlight(assistantMessage, query))
-                    .mentionedFiles(getMentionedFiles(convMessages))
-                    .mentionedTools(getMentionedToolsFromCache(convMessages, toolCodesByMessageId))
-                    .relevance(calculateRelevance(userMessage, assistantMessage, query))
-                    .createdAt(conv.getCreatedAt())
-                    .build());
-        }
+        // 관련도 순으로 정렬
+        results.sort((a, b) -> Double.compare(b.getRelevance(), a.getRelevance()));
 
         return results;
     }
 
     /**
-     * DB 기반 하이라이트 (ts_headline) 사용한 MessageInfo 생성
+     * JSONB content에서 text 추출
      */
-    private ConversationSearchResponse.MessageInfo buildMessageInfoWithDbHighlight(Message message, String query) {
-        if (message == null || message.getContent() == null) {
-            return null;
+    private String extractTextFromJsonContent(JsonNode content) {
+        if (content == null) return "";
+        if (content.has("text")) {
+            return content.get("text").asText();
         }
+        return content.toString();
+    }
 
-        String text = message.getContent();
+    /**
+     * ChatMessage를 MessageInfo로 변환
+     */
+    private ConversationSearchResponse.MessageInfo buildMessageInfo(ChatMessage message, String query) {
+        String text = extractTextFromJsonContent(message.getContent());
         String preview = text.length() > 200 ? text.substring(0, 200) + "..." : text;
-
-        // DB ts_headline 하이라이트 조회 (한글이 아닌 경우에만)
-        String highlight;
-        boolean containsKorean = KOREAN_PATTERN.matcher(query).find();
-        if (!containsKorean) {
-            try {
-                highlight = messageRepository.getSearchHighlight(message.getId(), query);
-            } catch (Exception e) {
-                log.debug("ts_headline 조회 실패, 폴백 사용: {}", e.getMessage());
-                highlight = extractHighlight(text, query);
-            }
-        } else {
-            highlight = extractHighlight(text, query);
-        }
+        String highlight = extractHighlight(text, query);
 
         return ConversationSearchResponse.MessageInfo.builder()
                 .text(text)
@@ -327,19 +280,21 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                 .build();
     }
 
-
     /**
-     * 캐시된 도구 코드에서 도구 목록 반환 (N+1 방지)
+     * 간단한 관련도 계산 (검색어 출현 빈도 기반)
      */
-    private List<String> getMentionedToolsFromCache(List<Message> messages, Map<Long, Set<String>> toolCodesByMessageId) {
-        if (toolCodesByMessageId.isEmpty()) {
-            return getMentionedTools(messages);
+    private double calculateSimpleRelevance(String userContent, String assistantContent, String query) {
+        String combined = (userContent + " " + assistantContent).toLowerCase();
+        String lowerQuery = query.toLowerCase();
+
+        int count = 0;
+        int index = 0;
+        while ((index = combined.indexOf(lowerQuery, index)) != -1) {
+            count++;
+            index += lowerQuery.length();
         }
 
-        return messages.stream()
-                .flatMap(m -> toolCodesByMessageId.getOrDefault(m.getId(), Collections.emptySet()).stream())
-                .distinct()
-                .collect(Collectors.toList());
+        return Math.min(count * 0.2, 1.0); // 최대 1.0
     }
 
     private String extractHighlight(String text, String query) {
@@ -363,167 +318,81 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
         return prefix + text.substring(start, end) + suffix;
     }
-
-    private List<ConversationSearchResponse.MentionedFile> getMentionedFiles(List<Message> messages) {
-        List<Long> messageIds = messages.stream()
-                .map(Message::getId)
-                .collect(Collectors.toList());
-
-        if (messageIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        return messageAssetRepository.findAssetsByMessageIds(messageIds).stream()
-                .map(asset -> ConversationSearchResponse.MentionedFile.builder()
-                        .assetId(asset.getId())
-                        .fileName(asset.getFileName())
-                        .build())
-                .collect(Collectors.toList());
-    }
-
-    private List<String> getMentionedTools(List<Message> messages) {
-        List<Long> messageIds = messages.stream()
-                .map(Message::getId)
-                .collect(Collectors.toList());
-
-        if (messageIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        return messageToolRepository.findToolCodesByMessageIds(messageIds);
-    }
-
-    private Double calculateRelevance(Message userMessage, Message assistantMessage, String query) {
-        double score = 0.0;
-        String lowerQuery = query.toLowerCase();
-
-        if (userMessage != null && userMessage.getContent() != null) {
-            String content = userMessage.getContent().toLowerCase();
-            if (content.contains(lowerQuery)) {
-                score += 0.5;
-                // 정확한 일치에 가까울수록 더 높은 점수
-                int occurrences = countOccurrences(content, lowerQuery);
-                score += Math.min(0.3, occurrences * 0.1);
-            }
-        }
-
-        if (assistantMessage != null && assistantMessage.getContent() != null) {
-            String content = assistantMessage.getContent().toLowerCase();
-            if (content.contains(lowerQuery)) {
-                score += 0.3;
-                int occurrences = countOccurrences(content, lowerQuery);
-                score += Math.min(0.2, occurrences * 0.05);
-            }
-        }
-
-        return Math.min(1.0, score);
-    }
-
-    private int countOccurrences(String text, String query) {
-        int count = 0;
-        int index = 0;
-        while ((index = text.indexOf(query, index)) != -1) {
-            count++;
-            index += query.length();
-        }
-        return count;
-    }
-
-    private ConversationSearchResponse buildEmptySearchResponse(String query, Pageable pageable, long searchTimeMs) {
-        return ConversationSearchResponse.builder()
-                .conversations(Collections.emptyList())
-                .pageInfo(ConversationSearchResponse.PageInfo.builder()
-                        .page(pageable.getPageNumber())
-                        .size(pageable.getPageSize())
-                        .totalElements(0)
-                        .totalPages(0)
-                        .hasNext(false)
-                        .build())
-                .searchMetadata(ConversationSearchResponse.SearchMetadata.builder()
-                        .query(query)
-                        .totalMatches(0)
-                        .searchTimeMs(searchTimeMs)
-                        .build())
-                .build();
-    }
-
     @Override
     public ConversationDetailResponse getConversationDetail(Long userId, Long conversationId) {
-        // 1. Conversation 조회
-        Conversation conversation = conversationRepository.findById(conversationId)
+        // conversationId는 실제로 ChatMessage의 ASSISTANT 메시지 ID
+        ChatMessage assistantMessage = chatMessageRepository.findById(conversationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONV4042));
 
-        // 2. 권한 검증 (해당 대화가 사용자의 노트에 속하는지)
-        Note note = conversation.getNote();
-        if (!note.getUser().getId().equals(userId)) {
+        // 권한 검증
+        Note note = assistantMessage.getNote();
+        if (note == null || !note.getUser().getId().equals(userId)) {
             throw new BusinessException(ErrorCode.CONV4031);
         }
 
-        // 3. 메시지 조회
-        List<Message> messages = messageRepository.findByConversationId(conversationId);
+        // 같은 Note의 모든 메시지 조회
+        List<ChatMessage> allMessages = chatMessageRepository.findByNoteIdOrderByCreatedAtAsc(note.getId());
 
-        Message userMessage = messages.stream()
-                .filter(m -> m.getRole() == MessageRole.USER)
-                .findFirst()
-                .orElse(null);
+        // 해당 대화 쌍 찾기 (ASSISTANT 메시지 바로 앞의 USER 메시지)
+        ChatMessage userMessage = findPreviousUserMessage(allMessages, assistantMessage);
 
-        Message assistantMessage = messages.stream()
-                .filter(m -> m.getRole() == MessageRole.ASSISTANT)
-                .findFirst()
-                .orElse(null);
-
-        // 4. 응답 생성
+        // 응답 생성
         return ConversationDetailResponse.builder()
-                .conversationId(conversation.getId())
+                .conversationId(conversationId)
                 .note(ConversationDetailResponse.NoteInfo.builder()
                         .noteId(note.getId())
                         .title(note.getTitle())
                         .build())
-                .userMessage(buildUserMessageDetail(userMessage))
-                .assistantMessage(buildAssistantMessageDetail(assistantMessage))
-                .createdAt(conversation.getCreatedAt())
-                .updatedAt(conversation.getCreatedAt()) // Conversation에 updatedAt이 없으면 createdAt 사용
+                .userMessage(buildUserMessageDetailFromChat(userMessage))
+                .assistantMessage(buildAssistantMessageDetailFromChat(assistantMessage))
+                .createdAt(userMessage != null ? userMessage.getCreatedAt() : assistantMessage.getCreatedAt())
+                .updatedAt(assistantMessage.getCreatedAt())
                 .build();
     }
 
-    private ConversationDetailResponse.UserMessageDetail buildUserMessageDetail(Message message) {
+    /**
+     * ASSISTANT 메시지 바로 앞의 USER 메시지 찾기
+     */
+    private ChatMessage findPreviousUserMessage(List<ChatMessage> messages, ChatMessage assistantMsg) {
+        ChatMessage prevUser = null;
+        for (ChatMessage msg : messages) {
+            if (msg.getId().equals(assistantMsg.getId())) {
+                return prevUser;
+            }
+            if (msg.getRole() == MessageRole.USER) {
+                prevUser = msg;
+            }
+        }
+        return null;
+    }
+
+    private ConversationDetailResponse.UserMessageDetail buildUserMessageDetailFromChat(ChatMessage message) {
         if (message == null) {
             return null;
         }
 
-        List<Long> messageIds = List.of(message.getId());
+        String text = extractTextFromJsonContent(message.getContent());
 
-        // 멘션된 파일 조회
-        List<Asset> assets = messageAssetRepository.findAssetsByMessageIds(messageIds);
-        List<ConversationDetailResponse.MentionedFileDetail> mentionedFiles = assets.stream()
-                .map(asset -> ConversationDetailResponse.MentionedFileDetail.builder()
-                        .assetId(asset.getId())
-                        .fileName(asset.getFileName())
-                        .thumbnailUrl(asset.getThumbnailS3Key() != null ?
-                                s3Service.getThumbnailUrl(asset.getThumbnailS3Key()) : null)
-                        .build())
-                .collect(Collectors.toList());
-
-        // 도구 코드 조회
-        List<String> toolCodes = messageToolRepository.findToolCodesByMessageIds(messageIds);
-
+        // TODO: JSONB에서 멘션된 파일 및 도구 추출
         return ConversationDetailResponse.UserMessageDetail.builder()
                 .messageId(message.getId())
-                .text(message.getContent())
-                .mentionedFiles(mentionedFiles)
-                .mentionedTools(toolCodes)
+                .text(text)
+                .mentionedFiles(Collections.emptyList())
+                .mentionedTools(Collections.emptyList())
                 .createdAt(message.getCreatedAt())
                 .build();
     }
 
-    private ConversationDetailResponse.AssistantMessageDetail buildAssistantMessageDetail(Message message) {
+    private ConversationDetailResponse.AssistantMessageDetail buildAssistantMessageDetailFromChat(ChatMessage message) {
         if (message == null) {
             return null;
         }
 
+        String text = extractTextFromJsonContent(message.getContent());
+
         return ConversationDetailResponse.AssistantMessageDetail.builder()
                 .messageId(message.getId())
-                .text(message.getContent())
+                .text(text)
                 .createdAt(message.getCreatedAt())
                 .build();
     }

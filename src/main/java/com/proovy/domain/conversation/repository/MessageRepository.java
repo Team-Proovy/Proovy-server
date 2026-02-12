@@ -13,7 +13,11 @@ import java.util.List;
 
 /**
  * Note 도메인 전용 MessageRepository
+ *
+ * @deprecated 이 Repository는 더 이상 사용되지 않습니다. ChatMessageRepository를 사용하세요.
+ * ⚠️ 주의: ConversationQueryService를 ChatMessage 기반으로 전환 후 삭제 예정
  */
+@Deprecated(since = "2026-02-12", forRemoval = true)
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
     // =============================================

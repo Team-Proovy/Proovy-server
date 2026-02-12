@@ -126,22 +126,24 @@ public class ChatServiceImpl implements ChatService {
         final Note finalNote = note;
         final String finalThreadIdToUse = threadIdToUse;
 
-        // 4. 사용자 메시지 저장
+        // 4. 사용자 메시지 저장 (ChatMessage)
         JsonNode userContentJson = buildUserContentJson(request);
         ChatMessage userMessage = ChatMessage.builder()
                 .chatSession(chatSession)
+                .note(finalNote)  // Note 연결 (있는 경우)
                 .role(MessageRole.USER)
                 .content(userContentJson)
                 .messageType("text")
                 .build();
         chatMessageRepository.save(userMessage);
 
-        // 5. AI 메시지 placeholder 생성
+        // 5. AI 메시지 placeholder 생성 (ChatMessage)
         ObjectNode emptyContent = objectMapper.createObjectNode();
         emptyContent.put("text", "");
         
         ChatMessage aiMessage = ChatMessage.builder()
                 .chatSession(chatSession)
+                .note(finalNote)  // Note 연결 (있는 경우)
                 .role(MessageRole.ASSISTANT)
                 .content(emptyContent)
                 .messageType("text")
@@ -210,7 +212,7 @@ public class ChatServiceImpl implements ChatService {
                     }
                 })
                 .doOnComplete(() -> {
-                    // 스트리밍 완료 시 최종 내용 저장
+                    // 스트리밍 완료 시 최종 내용 저장 (ChatMessage)
                     ObjectNode finalContent = objectMapper.createObjectNode();
                     finalContent.put("text", contentBuilder.toString());
                     savedAiMessage.updateContent(finalContent);

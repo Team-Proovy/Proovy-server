@@ -8,6 +8,9 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 
+/**
+ * 대화 검색 및 조회 서비스 (ChatMessage 기반)
+ */
 public interface ConversationQueryService {
 
     /**
