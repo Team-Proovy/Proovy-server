@@ -467,7 +467,7 @@ public class NoteServiceImpl implements NoteService {
                             .fileName(asset.getFileName())
                             .fileType(category.getValue().toUpperCase())
                             .fileSize(asset.getFileSize())
-                            .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name().toUpperCase() : "PENDING")
+                            .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name().toLowerCase() : "pending")
                             .thumbnailUrl(thumbnailUrl)
                             .createdAt(asset.getCreatedAt())
                             .build();
@@ -621,7 +621,7 @@ public class NoteServiceImpl implements NoteService {
                             .mimeType(asset.getMimeType())
                             .fileType(category.getValue().toUpperCase())
                             .source(asset.getSource().name().toUpperCase())
-                            .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name().toUpperCase() : "PENDING")
+                            .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name().toLowerCase() : "pending")
                             .thumbnailUrl(thumbnailUrl)
                             .createdAt(asset.getCreatedAt())
                             .build();

@@ -224,14 +224,16 @@ public class AssetsServiceImpl implements AssetsService {
         if (mimeType.startsWith("image/")) {
             try {
                 String thumbnailS3Key = thumbnailService.generateThumbnailSync(s3Key, mimeType);
-                if (thumbnailS3Key != null) {
-                    // 썸네일 생성 성공 - 같은 트랜잭션 내에서 직접 업데이트
-                    asset.updateThumbnail(thumbnailS3Key);
-                    assetRepository.save(asset);
-                    log.info("[Asset] 이미지 썸네일 생성 완료 (동기) - assetId: {}, thumbnailS3Key: {}", savedAssetId, thumbnailS3Key);
-                } else {
-                    log.warn("[Asset] 이미지 썸네일 생성 실패 - assetId: {}", savedAssetId);
+                if (thumbnailS3Key == null) {
+                    // WEBP 등 디코딩 이슈가 있어도 이미지는 즉시 미리보기가 가능해야 하므로 원본을 fallback으로 사용
+                    thumbnailS3Key = s3Key;
+                    log.warn("[Asset] 이미지 썸네일 생성 실패 - 원본 fallback 사용 - assetId: {}, mimeType: {}", savedAssetId, mimeType);
                 }
+
+                // 썸네일 생성 성공 또는 fallback - 같은 트랜잭션 내에서 직접 업데이트
+                asset.updateThumbnail(thumbnailS3Key);
+                assetRepository.save(asset);
+                log.info("[Asset] 이미지 썸네일 생성 완료 (동기) - assetId: {}, thumbnailS3Key: {}", savedAssetId, thumbnailS3Key);
             } catch (Exception e) {
                 log.error("[Asset] 이미지 썸네일 생성 중 오류 - assetId: {}, error: {}", savedAssetId, e.getMessage(), e);
             }
@@ -310,7 +312,7 @@ public class AssetsServiceImpl implements AssetsService {
                 }
 
                 // S3 썸네일 삭제 (있는 경우)
-                if (thumbnailS3Key != null) {
+                if (thumbnailS3Key != null && !thumbnailS3Key.equals(s3Key)) {
                     try {
                         s3Service.deleteFile(thumbnailS3Key);
                         log.info("[Asset] S3 썸네일 삭제 완료 - s3Key: {}", thumbnailS3Key);
