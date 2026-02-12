@@ -122,6 +122,20 @@ public class CreditBalance {
         this.dailyExpiresAt = nextExpiry;
     }
 
+    // 일일 크레딧 한도 업데이트 (플랜 변경 시)
+    public void updateDailyLimit(int newLimit) {
+        this.dailyFreeLimit = newLimit;
+        // 현재 잔액이 새 한도를 초과하면 조정
+        if (this.dailyFreeCredit > newLimit) {
+            this.dailyFreeCredit = newLimit;
+        }
+    }
+
+    // 유료 크레딧 만료일 설정
+    public void setPaidExpiresAt(LocalDateTime expiresAt) {
+        this.paidExpiresAt = expiresAt;
+    }
+
     // 만료 처리
     public void expirePaidCredit() {
         this.paidCredit = 0;
