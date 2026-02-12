@@ -56,7 +56,7 @@ public class ConversationController {
                     - isStream=false: 최종 응답만 단건으로 반환 (향후 구현)
                     
                     첨부 자산(mentionedAssetIds)은 S3 URL로 변환되어 전달됩니다.
-                    사용자의 가장 최근 활성 채팅 세션을 사용하며, 없으면 새로 생성합니다.
+                    메시지는 ChatSession과 Note에 모두 연결되어 저장됩니다.
                     """
     )
     @ApiResponses({
@@ -259,7 +259,12 @@ public class ConversationController {
     @GetMapping("/{conversationId}")
     @Operation(
             summary = "대화 상세 조회",
-            description = "특정 대화의 상세 내용을 조회합니다."
+            description = """
+                    특정 메시지의 상세 내용을 조회합니다.
+                    
+                    **주의**: conversationId는 ChatMessage ID를 의미합니다.
+                    검색 결과나 노트 상세에서 반환된 conversationId를 사용하세요.
+                    """
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(

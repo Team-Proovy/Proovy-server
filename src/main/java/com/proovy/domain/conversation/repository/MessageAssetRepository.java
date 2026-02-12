@@ -13,7 +13,7 @@ public interface MessageAssetRepository extends JpaRepository<MessageAsset, Long
     /**
      * 특정 메시지의 모든 자산 연결 조회
      */
-    List<MessageAsset> findByMessageId(Long messageId);
+    List<MessageAsset> findByChatMessageId(Long chatMessageId);
 
     /**
      * 특정 자산을 참조하는 모든 MessageAsset 조회
@@ -36,15 +36,15 @@ public interface MessageAssetRepository extends JpaRepository<MessageAsset, Long
      * 여러 메시지의 모든 자산 연결 삭제 (벌크 삭제)
      */
     @Modifying
-    @Query("DELETE FROM MessageAsset ma WHERE ma.message.id IN :messageIds")
-    void deleteByMessageIdInBulk(@Param("messageIds") List<Long> messageIds);
+    @Query("DELETE FROM MessageAsset ma WHERE ma.chatMessage.id IN :chatMessageIds")
+    void deleteByChatMessageIdInBulk(@Param("chatMessageIds") List<Long> chatMessageIds);
 
-    List<MessageAsset> findByMessageIdIn(List<Long> messageIds);
+    List<MessageAsset> findByChatMessageIdIn(List<Long> chatMessageIds);
 
     /**
      * 특정 메시지들에 연결된 Asset 목록 조회
      */
-    @Query("SELECT ma.asset FROM MessageAsset ma WHERE ma.message.id IN :messageIds")
-    List<com.proovy.domain.asset.entity.Asset> findAssetsByMessageIds(@Param("messageIds") List<Long> messageIds);
+    @Query("SELECT ma.asset FROM MessageAsset ma WHERE ma.chatMessage.id IN :chatMessageIds")
+    List<com.proovy.domain.asset.entity.Asset> findAssetsByChatMessageIds(@Param("chatMessageIds") List<Long> chatMessageIds);
 }
 

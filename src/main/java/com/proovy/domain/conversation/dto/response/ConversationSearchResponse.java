@@ -1,5 +1,6 @@
 package com.proovy.domain.conversation.dto.response;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -8,6 +9,7 @@ import java.util.List;
 
 @Getter
 @Builder
+@Schema(description = "대화 검색 결과 응답")
 public class ConversationSearchResponse {
 
     private List<ConversationSearchItem> conversations;
@@ -17,7 +19,10 @@ public class ConversationSearchResponse {
     @Getter
     @Builder
     public static class ConversationSearchItem {
+        @Schema(description = "대화 ID (ChatMessage ID)", example = "150")
         private Long conversationId;
+        
+        @Schema(description = "노트 ID", example = "10")
         private Long noteId;
         private String noteTitle;
         private MessageInfo userMessage;
