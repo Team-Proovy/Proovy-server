@@ -25,6 +25,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -427,6 +428,112 @@ class SubscriptionServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER4004);
+        }
+    }
+
+    @Nested
+    @DisplayName("resumeSubscription 메서드")
+    class ResumeSubscription {
+
+        @Test
+        @DisplayName("성공 - PRO 플랜 취소 후 재개")
+        void successResumeProPlan() {
+            // given
+            Long userId = 1L;
+            proPlan.schedulePlanChange(PlanType.FREE, LocalDateTime.now(ZoneId.of("Asia/Seoul")));
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(proPlan));
+
+            // when
+            SubscriptionResponse response = subscriptionService.resumeSubscription(userId);
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("pro");
+            assertThat(response.cancelInfo()).isNull();
+            assertThat(response.billing()).isNotNull();
+            assertThat(response.billing().autoRenew()).isTrue();
+            assertThat(proPlan.getCanceledAt()).isNull();
+            assertThat(proPlan.getNextPlanType()).isNull();
+        }
+
+        @Test
+        @DisplayName("성공 - STANDARD 플랜 취소 후 재개")
+        void successResumeStandardPlan() {
+            // given
+            Long userId = 1L;
+            standardPlan.schedulePlanChange(PlanType.FREE, LocalDateTime.now(ZoneId.of("Asia/Seoul")));
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(standardPlan));
+
+            // when
+            SubscriptionResponse response = subscriptionService.resumeSubscription(userId);
+
+            // then
+            assertThat(response.currentPlan().name()).isEqualTo("standard");
+            assertThat(response.cancelInfo()).isNull();
+            assertThat(response.billing()).isNotNull();
+            assertThat(response.billing().autoRenew()).isTrue();
+            assertThat(standardPlan.getCanceledAt()).isNull();
+            assertThat(standardPlan.getNextPlanType()).isNull();
+        }
+
+        @Test
+        @DisplayName("실패 - FREE 플랜은 재개 불가")
+        void failResumeFreePlan() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(freePlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.resumeSubscription(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4004);
+        }
+
+        @Test
+        @DisplayName("실패 - 취소되지 않은 구독은 재개 불가")
+        void failResumeNotCanceledSubscription() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.of(proPlan));
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.resumeSubscription(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4007);
+        }
+
+        @Test
+        @DisplayName("실패 - 활성 구독이 없는 경우")
+        void failNoActiveSubscription() {
+            // given
+            Long userId = 1L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.of(testUser));
+            given(userPlanRepository.findActiveByUserIdForUpdate(userId)).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.resumeSubscription(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4042);
+        }
+
+        @Test
+        @DisplayName("실패 - 사용자 없음")
+        void failUserNotFound() {
+            // given
+            Long userId = 999L;
+            given(userRepository.findByIdForUpdate(userId)).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.resumeSubscription(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.USER4041);
         }
     }
 }

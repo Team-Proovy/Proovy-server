@@ -36,6 +36,7 @@ public enum ErrorCode {
     USER4004("USER4004", "FREE 플랜은 취소할 수 없습니다.", HttpStatus.BAD_REQUEST),
     USER4005("USER4005", "이미 동일한 플랜 변경이 예약되어 있습니다.", HttpStatus.BAD_REQUEST),
     USER4006("USER4006", "활성화된 구독이 있습니다. 구독 취소 후 탈퇴해주세요.", HttpStatus.BAD_REQUEST),
+    USER4007("USER4007", "취소 예약된 구독이 없습니다.", HttpStatus.BAD_REQUEST),
     USER4041("USER4041", "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     USER4042("USER4042", "활성화된 구독을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     USER4091("USER4091", "이미 존재하는 사용자입니다.", HttpStatus.CONFLICT),

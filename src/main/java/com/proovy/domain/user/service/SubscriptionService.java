@@ -95,6 +95,28 @@ public class SubscriptionService {
         return schedulePlanChange(activePlan, PlanType.FREE);
     }
 
+    @Transactional
+    public SubscriptionResponse resumeSubscription(Long userId) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
+
+        applyDuePlanChangeForUser(userId);
+
+        UserPlan activePlan = userPlanRepository.findActiveByUserIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER4042));
+
+        if (activePlan.getPlanType() == PlanType.FREE) {
+            throw new BusinessException(ErrorCode.USER4004);
+        }
+
+        if (activePlan.getCanceledAt() == null) {
+            throw new BusinessException(ErrorCode.USER4007);
+        }
+
+        activePlan.resumeAutoRenew();
+        return SubscriptionResponse.from(activePlan);
+    }
+
     @Scheduled(fixedDelayString = "${proovy.subscription.plan-transition-fixed-delay-ms:60000}")
     @Transactional(readOnly = true)
     public void processDuePlanTransitions() {
