@@ -21,12 +21,12 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     /**
      * 특정 노트의 대화 조회
      */
-    Optional<Conversation> findByNoteId(Long noteId);
+    Optional<Conversation> findByNote_Id(Long noteId);
 
     /**
      * 특정 노트의 대화 개수 조회
      */
-    long countByNoteId(Long noteId);
+    long countByNote_Id(Long noteId);
 
     /**
      * 특정 노트의 모든 대화 조회
@@ -54,7 +54,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     /**
      * 특정 노트의 대화 조회 (페이징)
      */
-    Page<Conversation> findByNoteIdOrderByCreatedAtDesc(Long noteId, Pageable pageable);
+    Page<Conversation> findByNote_IdOrderByCreatedAtDesc(Long noteId, Pageable pageable);
 
     /**
      * 여러 노트의 대화 개수를 한 번에 조회 (배치 쿼리)

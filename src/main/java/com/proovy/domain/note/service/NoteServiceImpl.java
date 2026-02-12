@@ -304,7 +304,7 @@ public class NoteServiceImpl implements NoteService {
         }
 
         // 2. 통계용 정보 수집 (엔티티 조회가 아닌 count/sum 쿼리 사용)
-        long conversationCount = conversationRepository.countByNoteId(noteId);
+        long conversationCount = conversationRepository.countByNote_Id(noteId);
 
         // 3. S3 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
         List<Asset> assets = assetRepository.findAllByNoteId(noteId);
@@ -410,11 +410,11 @@ public class NoteServiceImpl implements NoteService {
         int conversationLimit = 50; // 기본 대화 제한 수
 
         // 4. 전체 대화 수 조회
-        long totalConversations = conversationRepository.countByNoteId(noteId);
+        long totalConversations = conversationRepository.countByNote_Id(noteId);
 
         // 5. 대화 페이징 조회
         Pageable pageable = PageRequest.of(conversationPage, conversationSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Conversation> conversationPage1 = conversationRepository.findByNoteIdOrderByCreatedAtDesc(noteId, pageable);
+        Page<Conversation> conversationPage1 = conversationRepository.findByNote_IdOrderByCreatedAtDesc(noteId, pageable);
 
         // 6. 대화 ID 목록 추출
         List<Long> conversationIds = conversationPage1.getContent().stream()

@@ -26,16 +26,16 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
      */
     @Query(value = """
             SELECT m.* FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            JOIN notes n ON c.note_id = n.id
+            JOIN conversations c ON m.conversation_id = c.conversation_id
+            JOIN notes n ON c.note_id = n.note_id
             WHERE n.user_id = :userId
               AND m.search_vector @@ plainto_tsquery('simple', :query)
             ORDER BY ts_rank(m.search_vector, plainto_tsquery('simple', :query)) DESC
             """,
             countQuery = """
             SELECT COUNT(*) FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            JOIN notes n ON c.note_id = n.id
+            JOIN conversations c ON m.conversation_id = c.conversation_id
+            JOIN notes n ON c.note_id = n.note_id
             WHERE n.user_id = :userId
               AND m.search_vector @@ plainto_tsquery('simple', :query)
             """,
@@ -50,19 +50,19 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
      */
     @Query(value = """
             SELECT m.* FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            JOIN notes n ON c.note_id = n.id
+            JOIN conversations c ON m.conversation_id = c.conversation_id
+            JOIN notes n ON c.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND n.id = :noteId
+              AND n.note_id = :noteId
               AND m.search_vector @@ plainto_tsquery('simple', :query)
             ORDER BY ts_rank(m.search_vector, plainto_tsquery('simple', :query)) DESC
             """,
             countQuery = """
             SELECT COUNT(*) FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            JOIN notes n ON c.note_id = n.id
+            JOIN conversations c ON m.conversation_id = c.conversation_id
+            JOIN notes n ON c.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND n.id = :noteId
+              AND n.note_id = :noteId
               AND m.search_vector @@ plainto_tsquery('simple', :query)
             """,
             nativeQuery = true)
@@ -77,16 +77,16 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
      */
     @Query(value = """
             SELECT m.* FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            JOIN notes n ON c.note_id = n.id
+            JOIN conversations c ON m.conversation_id = c.conversation_id
+            JOIN notes n ON c.note_id = n.note_id
             WHERE n.user_id = :userId
               AND m.content ILIKE '%' || :query || '%'
             ORDER BY similarity(m.content, :query) DESC, m.created_at DESC
             """,
             countQuery = """
             SELECT COUNT(*) FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            JOIN notes n ON c.note_id = n.id
+            JOIN conversations c ON m.conversation_id = c.conversation_id
+            JOIN notes n ON c.note_id = n.note_id
             WHERE n.user_id = :userId
               AND m.content ILIKE '%' || :query || '%'
             """,
@@ -101,19 +101,19 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
      */
     @Query(value = """
             SELECT m.* FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            JOIN notes n ON c.note_id = n.id
+            JOIN conversations c ON m.conversation_id = c.conversation_id
+            JOIN notes n ON c.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND n.id = :noteId
+              AND n.note_id = :noteId
               AND m.content ILIKE '%' || :query || '%'
             ORDER BY similarity(m.content, :query) DESC, m.created_at DESC
             """,
             countQuery = """
             SELECT COUNT(*) FROM messages m
-            JOIN conversations c ON m.conversation_id = c.id
-            JOIN notes n ON c.note_id = n.id
+            JOIN conversations c ON m.conversation_id = c.conversation_id
+            JOIN notes n ON c.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND n.id = :noteId
+              AND n.note_id = :noteId
               AND m.content ILIKE '%' || :query || '%'
             """,
             nativeQuery = true)
