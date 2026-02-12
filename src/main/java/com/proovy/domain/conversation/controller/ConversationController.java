@@ -85,9 +85,15 @@ public class ConversationController {
             @Parameter(hidden = true)
             @AuthenticationPrincipal UserPrincipal userPrincipal,
 
+            @Parameter(hidden = true)
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+
             @Valid @RequestBody ConversationRequest request
     ) {
         Long resolvedUserId = userPrincipal.getUserId();
+
+        // Authorization 헤더에서 Bearer 토큰 추출
+        String accessToken = extractBearerToken(authorizationHeader);
 
         if (Boolean.FALSE.equals(isStream)) {
             throw new UnsupportedOperationException("invoke 모드는 아직 구현되지 않았습니다. isStream=true 로만 호출해 주세요.");
@@ -95,14 +101,24 @@ public class ConversationController {
 
         log.info("Create conversation - userId: {}, isStream: {}", resolvedUserId, isStream);
 
-        return streamResponse(resolvedUserId, request);
+        return streamResponse(resolvedUserId, request, accessToken);
+    }
+
+    /**
+     * Authorization 헤더에서 Bearer 토큰 추출
+     */
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            return authorizationHeader.substring(7);
+        }
+        return null;
     }
 
     /**
      * SSE 스트리밍 응답 생성
      */
-    private Flux<ServerSentEvent<String>> streamResponse(Long userId, ConversationRequest request) {
-        return chatService.streamConversation(userId, request)
+    private Flux<ServerSentEvent<String>> streamResponse(Long userId, ConversationRequest request, String accessToken) {
+        return chatService.streamConversation(userId, request, accessToken)
                 .map(event -> {
                     try {
                         // ProovyAiStreamEvent를 JSON 문자열로 변환

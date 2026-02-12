@@ -43,4 +43,8 @@ public class ProovyAiRequest {
     // 선택: agentConfig - 기존 metadata를 이 필드로 보낸다.
     @JsonProperty("agentConfig")
     private Map<String, Object> agentConfig;
+
+    // 선택: authToken - Spring 백엔드 인증 토큰 (크레딧 API 호출용)
+    @JsonProperty("authToken")
+    private String authToken;
 }
