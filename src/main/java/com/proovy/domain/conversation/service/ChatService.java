@@ -14,15 +14,17 @@ public interface ChatService {
      * 스트리밍 대화 요청 (SSE)
      * @param userId 사용자 ID
      * @param request 대화 요청
+     * @param accessToken 사용자 인증 토큰 (AI 서버에서 Spring API 호출 시 사용)
      * @return SSE 스트림
      */
-    Flux<ProovyAiStreamEvent> streamConversation(Long userId, ConversationRequest request);
+    Flux<ProovyAiStreamEvent> streamConversation(Long userId, ConversationRequest request, String accessToken);
 
     /**
      * 단건 대화 요청 (향후 구현)
      * @param userId 사용자 ID
      * @param request 대화 요청
+     * @param accessToken 사용자 인증 토큰 (AI 서버에서 Spring API 호출 시 사용)
      * @return 대화 응답
      */
-    ConversationResponse invokeConversation(Long userId, ConversationRequest request);
+    ConversationResponse invokeConversation(Long userId, ConversationRequest request, String accessToken);
 }

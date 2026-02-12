@@ -67,7 +67,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public Flux<ProovyAiStreamEvent> streamConversation(Long userId, ConversationRequest request) {
+    public Flux<ProovyAiStreamEvent> streamConversation(Long userId, ConversationRequest request, String accessToken) {
         log.info("[Chat] streamConversation 시작 - userId: {}, textLength: {}, features: {}, assetIds: {}",
             userId,
             request.getText() != null ? request.getText().length() : 0,
@@ -164,6 +164,7 @@ public class ChatServiceImpl implements ChatService {
             .chosenFeatures(request.getChosenFeatures())
             .streamTokens(true)
             .agentConfig(buildMetadata(request))
+            .authToken(accessToken)  // Spring 인증 토큰 전달
             .build();
 
         log.info("[Chat] Proovy-ai 요청 생성 - threadId: {}, filesUrl: {}, message: {}",
@@ -270,7 +271,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public ConversationResponse invokeConversation(Long userId, ConversationRequest request) {
+    public ConversationResponse invokeConversation(Long userId, ConversationRequest request, String accessToken) {
         // TODO: 향후 isStream=false 시 구현
         throw new UnsupportedOperationException("invoke 모드는 아직 구현되지 않았습니다.");
     }
