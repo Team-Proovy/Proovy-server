@@ -150,6 +150,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 6. 자산 URL 변환
         List<String> filesUrl = convertAssetIdsToUrls(request.getMentionedAssetIds(), userId);
+        log.info("[Chat] 자산 URL 변환 완료 - assetIds: {}, filesUrl: {}", request.getMentionedAssetIds(), filesUrl);
 
         // 6.5. Proovy-ai 서버 상태를 사전에 한 번 체크하고, 연결이 불가능하면 바로 CONV5001 비즈니스 예외를 던진다.
         checkProovyAiHealth();
@@ -164,6 +165,9 @@ public class ChatServiceImpl implements ChatService {
             .streamTokens(true)
             .agentConfig(buildMetadata(request))
             .build();
+
+        log.info("[Chat] Proovy-ai 요청 생성 - threadId: {}, filesUrl: {}, message: {}",
+                finalThreadIdToUse, filesUrl, request.getText());
 
         // 8. SSE 스트리밍 호출
         final StringBuilder contentBuilder = new StringBuilder();
@@ -382,19 +386,28 @@ public class ChatServiceImpl implements ChatService {
      */
     private List<String> convertAssetIdsToUrls(List<Long> assetIds, Long userId) {
         if (assetIds == null || assetIds.isEmpty()) {
+            log.debug("[Chat] 자산 ID 없음 - assetIds: null or empty");
             return Collections.emptyList();
         }
 
         List<Asset> assets = assetRepository.findAllByIdInAndUserId(assetIds, userId);
-        
+        log.info("[Chat] 자산 조회 결과 - 요청: {}, 조회됨: {}, userId: {}", assetIds, assets.size(), userId);
+
         if (assets.size() != assetIds.size()) {
-            log.warn("Some assets not found or unauthorized. Requested: {}, Found: {}", 
+            log.warn("[Chat] 일부 자산 조회 실패 - 요청: {}, 조회됨: {}",
                     assetIds.size(), assets.size());
         }
 
-        return assets.stream()
-                .map(asset -> s3Service.getFileUrl(asset.getS3Key()))
+        List<String> urls = assets.stream()
+                .map(asset -> {
+                    String url = s3Service.getFileUrl(asset.getS3Key());
+                    log.info("[Chat] S3 URL 생성 - assetId: {}, s3Key: {}, url: {}",
+                            asset.getId(), asset.getS3Key(), url);
+                    return url;
+                })
                 .collect(Collectors.toList());
+
+        return urls;
     }
 
     /**
