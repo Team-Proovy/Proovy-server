@@ -13,11 +13,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 @Service
 @RequiredArgsConstructor
 public class CreditBalanceCreator {
+    private static final ZoneId BILLING_ZONE = ZoneId.of("Asia/Seoul");
 
     private final CreditBalanceRepository creditBalanceRepository;
     private final UserRepository userRepository;
@@ -37,11 +40,19 @@ public class CreditBalanceCreator {
                 .user(user)
                 .dailyFreeCredit(dailyCreditLimit)
                 .dailyFreeLimit(dailyCreditLimit)
-                .dailyExpiresAt(LocalDate.now().plusDays(1).atStartOfDay())
+                .dailyExpiresAt(nextDailyResetAt(nowInBillingZone()))
                 .freeCredit(freeCredit)
                 .paidCredit(0)
                 .build();
 
         return creditBalanceRepository.save(balance);
+    }
+
+    private LocalDateTime nowInBillingZone() {
+        return ZonedDateTime.now(BILLING_ZONE).toLocalDateTime();
+    }
+
+    private LocalDateTime nextDailyResetAt(LocalDateTime now) {
+        return now.toLocalDate().plusDays(1).atStartOfDay();
     }
 }

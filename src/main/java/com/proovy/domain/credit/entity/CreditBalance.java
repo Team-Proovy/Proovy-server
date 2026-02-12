@@ -43,6 +43,9 @@ public class CreditBalance {
     @Column(name = "paid_expires_at")
     private LocalDateTime paidExpiresAt;
 
+    @Column(name = "last_monthly_grant_plan_id")
+    private Long lastMonthlyGrantPlanId;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -56,7 +59,8 @@ public class CreditBalance {
     @Builder
     public CreditBalance(User user, Integer dailyFreeCredit, Integer dailyFreeLimit,
                          LocalDateTime dailyExpiresAt, Integer freeCredit,
-                         Integer paidCredit, LocalDateTime paidExpiresAt) {
+                         Integer paidCredit, LocalDateTime paidExpiresAt,
+                         Long lastMonthlyGrantPlanId) {
         this.user = user;
         this.dailyFreeCredit = dailyFreeCredit != null ? dailyFreeCredit : 0;
         this.dailyFreeLimit = dailyFreeLimit != null ? dailyFreeLimit : 100;
@@ -64,6 +68,7 @@ public class CreditBalance {
         this.freeCredit = freeCredit != null ? freeCredit : 0;
         this.paidCredit = paidCredit != null ? paidCredit : 0;
         this.paidExpiresAt = paidExpiresAt;
+        this.lastMonthlyGrantPlanId = lastMonthlyGrantPlanId;
     }
 
     public Integer getTotalAvailable() {
@@ -134,6 +139,14 @@ public class CreditBalance {
     // 유료 크레딧 만료일 설정
     public void setPaidExpiresAt(LocalDateTime expiresAt) {
         this.paidExpiresAt = expiresAt;
+    }
+
+    public boolean isGrantedForPlan(Long userPlanId) {
+        return userPlanId != null && userPlanId.equals(this.lastMonthlyGrantPlanId);
+    }
+
+    public void markMonthlyGrantPlan(Long userPlanId) {
+        this.lastMonthlyGrantPlanId = userPlanId;
     }
 
     // 만료 처리

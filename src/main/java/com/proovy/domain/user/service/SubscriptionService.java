@@ -138,7 +138,8 @@ public class SubscriptionService {
 
             // 유료 플랜으로 변경 시 월간 크레딧 부여
             if (targetPlan != PlanType.FREE) {
-                creditBalanceService.grantMonthlyCredit(user.getId(), targetPlan);
+                int grantAmount = calculateImmediateGrantAmount(currentPlan.getPlanType(), targetPlan);
+                creditBalanceService.grantMonthlyCredit(user.getId(), targetPlan, savedPlan.getId(), grantAmount);
             }
 
             return SubscriptionResponse.from(savedPlan);
@@ -190,11 +191,17 @@ public class SubscriptionService {
         userPlanRepository.flush();
 
         UserPlan nextPlan = buildNextActivePlan(duePlan.getUser(), nextPlanType, transitionAt);
-        userPlanRepository.save(nextPlan);
+        UserPlan savedNextPlan = userPlanRepository.save(nextPlan);
+        userPlanRepository.flush();
 
         // 유료 플랜으로 전환 시 월간 크레딧 부여
         if (nextPlanType != PlanType.FREE) {
-            creditBalanceService.grantMonthlyCredit(duePlan.getUser().getId(), nextPlanType);
+            creditBalanceService.grantMonthlyCredit(
+                    duePlan.getUser().getId(),
+                    nextPlanType,
+                    savedNextPlan.getId(),
+                    nextPlanType.getMonthlyCreditLimit()
+            );
         }
     }
 
@@ -248,6 +255,12 @@ public class SubscriptionService {
 
     private PlanType resolveNextPlanType(UserPlan userPlan) {
         return userPlan.getNextPlanType() != null ? userPlan.getNextPlanType() : PlanType.FREE;
+    }
+
+    private int calculateImmediateGrantAmount(PlanType currentPlanType, PlanType targetPlanType) {
+        int currentMonthlyCredit = currentPlanType != null ? currentPlanType.getMonthlyCreditLimit() : 0;
+        int targetMonthlyCredit = targetPlanType.getMonthlyCreditLimit();
+        return Math.max(0, targetMonthlyCredit - currentMonthlyCredit);
     }
 
     private UserPlan createDefaultFreePlan(User user) {
