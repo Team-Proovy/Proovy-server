@@ -16,7 +16,10 @@ import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.conversation.entity.ChatMessage;
 import com.proovy.domain.conversation.entity.ChatSession;
 import com.proovy.domain.conversation.entity.ChatSessionStatus;
+import com.proovy.domain.conversation.entity.Conversation;
+import com.proovy.domain.conversation.entity.Message;
 import com.proovy.domain.conversation.entity.MessageRole;
+import com.proovy.domain.conversation.entity.MessageStatus;
 import com.proovy.domain.conversation.repository.ChatMessageRepository;
 import com.proovy.domain.conversation.repository.ChatSessionRepository;
 import com.proovy.domain.conversation.repository.MessageAttachmentRepository;
@@ -56,6 +59,10 @@ public class ChatServiceImpl implements ChatService {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final CreditUseService creditUseService;
+
+    // Note 도메인 전용 레거시 테이블 (Conversation, Message)
+    private final com.proovy.domain.conversation.repository.ConversationRepository conversationRepository;
+    private final com.proovy.domain.conversation.repository.MessageRepository messageRepository;
 
     @Value("${proovy.ai.host}")
     private String proovyAiHost;
@@ -126,7 +133,7 @@ public class ChatServiceImpl implements ChatService {
         final Note finalNote = note;
         final String finalThreadIdToUse = threadIdToUse;
 
-        // 4. 사용자 메시지 저장
+        // 4. 사용자 메시지 저장 (ChatMessage)
         JsonNode userContentJson = buildUserContentJson(request);
         ChatMessage userMessage = ChatMessage.builder()
                 .chatSession(chatSession)
@@ -136,10 +143,46 @@ public class ChatServiceImpl implements ChatService {
                 .build();
         chatMessageRepository.save(userMessage);
 
-        // 5. AI 메시지 placeholder 생성
+        // 4-1. Note가 있는 경우 Conversation과 Message 테이블에도 저장 (레거시 호환성)
+        Conversation conversation = null;
+        Message legacyUserMessage = null;
+        Message legacyAiMessage = null;
+
+        if (finalNote != null) {
+            conversation = Conversation.builder()
+                    .note(finalNote)
+                    .build();
+            conversation = conversationRepository.save(conversation);
+
+            // 사용자 메시지 저장
+            legacyUserMessage = Message.builder()
+                    .conversation(conversation)
+                    .role(MessageRole.USER)
+                    .content(request.getText())
+                    .status(MessageStatus.COMPLETED)
+                    .build();
+            messageRepository.save(legacyUserMessage);
+
+            // AI 메시지 placeholder 생성
+            legacyAiMessage = Message.builder()
+                    .conversation(conversation)
+                    .role(MessageRole.ASSISTANT)
+                    .content("")
+                    .status(MessageStatus.STREAMING)
+                    .build();
+            legacyAiMessage = messageRepository.save(legacyAiMessage);
+
+            log.info("[Chat] Conversation 및 Message 저장 완료 - conversationId: {}, noteId: {}",
+                    conversation.getId(), finalNote.getId());
+        }
+
+        // final로 캡처 (람다에서 사용)
+        final Message finalLegacyAiMessage = legacyAiMessage;
+
+        // 5. AI 메시지 placeholder 생성 (ChatMessage)
         ObjectNode emptyContent = objectMapper.createObjectNode();
         emptyContent.put("text", "");
-        
+
         ChatMessage aiMessage = ChatMessage.builder()
                 .chatSession(chatSession)
                 .role(MessageRole.ASSISTANT)
@@ -211,10 +254,21 @@ public class ChatServiceImpl implements ChatService {
                 })
                 .doOnComplete(() -> {
                     // 스트리밍 완료 시 최종 내용 저장
+                    String finalText = contentBuilder.toString();
                     ObjectNode finalContent = objectMapper.createObjectNode();
-                    finalContent.put("text", contentBuilder.toString());
+                    finalContent.put("text", finalText);
                     savedAiMessage.updateContent(finalContent);
                     chatMessageRepository.save(savedAiMessage);
+
+                    // 레거시 Message 테이블에도 업데이트 (Note가 있는 경우)
+                    if (finalLegacyAiMessage != null) {
+                        finalLegacyAiMessage.updateContentAndStatus(finalText, MessageStatus.COMPLETED);
+                        messageRepository.save(finalLegacyAiMessage);
+
+                        log.info("[Chat] 레거시 Message 업데이트 완료 - messageId: {}, conversationId: {}",
+                                finalLegacyAiMessage.getId(),
+                                finalLegacyAiMessage.getConversation().getId());
+                    }
 
                     // 크레딧 차감
                     if (request.getChosenFeatures() != null && !request.getChosenFeatures().isEmpty()) {
@@ -241,6 +295,12 @@ public class ChatServiceImpl implements ChatService {
                     // 에러 발생 시 메시지 삭제
                     log.error("Streaming error for session: {}", chatSession.getId(), error);
                     chatMessageRepository.delete(savedAiMessage);
+
+                    // 레거시 메시지도 삭제 (Note가 있는 경우)
+                    if (finalLegacyAiMessage != null) {
+                        messageRepository.delete(finalLegacyAiMessage);
+                        log.info("[Chat] 레거시 Message 삭제 완료 - messageId: {}", finalLegacyAiMessage.getId());
+                    }
                 })
                 .onErrorResume(error -> {
                     log.error("Proovy-ai streaming failed", error);
