@@ -139,16 +139,11 @@ public class StorageService {
                 .map(note -> {
                     List<Asset> noteAssets = assetsByNoteId.getOrDefault(note.getId(), List.of());
 
-                    // 노트별 사용량 계산 (최소 1MB로 반올림)
-                    long noteUsedBytes = noteAssets.stream()
-                            .mapToLong(Asset::getFileSize)
-                            .sum();
-                    // 0바이트가 아니면 최소 1MB로 표시, 아니면 반올림
-                    int noteUsedMb = noteUsedBytes == 0 ? 0 :
-                            Math.max(1, (int) Math.round((double) noteUsedBytes / (1024 * 1024)));
-
                     // 자산 DTO 변환 (썸네일 URL 생성 포함)
                     List<AssetSummaryDto> assetDtos = noteAssets.stream()
+                            // 검색어가 있으면 파일명으로 필터링
+                            .filter(asset -> keyword == null || keyword.isBlank() ||
+                                    asset.getFileName().toLowerCase().contains(keyword.toLowerCase()))
                             .map(asset -> {
                                 // S3Service 인터페이스에 정의된 썸네일 URL 생성 메서드 사용
                                 String thumbnailUrl = s3Service.getThumbnailUrl(asset.getThumbnailS3Key());
@@ -156,8 +151,21 @@ public class StorageService {
                             })
                             .toList();
 
+                    // 노트별 사용량 계산 (필터링된 파일 기준)
+                    long noteUsedBytes = noteAssets.stream()
+                            // 검색어가 있으면 파일명으로 필터링
+                            .filter(asset -> keyword == null || keyword.isBlank() ||
+                                    asset.getFileName().toLowerCase().contains(keyword.toLowerCase()))
+                            .mapToLong(Asset::getFileSize)
+                            .sum();
+                    // 0바이트가 아니면 최소 1MB로 표시, 아니면 반올림
+                    int noteUsedMb = noteUsedBytes == 0 ? 0 :
+                            Math.max(1, (int) Math.round((double) noteUsedBytes / (1024 * 1024)));
+
                     return NoteStorageDto.of(note.getId(), note.getTitle(), noteUsedMb, assetDtos);
                 })
+                // 검색어가 있을 때는 파일이 있는 노트만 표시
+                .filter(noteDto -> keyword == null || keyword.isBlank() || !noteDto.assets().isEmpty())
                 .toList();
 
         return StorageResponse.of(
