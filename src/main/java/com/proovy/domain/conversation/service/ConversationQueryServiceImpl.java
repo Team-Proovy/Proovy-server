@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -41,9 +40,6 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final Set<String> ALLOWED_CANVAS_MIME_TYPES = Set.of("image/png", "image/jpeg", "image/webp");
-
-    // 한글 검색 패턴 (한글이 포함되어 있으면 pg_trgm 사용)
-    private static final Pattern KOREAN_PATTERN = Pattern.compile("[가-힣ㄱ-ㅎㅏ-ㅣ]");
 
     @Override
     @Transactional
@@ -195,7 +191,8 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
     }
 
     /**
-     * ChatMessage 기반 Full-Text Search 실행
+     * ChatMessage 기반 검색 실행
+     * pg_trgm ILIKE 검색으로 통일 (한글/영문 모두 부분 문자열 검색 지원)
      */
     private Page<ChatMessage> executeChatMessageSearch(
             Long userId,
@@ -205,17 +202,9 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             LocalDate endDate,
             Pageable pageable
     ) {
-        boolean containsKorean = KOREAN_PATTERN.matcher(query).find();
-
-        if (containsKorean) {
-            // 한글 검색: pg_trgm ILIKE
-            return chatMessageRepository.searchByTrigram(
-                    userId, query, noteId, startDate, endDate, pageable);
-        } else {
-            // 영문/숫자 검색: tsvector
-            return chatMessageRepository.searchByFullText(
-                    userId, query, noteId, startDate, endDate, pageable);
-        }
+        // pg_trgm ILIKE 검색 사용 (한글/영문 모두 지원)
+        return chatMessageRepository.searchByTrigram(
+                userId, query, noteId, startDate, endDate, pageable);
     }
 
     /**
@@ -276,19 +265,8 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
         String preview = textContent.length() > 200 ? textContent.substring(0, 200) + "..." : textContent;
 
-        // DB ts_headline 하이라이트 조회 (한글이 아닌 경우에만)
-        String highlight;
-        boolean containsKorean = KOREAN_PATTERN.matcher(query).find();
-        if (!containsKorean) {
-            try {
-                highlight = chatMessageRepository.getSearchHighlight(message.getId(), query);
-            } catch (Exception e) {
-                log.debug("ts_headline 조회 실패, 폴백 사용: {}", e.getMessage());
-                highlight = extractHighlight(textContent, query);
-            }
-        } else {
-            highlight = extractHighlight(textContent, query);
-        }
+        // 검색어 주변 하이라이트 추출
+        String highlight = extractHighlight(textContent, query);
 
         return ConversationSearchResponse.MessageInfo.builder()
                 .text(textContent)

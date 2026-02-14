@@ -76,12 +76,13 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     /**
      * Full-Text Search: content_tsv 컬럼 기반 검색 (영문/숫자)
      * content_tsv는 트리거에 의해 자동 업데이트됨 (V30 마이그레이션)
+     * COALESCE로 content_tsv가 NULL인 경우 to_tsvector 폴백 처리
      */
     @Query(value = """
             SELECT cm.* FROM chat_messages cm
             JOIN notes n ON cm.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND cm.content_tsv @@ plainto_tsquery('simple', :query)
+              AND COALESCE(cm.content_tsv, to_tsvector('simple', COALESCE(cm.content->>'text', ''))) @@ plainto_tsquery('simple', :query)
               AND (CAST(:noteId AS BIGINT) IS NULL OR cm.note_id = CAST(:noteId AS BIGINT))
               AND (CAST(:startDate AS DATE) IS NULL OR DATE(cm.created_at) >= CAST(:startDate AS DATE))
               AND (CAST(:endDate AS DATE) IS NULL OR DATE(cm.created_at) <= CAST(:endDate AS DATE))
@@ -91,7 +92,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             SELECT COUNT(*) FROM chat_messages cm
             JOIN notes n ON cm.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND cm.content_tsv @@ plainto_tsquery('simple', :query)
+              AND COALESCE(cm.content_tsv, to_tsvector('simple', COALESCE(cm.content->>'text', ''))) @@ plainto_tsquery('simple', :query)
               AND (CAST(:noteId AS BIGINT) IS NULL OR cm.note_id = CAST(:noteId AS BIGINT))
               AND (CAST(:startDate AS DATE) IS NULL OR DATE(cm.created_at) >= CAST(:startDate AS DATE))
               AND (CAST(:endDate AS DATE) IS NULL OR DATE(cm.created_at) <= CAST(:endDate AS DATE))

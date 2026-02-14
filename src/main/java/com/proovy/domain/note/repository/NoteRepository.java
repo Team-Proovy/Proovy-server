@@ -29,13 +29,14 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
 
     /**
      * 노트 제목 또는 파일명으로 검색 (스토리지용)
+     * ILIKE: PostgreSQL case-insensitive LIKE (한글/영문 모두 지원)
      */
     @Query(value = """
             SELECT DISTINCT n.* FROM notes n
             LEFT JOIN assets a ON a.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND (LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                   OR LOWER(a.file_name) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND (n.title ILIKE '%' || :keyword || '%'
+                   OR a.file_name ILIKE '%' || :keyword || '%')
             ORDER BY n.created_at DESC
             """, nativeQuery = true)
     List<Note> searchByTitleOrFileName(@Param("userId") Long userId, @Param("keyword") String keyword);
