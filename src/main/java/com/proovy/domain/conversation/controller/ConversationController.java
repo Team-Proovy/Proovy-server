@@ -134,12 +134,12 @@ public class ConversationController {
 
                         // 일반 이벤트: {"type": "...", ...data...} 형태로 병합
                         java.util.Map<String, Object> payload = new java.util.HashMap<>();
-                        payload.put("type", eventType);
-
                         // event.getData()의 내용을 payload에 병합
                         if (event.getData() != null) {
                             payload.putAll(event.getData());
                         }
+                        // event 데이터에 type이 있어도 컨트롤러에서 계산한 eventType이 우선한다.
+                        payload.put("type", eventType);
 
                         String dataJson = convertToJson(payload);
 

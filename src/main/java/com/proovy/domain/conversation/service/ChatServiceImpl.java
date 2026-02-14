@@ -221,13 +221,13 @@ public class ChatServiceImpl implements ChatService {
                         if (contentObj instanceof Map) {
                             @SuppressWarnings("unchecked")
                             Map<String, Object> chatMessage = (Map<String, Object>) contentObj;
-                            String messageType = (String) chatMessage.get("type");
+                            String messageType = Objects.toString(chatMessage.get("type"), null);
 
                             // AI 메시지의 최종 응답을 저장
                             if ("ai".equals(messageType)) {
                                 Object messageContent = chatMessage.get("content");
                                 if (messageContent != null) {
-                                    String finalText = messageContent.toString();
+                                    String finalText = toPersistableText(messageContent);
                                     finalMessageHolder.setLength(0);
                                     finalMessageHolder.append(finalText);
                                     log.debug("[Chat] 최종 AI 메시지 수신 - length: {}", finalText.length());
@@ -411,7 +411,7 @@ public class ChatServiceImpl implements ChatService {
                 Map<String, Object> payload = objectMapper.readValue(trimmed, Map.class);
 
                 // type 필드 추출 (없으면 "message"로 기본 설정)
-                String type = (String) payload.getOrDefault("type", "message");
+                String type = Objects.toString(payload.get("type"), "message");
 
                 log.debug("[Chat] SSE 이벤트 파싱 - type: {}, payload keys: {}", type, payload.keySet());
 
@@ -428,6 +428,19 @@ public class ChatServiceImpl implements ChatService {
                         .build();
             }
         }).filter(event -> event != null); // null 이벤트 필터링
+    }
+
+    private String toPersistableText(Object messageContent) {
+        if (messageContent instanceof String text) {
+            return text;
+        }
+
+        try {
+            return objectMapper.writeValueAsString(messageContent);
+        } catch (Exception e) {
+            log.warn("[Chat] message content JSON 변환 실패, 문자열로 대체", e);
+            return String.valueOf(messageContent);
+        }
     }
 
     /**
