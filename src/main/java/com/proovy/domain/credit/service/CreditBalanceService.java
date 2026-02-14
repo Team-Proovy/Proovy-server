@@ -28,6 +28,7 @@ import java.util.List;
 public class CreditBalanceService {
     private static final ZoneId BILLING_ZONE = ZoneId.of("Asia/Seoul");
     private static final int DAILY_CREDIT_RESET_BATCH_SIZE = 500;
+    private static final int MAX_DAILY_CREDIT_RESET_ITERATIONS = 100;
 
     private final CreditBalanceRepository creditBalanceRepository;
     private final CreditBalanceCreator creditBalanceCreator;
@@ -151,10 +152,13 @@ public class CreditBalanceService {
         List<Long> expiredCreditIds = creditBalanceRepository.findExpiredDailyCreditIds(
                 now, DAILY_CREDIT_RESET_BATCH_SIZE);
 
-        int processedCount = 0;
         int totalProcessed = 0;
+        int iteration = 0;
 
-        while (!expiredCreditIds.isEmpty()) {
+        while (!expiredCreditIds.isEmpty() && iteration < MAX_DAILY_CREDIT_RESET_ITERATIONS) {
+            iteration++;
+            int processedCount = 0;
+
             for (Long creditBalanceId : expiredCreditIds) {
                 if (resetDailyCreditInNewTransaction(creditBalanceId, now)) {
                     processedCount++;
@@ -168,7 +172,11 @@ public class CreditBalanceService {
             // 다음 배치 조회
             expiredCreditIds = creditBalanceRepository.findExpiredDailyCreditIds(
                     now, DAILY_CREDIT_RESET_BATCH_SIZE);
-            processedCount = 0;
+        }
+
+        if (!expiredCreditIds.isEmpty()) {
+            log.warn("[DailyCredit] 최대 반복 횟수 초과로 배치 중단: iteration={}, remainingBatchSize={}, totalProcessed={}",
+                    iteration, expiredCreditIds.size(), totalProcessed);
         }
 
         log.info("[DailyCredit] 일일 크레딧 초기화 스케줄러 완료: totalProcessed={}", totalProcessed);

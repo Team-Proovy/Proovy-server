@@ -35,6 +35,11 @@ spring:
       # SSE 스트리밍 요청은 장시간 연결이 유지되므로 타임아웃을 해제한다.
       request-timeout: -1
 
+  task:
+    scheduling:
+      pool:
+        size: 3
+
 springdoc:
   swagger-ui:
     tagsSorter: alpha
