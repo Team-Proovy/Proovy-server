@@ -10,22 +10,29 @@ import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class CreditBalanceService {
     private static final ZoneId BILLING_ZONE = ZoneId.of("Asia/Seoul");
+    private static final int DAILY_CREDIT_RESET_BATCH_SIZE = 500;
 
     private final CreditBalanceRepository creditBalanceRepository;
     private final CreditBalanceCreator creditBalanceCreator;
     private final CreditHistoryRepository creditHistoryRepository;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional
     public CreditBalance getOrCreateBalance(Long userId) {
@@ -129,6 +136,76 @@ public class CreditBalanceService {
             creditBalanceCreator.createInitialBalance(userId, freeCredit);
         } catch (DataIntegrityViolationException e) {
             log.warn("크레딧 잔액 동시 생성 감지, userId={}", userId);
+        }
+    }
+
+    /**
+     * 매일 0시에 만료된 일일 크레딧 초기화 (Asia/Seoul 기준)
+     */
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Seoul")
+    @Transactional(readOnly = true)
+    public void resetExpiredDailyCredits() {
+        LocalDateTime now = nowInBillingZone();
+        log.info("[DailyCredit] 일일 크레딧 초기화 스케줄러 시작: {}", now);
+
+        List<Long> expiredCreditIds = creditBalanceRepository.findExpiredDailyCreditIds(
+                now, DAILY_CREDIT_RESET_BATCH_SIZE);
+
+        int processedCount = 0;
+        int totalProcessed = 0;
+
+        while (!expiredCreditIds.isEmpty()) {
+            for (Long creditBalanceId : expiredCreditIds) {
+                if (resetDailyCreditInNewTransaction(creditBalanceId, now)) {
+                    processedCount++;
+                }
+            }
+
+            totalProcessed += processedCount;
+            log.info("[DailyCredit] 일일 크레딧 초기화 배치 완료: batchSize={}, processed={}, total={}",
+                    expiredCreditIds.size(), processedCount, totalProcessed);
+
+            // 다음 배치 조회
+            expiredCreditIds = creditBalanceRepository.findExpiredDailyCreditIds(
+                    now, DAILY_CREDIT_RESET_BATCH_SIZE);
+            processedCount = 0;
+        }
+
+        log.info("[DailyCredit] 일일 크레딧 초기화 스케줄러 완료: totalProcessed={}", totalProcessed);
+    }
+
+    private boolean resetDailyCreditInNewTransaction(Long creditBalanceId, LocalDateTime now) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        try {
+            return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+                CreditBalance balance = creditBalanceRepository.findById(creditBalanceId)
+                        .orElse(null);
+
+                if (balance == null) {
+                    return false;
+                }
+
+                // 이중 체크: 정말 만료되었는지 확인
+                if (balance.getDailyExpiresAt() == null || balance.getDailyExpiresAt().isAfter(now)) {
+                    return false;
+                }
+
+                // 일일 크레딧 초기화
+                LocalDateTime nextResetAt = nextDailyResetAt(now);
+                balance.resetDailyCredit(nextResetAt);
+                creditBalanceRepository.save(balance);
+
+                log.debug("[DailyCredit] 일일 크레딧 초기화: userId={}, limit={}, nextResetAt={}",
+                        balance.getUser().getId(), balance.getDailyFreeLimit(), nextResetAt);
+
+                return true;
+            }));
+        } catch (Exception e) {
+            log.warn("[DailyCredit] 일일 크레딧 초기화 실패: creditBalanceId={}, error={}",
+                    creditBalanceId, e.getMessage());
+            return false;
         }
     }
 

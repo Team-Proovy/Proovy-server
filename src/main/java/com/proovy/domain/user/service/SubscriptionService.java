@@ -117,6 +117,9 @@ public class SubscriptionService {
         return SubscriptionResponse.from(activePlan);
     }
 
+    /**
+     * 예약된 플랜 변경 처리 (플랜 취소 → FREE 전환)
+     */
     @Scheduled(fixedDelayString = "${proovy.subscription.plan-transition-fixed-delay-ms:60000}")
     @Transactional(readOnly = true)
     public void processDuePlanTransitions() {
@@ -132,6 +135,27 @@ public class SubscriptionService {
 
         if (!duePlanIds.isEmpty()) {
             log.info("예약된 플랜 변경 처리 완료: requestedCount={}, processedCount={}", duePlanIds.size(), processedCount);
+        }
+    }
+
+    /**
+     * 자동 갱신 처리 (같은 플랜으로 1개월 연장)
+     */
+    @Scheduled(fixedDelayString = "${proovy.subscription.auto-renew-fixed-delay-ms:60000}")
+    @Transactional(readOnly = true)
+    public void processAutoRenewals() {
+        LocalDateTime now = nowInBillingZone();
+        List<Long> autoRenewPlanIds = userPlanRepository.findDueAutoRenewIds(now, PLAN_TRANSITION_BATCH_SIZE);
+        int processedCount = 0;
+
+        for (Long planId : autoRenewPlanIds) {
+            if (processAutoRenewInNewTransaction(planId, now)) {
+                processedCount++;
+            }
+        }
+
+        if (!autoRenewPlanIds.isEmpty()) {
+            log.info("자동 갱신 처리 완료: requestedCount={}, processedCount={}", autoRenewPlanIds.size(), processedCount);
         }
     }
 
@@ -255,6 +279,70 @@ public class SubscriptionService {
                 && plan.getCanceledAt() != null
                 && plan.getExpiredAt() != null
                 && !plan.getExpiredAt().isAfter(now);
+    }
+
+    private boolean isDueAutoRenew(UserPlan plan, LocalDateTime now) {
+        return Boolean.TRUE.equals(plan.getIsActive())
+                && plan.getCanceledAt() == null
+                && plan.getExpiredAt() != null
+                && !plan.getExpiredAt().isAfter(now)
+                && plan.getPlanType() != PlanType.FREE;
+    }
+
+    private boolean processAutoRenewInNewTransaction(Long planId, LocalDateTime now) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        try {
+            return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+                UserPlan oldPlan = userPlanRepository.findByIdWithLock(planId)
+                        .filter(plan -> isDueAutoRenew(plan, now))
+                        .orElse(null);
+
+                if (oldPlan == null) {
+                    return false;
+                }
+
+                applyAutoRenew(oldPlan, now);
+                return true;
+            }));
+        } catch (DataIntegrityViolationException e) {
+            log.warn("자동 갱신 충돌 감지: userPlanId={}", planId, e);
+            return false;
+        } catch (RuntimeException e) {
+            log.warn("자동 갱신 처리 실패: userPlanId={}", planId, e);
+            return false;
+        }
+    }
+
+    private void applyAutoRenew(UserPlan oldPlan, LocalDateTime now) {
+        if (oldPlan.getId() == null || oldPlan.getPlanType() == PlanType.FREE) {
+            return;
+        }
+
+        PlanType planType = oldPlan.getPlanType();
+        User user = oldPlan.getUser();
+        LocalDateTime renewalStartAt = oldPlan.getExpiredAt() != null ? oldPlan.getExpiredAt() : now;
+
+        // 1. 기존 플랜 비활성화
+        oldPlan.deactivate();
+        userPlanRepository.flush();
+
+        // 2. 같은 플랜으로 새 플랜 생성 (1개월 연장)
+        UserPlan newPlan = buildNextActivePlan(user, planType, renewalStartAt);
+        UserPlan savedPlan = userPlanRepository.save(newPlan);
+        userPlanRepository.flush();
+
+        // 3. 월간 크레딧 부여
+        creditBalanceService.grantMonthlyCredit(
+                user.getId(),
+                planType,
+                savedPlan.getId(),
+                planType.getMonthlyCreditLimit()
+        );
+
+        log.info("자동 갱신 완료: userId={}, planType={}, oldPlanId={}, newPlanId={}, renewalStartAt={}",
+                user.getId(), planType, oldPlan.getId(), savedPlan.getId(), renewalStartAt);
     }
 
     private UserPlan buildNextActivePlan(User user, PlanType planType, LocalDateTime startedAt) {
