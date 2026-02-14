@@ -107,13 +107,15 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             Pageable pageable);
 
     /**
-     * Trigram Search: content->>'text' 기반 검색 (한글)
+     * Trigram Search: 메시지 내용 또는 노트 제목으로 검색
+     * ILIKE: PostgreSQL case-insensitive LIKE (한글/영문 모두 지원)
      */
     @Query(value = """
             SELECT cm.* FROM chat_messages cm
             JOIN notes n ON cm.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND COALESCE(cm.content->>'text', '') ILIKE '%' || :query || '%'
+              AND (COALESCE(cm.content->>'text', '') ILIKE '%' || :query || '%'
+                   OR n.title ILIKE '%' || :query || '%')
               AND (CAST(:noteId AS BIGINT) IS NULL OR cm.note_id = CAST(:noteId AS BIGINT))
               AND (CAST(:startDate AS DATE) IS NULL OR DATE(cm.created_at) >= CAST(:startDate AS DATE))
               AND (CAST(:endDate AS DATE) IS NULL OR DATE(cm.created_at) <= CAST(:endDate AS DATE))
@@ -123,7 +125,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             SELECT COUNT(*) FROM chat_messages cm
             JOIN notes n ON cm.note_id = n.note_id
             WHERE n.user_id = :userId
-              AND COALESCE(cm.content->>'text', '') ILIKE '%' || :query || '%'
+              AND (COALESCE(cm.content->>'text', '') ILIKE '%' || :query || '%'
+                   OR n.title ILIKE '%' || :query || '%')
               AND (CAST(:noteId AS BIGINT) IS NULL OR cm.note_id = CAST(:noteId AS BIGINT))
               AND (CAST(:startDate AS DATE) IS NULL OR DATE(cm.created_at) >= CAST(:startDate AS DATE))
               AND (CAST(:endDate AS DATE) IS NULL OR DATE(cm.created_at) <= CAST(:endDate AS DATE))
