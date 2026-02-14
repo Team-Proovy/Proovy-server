@@ -121,19 +121,35 @@ public class ConversationController {
         return chatService.streamConversation(userId, request, accessToken)
                 .map(event -> {
                     try {
-                        // ProovyAiStreamEvent를 JSON 문자열로 변환
+                        // ProovyAiStreamEvent를 프론트엔드 형식으로 변환
+                        // 프론트엔드는 data 필드에 {"type":"...", ...} 형태를 기대
                         String eventType = event.getEvent();
-                        String dataJson = convertToJson(event.getData());
-                        
+
+                        // [DONE] 이벤트는 특별 처리
+                        if ("[DONE]".equals(eventType)) {
+                            return ServerSentEvent.<String>builder()
+                                    .data("[DONE]")
+                                    .build();
+                        }
+
+                        // 일반 이벤트: {"type": "...", ...data...} 형태로 병합
+                        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+                        payload.put("type", eventType);
+
+                        // event.getData()의 내용을 payload에 병합
+                        if (event.getData() != null) {
+                            payload.putAll(event.getData());
+                        }
+
+                        String dataJson = convertToJson(payload);
+
                         return ServerSentEvent.<String>builder()
-                                .event(eventType)
                                 .data(dataJson)
                                 .build();
                     } catch (Exception e) {
                         log.error("Failed to build SSE event", e);
                         return ServerSentEvent.<String>builder()
-                                .event("error")
-                                .data("{\"error\":\"Failed to process event\"}")
+                                .data("{\"type\":\"error\",\"content\":\"Failed to process event\"}")
                                 .build();
                     }
                 })
