@@ -485,12 +485,23 @@ public class NoteServiceImpl implements NoteService {
                     LocalDateTime createdAt = pair.userMessage != null ? pair.userMessage.getCreatedAt() :
                             (pair.assistantMessage != null ? pair.assistantMessage.getCreatedAt() : LocalDateTime.now());
 
+                    // 빈 MessageInfo (null 방지)
+                    NoteDetailResponse.MessageInfo emptyMessageInfo = NoteDetailResponse.MessageInfo.builder()
+                            .messageId(0L)
+                            .content("")
+                            .mentionedAssets(List.of())
+                            .mentionedTools(List.of())
+                            .usedTools(List.of())
+                            .generatedFiles(List.of())
+                            .createdAt(LocalDateTime.now())
+                            .build();
+
                     return NoteDetailResponse.ConversationInfo.builder()
                             .conversationId(conversationId)
-                            .userMessage(pair.userMessage != null ? 
-                                    buildChatMessageInfo(pair.userMessage, finalMessageAssetMap, finalMessageToolMap, true) : null)
-                            .assistantMessage(pair.assistantMessage != null ? 
-                                    buildChatMessageInfo(pair.assistantMessage, finalMessageAssetMap, finalMessageToolMap, false) : null)
+                            .userMessage(pair.userMessage != null ?
+                                    buildChatMessageInfo(pair.userMessage, finalMessageAssetMap, finalMessageToolMap, true) : emptyMessageInfo)
+                            .assistantMessage(pair.assistantMessage != null ?
+                                    buildChatMessageInfo(pair.assistantMessage, finalMessageAssetMap, finalMessageToolMap, false) : emptyMessageInfo)
                             .createdAt(createdAt)
                             .build();
                 })

@@ -234,6 +234,14 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             ConversationSearchResponse.MessageInfo messageInfo =
                     buildMessageInfoFromChatMessage(message, query);
 
+            // 빈 MessageInfo (null 방지)
+            ConversationSearchResponse.MessageInfo emptyMessageInfo =
+                    ConversationSearchResponse.MessageInfo.builder()
+                            .text("")
+                            .preview("")
+                            .highlight("")
+                            .build();
+
             // 메시지 역할에 따라 userMessage 또는 assistantMessage 설정
             ConversationSearchResponse.ConversationSearchItem.ConversationSearchItemBuilder builder =
                     ConversationSearchResponse.ConversationSearchItem.builder()
@@ -247,7 +255,9 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
             if (message.getRole() == MessageRole.USER) {
                 builder.userMessage(messageInfo);
+                builder.assistantMessage(emptyMessageInfo);
             } else if (message.getRole() == MessageRole.ASSISTANT) {
+                builder.userMessage(emptyMessageInfo);
                 builder.assistantMessage(messageInfo);
             }
 
