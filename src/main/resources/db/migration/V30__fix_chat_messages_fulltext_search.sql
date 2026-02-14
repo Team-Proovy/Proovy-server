@@ -27,39 +27,9 @@ CREATE TRIGGER trg_chat_messages_content_tsv
 CREATE INDEX IF NOT EXISTS idx_chat_messages_content_text_trgm
 ON chat_messages USING GIN((content->>'text') gin_trgm_ops);
 
--- 4. 기존 데이터 백필 (배치 처리로 테이블 락 방지)
--- 500건씩 배치로 처리하여 장시간 락 방지 및 502 에러 방지
-DO $$
-DECLARE
-    batch_size INT := 500;
-    updated_count INT;
-    total_updated INT := 0;
-BEGIN
-    RAISE NOTICE 'Starting content_tsv backfill...';
-
-    LOOP
-        UPDATE chat_messages
-        SET content_tsv = to_tsvector('simple', COALESCE(content->>'text', ''))
-        WHERE chat_message_id IN (
-            SELECT chat_message_id FROM chat_messages
-            WHERE content_tsv IS NULL
-            LIMIT batch_size
-            FOR UPDATE SKIP LOCKED
-        );
-
-        GET DIAGNOSTICS updated_count = ROW_COUNT;
-        total_updated := total_updated + updated_count;
-
-        -- 더 이상 업데이트할 행이 없으면 종료
-        EXIT WHEN updated_count = 0;
-
-        -- 각 배치 후 짧은 대기 (다른 트랜잭션에 기회 제공)
-        PERFORM pg_sleep(0.05);
-    END LOOP;
-
-    RAISE NOTICE 'Backfill completed. Total updated: %', total_updated;
-END $$;
-
--- 5. 검색 성능을 위한 복합 인덱스 (user_id를 통한 필터링 최적화)
+-- 4. note_id가 있는 메시지에 대한 content_tsv GIN 인덱스 (검색 시 note_id IS NOT NULL 조건 최적화)
 CREATE INDEX IF NOT EXISTS idx_chat_messages_note_id_content_tsv
 ON chat_messages USING GIN(content_tsv) WHERE note_id IS NOT NULL;
+
+-- NOTE: 기존 데이터 백필은 ChatMessageTsvBackfillRunner에서 autocommit 모드로 별도 실행됨
+-- Flyway 트랜잭션 내에서 배치 처리 시 SKIP LOCKED가 무의미하므로 분리함
