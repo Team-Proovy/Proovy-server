@@ -177,6 +177,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 8. SSE 스트리밍 호출
         final StringBuilder contentBuilder = new StringBuilder();
+        final StringBuilder finalMessageHolder = new StringBuilder();
         log.info("[Chat] Proovy-ai 스트리밍 호출 준비 - sessionId: {}, userId: {}",
             chatSession.getId(), userId);
 
@@ -187,7 +188,7 @@ public class ChatServiceImpl implements ChatService {
                     // thread_id 업데이트 (payload 내부에 포함되는 경우)
                     if (data != null && data.containsKey("thread_id")) {
                         String newThreadId = (String) data.get("thread_id");
-                        
+
                         if (newThreadId != null) {
                             if (finalNote != null) {
                                 // Note가 있으면 Note에 threadId 저장
@@ -213,14 +214,46 @@ public class ChatServiceImpl implements ChatService {
                             contentBuilder.append(content.toString());
                         }
                     }
+
+                    // message 이벤트 처리 (Python AI의 최종 응답 포함)
+                    if ("message".equals(event.getEvent()) && data != null) {
+                        Object contentObj = data.get("content");
+                        if (contentObj instanceof Map) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> chatMessage = (Map<String, Object>) contentObj;
+                            String messageType = Objects.toString(chatMessage.get("type"), null);
+
+                            // AI 메시지의 최종 응답을 저장
+                            if ("ai".equals(messageType)) {
+                                Object messageContent = chatMessage.get("content");
+                                if (messageContent != null) {
+                                    String finalText = toPersistableText(messageContent);
+                                    finalMessageHolder.setLength(0);
+                                    finalMessageHolder.append(finalText);
+                                    log.debug("[Chat] 최종 AI 메시지 수신 - length: {}", finalText.length());
+                                }
+                            }
+                        }
+                    }
                 })
                 .doOnComplete(() -> {
                     // 스트리밍 완료 시 최종 내용 저장
-                    String finalText = contentBuilder.toString();
+                    // 우선순위: 1. 최종 AI 메시지 (type=message, ai) 2. 토큰 누적
+                    String finalText = finalMessageHolder.length() > 0
+                        ? finalMessageHolder.toString()
+                        : contentBuilder.toString();
+
+                    if (finalText.isEmpty()) {
+                        log.warn("[Chat] 스트리밍 완료했으나 내용이 비어있음 - messageId: {}", savedAiMessage.getId());
+                    }
+
                     ObjectNode finalContent = objectMapper.createObjectNode();
                     finalContent.put("text", finalText);
                     savedAiMessage.updateContentAndStatus(finalContent, MessageStatus.COMPLETED);
                     chatMessageRepository.save(savedAiMessage);
+
+                    log.info("[Chat] AI 메시지 저장 완료 - messageId: {}, length: {}",
+                        savedAiMessage.getId(), finalText.length());
 
                     // 크레딧 차감
                     if (request.getChosenFeatures() != null && !request.getChosenFeatures().isEmpty()) {
@@ -346,17 +379,13 @@ public class ChatServiceImpl implements ChatService {
     private Mono<ProovyAiStreamEvent> parseSseEvent(String rawEvent) {
         return Mono.fromCallable(() -> {
             try {
-                if (rawEvent == null) {
-                    return ProovyAiStreamEvent.builder()
-                            .event("message")
-                            .data(Collections.emptyMap())
-                            .build();
+                if (rawEvent == null || rawEvent.trim().isEmpty()) {
+                    return null; // null 이벤트는 건너뛰기
                 }
 
                 String trimmed = rawEvent.trim();
 
-                // WebClient 가 TEXT_EVENT_STREAM 을 파싱하면 보통 data payload 만 넘어온다.
-                // [DONE] 토큰은 그대로 문자열로 온다고 가정한다.
+                // [DONE] 토큰 처리
                 if ("[DONE]".equals(trimmed)) {
                     return ProovyAiStreamEvent.builder()
                             .event("[DONE]")
@@ -364,28 +393,54 @@ public class ChatServiceImpl implements ChatService {
                             .build();
                 }
 
-                // 혹시 "data: {..}" 형태로 온 경우를 대비해 prefix 제거
+                // "data: {..}" 형태인 경우 prefix 제거
                 if (trimmed.startsWith("data:")) {
                     trimmed = trimmed.substring(5).trim();
+
+                    // data: [DONE] 형태도 처리
+                    if ("[DONE]".equals(trimmed)) {
+                        return ProovyAiStreamEvent.builder()
+                                .event("[DONE]")
+                                .data(Collections.emptyMap())
+                                .build();
+                    }
                 }
 
-                // 나머지는 모두 JSON payload 로 간주
+                // JSON payload 파싱
+                @SuppressWarnings("unchecked")
                 Map<String, Object> payload = objectMapper.readValue(trimmed, Map.class);
-                String type = (String) payload.getOrDefault("type", "message");
+
+                // type 필드 추출 (없으면 "message"로 기본 설정)
+                String type = Objects.toString(payload.get("type"), "message");
+
+                log.debug("[Chat] SSE 이벤트 파싱 - type: {}, payload keys: {}", type, payload.keySet());
 
                 return ProovyAiStreamEvent.builder()
                         .event(type)
                         .data(payload)
                         .build();
-                        
+
             } catch (Exception e) {
-                log.warn("Failed to parse SSE event: {}", rawEvent, e);
+                log.warn("[Chat] SSE 이벤트 파싱 실패: {}", rawEvent, e);
                 return ProovyAiStreamEvent.builder()
                         .event("error")
-                        .data(Map.of("error", "Failed to parse event"))
+                        .data(Map.of("error", "Failed to parse event", "raw", rawEvent))
                         .build();
             }
-        });
+        }).filter(event -> event != null); // null 이벤트 필터링
+    }
+
+    private String toPersistableText(Object messageContent) {
+        if (messageContent instanceof String text) {
+            return text;
+        }
+
+        try {
+            return objectMapper.writeValueAsString(messageContent);
+        } catch (Exception e) {
+            log.warn("[Chat] message content JSON 변환 실패, 문자열로 대체", e);
+            return String.valueOf(messageContent);
+        }
     }
 
     /**
