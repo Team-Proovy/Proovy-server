@@ -135,7 +135,7 @@ public class StorageService {
                 .sum();
 
         // 노트별 스토리지 DTO 생성
-        String lowerKeyword = keyword != null ? keyword.toLowerCase() : null;
+        String lowerKeyword = (keyword != null && !keyword.isBlank()) ? keyword.toLowerCase() : null;
 
         List<NoteStorageDto> noteStorageDtos = notes.stream()
                 .map(note -> {
