@@ -102,6 +102,24 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, Long> {
         return findDueScheduledChangeIds(now, PageRequest.of(0, batchSize));
     }
 
+    /**
+     * 자동 갱신 대상 플랜 ID 목록 조회 (canceledAt == null, expiredAt <= now)
+     */
+    @Query("""
+            SELECT up.id FROM UserPlan up
+            WHERE up.isActive = true
+              AND up.canceledAt IS NULL
+              AND up.expiredAt IS NOT NULL
+              AND up.expiredAt <= :now
+              AND up.planType != 'FREE'
+            ORDER BY up.expiredAt ASC, up.id ASC
+            """)
+    List<Long> findDueAutoRenewIds(@Param("now") LocalDateTime now, Pageable pageable);
+
+    default List<Long> findDueAutoRenewIds(LocalDateTime now, int batchSize) {
+        return findDueAutoRenewIds(now, PageRequest.of(0, batchSize));
+    }
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT up FROM UserPlan up WHERE up.id = :userPlanId")
     Optional<UserPlan> findByIdWithLock(@Param("userPlanId") Long userPlanId);
