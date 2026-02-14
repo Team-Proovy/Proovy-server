@@ -227,12 +227,15 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             }
 
             String textContent = message.getTextContent();
-            
-            ConversationSearchResponse.MessageInfo messageInfo = 
+            if (textContent == null || textContent.isBlank()) {
+                continue; // 텍스트가 없는 메시지는 검색 결과에서 제외
+            }
+
+            ConversationSearchResponse.MessageInfo messageInfo =
                     buildMessageInfoFromChatMessage(message, query);
 
             // 메시지 역할에 따라 userMessage 또는 assistantMessage 설정
-            ConversationSearchResponse.ConversationSearchItem.ConversationSearchItemBuilder builder = 
+            ConversationSearchResponse.ConversationSearchItem.ConversationSearchItemBuilder builder =
                     ConversationSearchResponse.ConversationSearchItem.builder()
                             .conversationId(message.getId()) // ChatMessage ID를 conversationId로 사용
                             .noteId(note.getId())
