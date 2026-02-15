@@ -188,7 +188,6 @@ public class ChatServiceImpl implements ChatService {
 
         // 8. SSE 스트리밍 호출
         final StringBuilder contentBuilder = new StringBuilder();
-        final StringBuilder finalMessageHolder = new StringBuilder();
         log.info("[Chat] Proovy-ai 스트리밍 호출 준비 - sessionId: {}, userId: {}",
             chatSession.getId(), userId);
 
@@ -225,44 +224,23 @@ public class ChatServiceImpl implements ChatService {
                     }
 
                     // 토큰 스트림(type = token) 기준으로 내용 누적
+                    // FinalResponse 노드에서 LLM이 생성하는 토큰을 실시간으로 수집
                     if ("token".equals(event.getEvent()) && data != null) {
                         Object content = data.get("content");
                         if (content != null) {
                             contentBuilder.append(content.toString());
-                        }
-                    }
-
-                    // message 이벤트 처리 (Python AI의 최종 응답 포함)
-                    if ("message".equals(event.getEvent()) && data != null) {
-                        Object contentObj = data.get("content");
-                        if (contentObj instanceof Map) {
-                            @SuppressWarnings("unchecked")
-                            Map<String, Object> chatMessage = (Map<String, Object>) contentObj;
-                            String messageType = Objects.toString(chatMessage.get("type"), null);
-
-                            // AI 메시지의 최종 응답을 저장
-                            if ("ai".equals(messageType)) {
-                                Object messageContent = chatMessage.get("content");
-                                if (messageContent != null) {
-                                    String finalText = toPersistableText(messageContent);
-                                    finalMessageHolder.setLength(0);
-                                    finalMessageHolder.append(finalText);
-                                    log.debug("[Chat] 최종 AI 메시지 수신 - length: {}", finalText.length());
-                                }
-                            }
+                            log.trace("[Chat] 토큰 수신 - content: {}", content);
                         }
                     }
                 })
                 .doOnComplete(() -> {
                     // 스트리밍 완료 시 최종 내용 저장 - 별도 트랜잭션에서 수행
                     transactionTemplate.executeWithoutResult(status -> {
-                        // 우선순위: 1. 최종 AI 메시지 (type=message, ai) 2. 토큰 누적
-                        String finalText = finalMessageHolder.length() > 0
-                            ? finalMessageHolder.toString()
-                            : contentBuilder.toString();
+                        // 토큰 스트리밍으로 누적된 내용을 최종 메시지로 저장
+                        String finalText = contentBuilder.toString();
 
                         if (finalText.isEmpty()) {
-                            log.warn("[Chat] 스트리밍 완료했으나 내용이 비어있음 - messageId: {}", savedAiMessageId);
+                            log.warn("[Chat] 스트리밍 완료했으나 토큰 내용이 비어있음 - messageId: {}", savedAiMessageId);
                         }
 
                         // DB에서 최신 상태로 다시 조회
