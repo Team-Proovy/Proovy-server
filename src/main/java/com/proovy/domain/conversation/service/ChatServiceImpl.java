@@ -192,6 +192,8 @@ public class ChatServiceImpl implements ChatService {
             chatSession.getId(), userId);
 
         return callProovyAiStream(aiRequest)
+                // 블로킹 DB 작업을 이벤트 루프 스레드에서 분리하여 thread starvation 방지
+                .publishOn(Schedulers.boundedElastic())
                 .doOnNext(event -> {
                     Map<String, Object> data = event.getData();
 
