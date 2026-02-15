@@ -32,10 +32,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.net.ConnectException;
 import java.time.Duration;
@@ -57,6 +59,7 @@ public class ChatServiceImpl implements ChatService {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final CreditUseService creditUseService;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${proovy.ai.host}")
     private String proovyAiHost;
@@ -67,7 +70,6 @@ public class ChatServiceImpl implements ChatService {
     );
 
     @Override
-    @Transactional
     public Flux<ProovyAiStreamEvent> streamConversation(Long userId, ConversationRequest request, String accessToken) {
         log.info("[Chat] streamConversation 시작 - userId: {}, textLength: {}, features: {}, assetIds: {}",
             userId,
@@ -75,87 +77,96 @@ public class ChatServiceImpl implements ChatService {
             request.getChosenFeatures(),
             request.getMentionedAssetIds());
 
-        
+        // 초기화 작업을 트랜잭션 내에서 수행
+        StreamInitData initData = transactionTemplate.execute(status -> {
+            // 1. 사용자 검증
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
 
-        // 1. 사용자 검증
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER4041));
-
-        // 2. 기능 검증
-        if (request.getChosenFeatures() != null) {
-            validateFeatures(request.getChosenFeatures());
-        }
-
-        // 3. Note 기반 threadId 조회 또는 ChatSession 사용
-        Note note = null;
-        String threadIdToUse = null;
-
-        if (request.getNoteId() != null) {
-            // Note가 지정된 경우
-            note = noteRepository.findById(request.getNoteId())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
-
-            // Note 소유자 검증
-            if (!note.getUser().getId().equals(userId)) {
-                throw new BusinessException(ErrorCode.NOTE4031);
+            // 2. 기능 검증
+            if (request.getChosenFeatures() != null) {
+                validateFeatures(request.getChosenFeatures());
             }
 
-            threadIdToUse = note.getThreadId();
-            log.debug("[Chat] Note 기반 대화 - noteId: {}, threadId: {}", note.getId(), threadIdToUse);
+            // 3. Note 기반 threadId 조회 또는 ChatSession 사용
+            Note note = null;
+            String threadIdToUse = null;
+
+            if (request.getNoteId() != null) {
+                // Note가 지정된 경우
+                note = noteRepository.findById(request.getNoteId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
+
+                // Note 소유자 검증
+                if (!note.getUser().getId().equals(userId)) {
+                    throw new BusinessException(ErrorCode.NOTE4031);
+                }
+
+                threadIdToUse = note.getThreadId();
+                log.debug("[Chat] Note 기반 대화 - noteId: {}, threadId: {}", note.getId(), threadIdToUse);
+            }
+
+            // 4. ChatSession 조회 또는 생성 (Note 없이 대화하거나 메시지 저장용)
+            ChatSession chatSession = chatSessionRepository
+                    .findFirstByUserIdAndStatusOrderByCreatedAtDesc(userId, ChatSessionStatus.ACTIVE)
+                    .orElseGet(() -> {
+                        ChatSession newSession = ChatSession.builder()
+                                .user(user)
+                                .status(ChatSessionStatus.ACTIVE)
+                                .build();
+                        return chatSessionRepository.save(newSession);
+                    });
+
+            // Note가 없는 경우 ChatSession의 threadId 사용
+            if (threadIdToUse == null && note == null) {
+                threadIdToUse = chatSession.getExternalThreadId();
+            }
+
+            log.debug("[Chat] 사용 중인 ChatSession - id: {}, externalThreadId: {}, threadIdToUse: {}",
+                chatSession.getId(), chatSession.getExternalThreadId(), threadIdToUse);
+
+            // 4. 사용자 메시지 저장 (ChatMessage with Note)
+            JsonNode userContentJson = buildUserContentJson(request);
+            ChatMessage userMessage = ChatMessage.builder()
+                    .chatSession(chatSession)
+                    .note(note) // Note 기반 대화인 경우 연결
+                    .role(MessageRole.USER)
+                    .content(userContentJson)
+                    .messageType("text")
+                    .status(MessageStatus.COMPLETED)
+                    .build();
+            chatMessageRepository.save(userMessage);
+
+            // 5. AI 메시지 placeholder 생성 (ChatMessage with Note)
+            ObjectNode emptyContent = objectMapper.createObjectNode();
+            emptyContent.put("text", "");
+
+            ChatMessage aiMessage = ChatMessage.builder()
+                    .chatSession(chatSession)
+                    .note(note) // Note 기반 대화인 경우 연결
+                    .role(MessageRole.ASSISTANT)
+                    .content(emptyContent)
+                    .messageType("text")
+                    .status(MessageStatus.STREAMING)
+                    .build();
+            ChatMessage savedAiMessage = chatMessageRepository.save(aiMessage);
+
+            // 6. 자산 URL 변환
+            List<String> filesUrl = convertAssetIdsToUrls(request.getMentionedAssetIds(), userId);
+            log.info("[Chat] 자산 URL 변환 완료 - assetIds: {}, filesUrl: {}", request.getMentionedAssetIds(), filesUrl);
+
+            return new StreamInitData(chatSession, note, savedAiMessage, threadIdToUse, filesUrl);
+        });
+
+        if (initData == null) {
+            throw new BusinessException(ErrorCode.CONV5002, "초기화 데이터 생성 실패");
         }
 
-        // 4. ChatSession 조회 또는 생성 (Note 없이 대화하거나 메시지 저장용)
-        ChatSession chatSession = chatSessionRepository
-                .findFirstByUserIdAndStatusOrderByCreatedAtDesc(userId, ChatSessionStatus.ACTIVE)
-                .orElseGet(() -> {
-                    ChatSession newSession = ChatSession.builder()
-                            .user(user)
-                            .status(ChatSessionStatus.ACTIVE)
-                            .build();
-                    return chatSessionRepository.save(newSession);
-                });
-
-        // Note가 없는 경우 ChatSession의 threadId 사용
-        if (threadIdToUse == null && note == null) {
-            threadIdToUse = chatSession.getExternalThreadId();
-        }
-
-        log.debug("[Chat] 사용 중인 ChatSession - id: {}, externalThreadId: {}, threadIdToUse: {}",
-            chatSession.getId(), chatSession.getExternalThreadId(), threadIdToUse);
-
-        // Note 참조를 final로 캡처 (람다에서 사용)
-        final Note finalNote = note;
-        final String finalThreadIdToUse = threadIdToUse;
-
-        // 4. 사용자 메시지 저장 (ChatMessage with Note)
-        JsonNode userContentJson = buildUserContentJson(request);
-        ChatMessage userMessage = ChatMessage.builder()
-                .chatSession(chatSession)
-                .note(finalNote) // Note 기반 대화인 경우 연결
-                .role(MessageRole.USER)
-                .content(userContentJson)
-                .messageType("text")
-                .status(MessageStatus.COMPLETED)
-                .build();
-        chatMessageRepository.save(userMessage);
-
-        // 5. AI 메시지 placeholder 생성 (ChatMessage with Note)
-        ObjectNode emptyContent = objectMapper.createObjectNode();
-        emptyContent.put("text", "");
-
-        ChatMessage aiMessage = ChatMessage.builder()
-                .chatSession(chatSession)
-                .note(finalNote) // Note 기반 대화인 경우 연결
-                .role(MessageRole.ASSISTANT)
-                .content(emptyContent)
-                .messageType("text")
-                .status(MessageStatus.STREAMING)
-                .build();
-        ChatMessage savedAiMessage = chatMessageRepository.save(aiMessage);
-
-        // 6. 자산 URL 변환
-        List<String> filesUrl = convertAssetIdsToUrls(request.getMentionedAssetIds(), userId);
-        log.info("[Chat] 자산 URL 변환 완료 - assetIds: {}, filesUrl: {}", request.getMentionedAssetIds(), filesUrl);
+        final ChatSession chatSession = initData.chatSession();
+        final Note finalNote = initData.note();
+        final Long savedAiMessageId = initData.aiMessage().getId();
+        final String finalThreadIdToUse = initData.threadId();
+        final List<String> filesUrl = initData.filesUrl();
 
         // 6.5. Proovy-ai 서버 상태를 사전에 한 번 체크하고, 연결이 불가능하면 바로 CONV5001 비즈니스 예외를 던진다.
         checkProovyAiHealth();
@@ -177,11 +188,12 @@ public class ChatServiceImpl implements ChatService {
 
         // 8. SSE 스트리밍 호출
         final StringBuilder contentBuilder = new StringBuilder();
-        final StringBuilder finalMessageHolder = new StringBuilder();
         log.info("[Chat] Proovy-ai 스트리밍 호출 준비 - sessionId: {}, userId: {}",
             chatSession.getId(), userId);
 
         return callProovyAiStream(aiRequest)
+                // 블로킹 DB 작업을 이벤트 루프 스레드에서 분리하여 thread starvation 방지
+                .publishOn(Schedulers.boundedElastic())
                 .doOnNext(event -> {
                     Map<String, Object> data = event.getData();
 
@@ -190,72 +202,63 @@ public class ChatServiceImpl implements ChatService {
                         String newThreadId = (String) data.get("thread_id");
 
                         if (newThreadId != null) {
-                            if (finalNote != null) {
-                                // Note가 있으면 Note에 threadId 저장
-                                if (finalNote.getThreadId() == null) {
-                                    finalNote.updateThreadId(newThreadId);
-                                    noteRepository.save(finalNote);
-                                    log.debug("[Chat] Note에 threadId 저장 - noteId: {}, threadId: {}", finalNote.getId(), newThreadId);
+                            // 별도 트랜잭션에서 threadId 업데이트
+                            transactionTemplate.executeWithoutResult(status -> {
+                                if (finalNote != null) {
+                                    // Note가 있으면 Note에 threadId 저장
+                                    Note noteToUpdate = noteRepository.findById(finalNote.getId()).orElse(null);
+                                    if (noteToUpdate != null && noteToUpdate.getThreadId() == null) {
+                                        noteToUpdate.updateThreadId(newThreadId);
+                                        noteRepository.save(noteToUpdate);
+                                        log.debug("[Chat] Note에 threadId 저장 - noteId: {}, threadId: {}", noteToUpdate.getId(), newThreadId);
+                                    }
+                                } else {
+                                    // Note가 없으면 ChatSession에 저장 (기존 로직)
+                                    ChatSession sessionToUpdate = chatSessionRepository.findById(chatSession.getId()).orElse(null);
+                                    if (sessionToUpdate != null && sessionToUpdate.getExternalThreadId() == null) {
+                                        sessionToUpdate.updateExternalThreadId(newThreadId);
+                                        chatSessionRepository.save(sessionToUpdate);
+                                        log.debug("[Chat] ChatSession에 threadId 저장 - sessionId: {}, threadId: {}", sessionToUpdate.getId(), newThreadId);
+                                    }
                                 }
-                            } else {
-                                // Note가 없으면 ChatSession에 저장 (기존 로직)
-                                if (chatSession.getExternalThreadId() == null) {
-                                    chatSession.updateExternalThreadId(newThreadId);
-                                    chatSessionRepository.save(chatSession);
-                                }
-                            }
+                            });
                         }
                     }
 
                     // 토큰 스트림(type = token) 기준으로 내용 누적
+                    // FinalResponse 노드에서 LLM이 생성하는 토큰을 실시간으로 수집
                     if ("token".equals(event.getEvent()) && data != null) {
                         Object content = data.get("content");
                         if (content != null) {
                             contentBuilder.append(content.toString());
-                        }
-                    }
-
-                    // message 이벤트 처리 (Python AI의 최종 응답 포함)
-                    if ("message".equals(event.getEvent()) && data != null) {
-                        Object contentObj = data.get("content");
-                        if (contentObj instanceof Map) {
-                            @SuppressWarnings("unchecked")
-                            Map<String, Object> chatMessage = (Map<String, Object>) contentObj;
-                            String messageType = Objects.toString(chatMessage.get("type"), null);
-
-                            // AI 메시지의 최종 응답을 저장
-                            if ("ai".equals(messageType)) {
-                                Object messageContent = chatMessage.get("content");
-                                if (messageContent != null) {
-                                    String finalText = toPersistableText(messageContent);
-                                    finalMessageHolder.setLength(0);
-                                    finalMessageHolder.append(finalText);
-                                    log.debug("[Chat] 최종 AI 메시지 수신 - length: {}", finalText.length());
-                                }
-                            }
+                            log.trace("[Chat] 토큰 수신 - content: {}", content);
                         }
                     }
                 })
                 .doOnComplete(() -> {
-                    // 스트리밍 완료 시 최종 내용 저장
-                    // 우선순위: 1. 최종 AI 메시지 (type=message, ai) 2. 토큰 누적
-                    String finalText = finalMessageHolder.length() > 0
-                        ? finalMessageHolder.toString()
-                        : contentBuilder.toString();
+                    // 스트리밍 완료 시 최종 내용 저장 - 별도 트랜잭션에서 수행
+                    transactionTemplate.executeWithoutResult(status -> {
+                        // 토큰 스트리밍으로 누적된 내용을 최종 메시지로 저장
+                        String finalText = contentBuilder.toString();
 
-                    if (finalText.isEmpty()) {
-                        log.warn("[Chat] 스트리밍 완료했으나 내용이 비어있음 - messageId: {}", savedAiMessage.getId());
-                    }
+                        if (finalText.isEmpty()) {
+                            log.warn("[Chat] 스트리밍 완료했으나 토큰 내용이 비어있음 - messageId: {}", savedAiMessageId);
+                        }
 
-                    ObjectNode finalContent = objectMapper.createObjectNode();
-                    finalContent.put("text", finalText);
-                    savedAiMessage.updateContentAndStatus(finalContent, MessageStatus.COMPLETED);
-                    chatMessageRepository.save(savedAiMessage);
+                        // DB에서 최신 상태로 다시 조회
+                        ChatMessage savedAiMessage = chatMessageRepository.findById(savedAiMessageId)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.CONV5002, "AI 메시지를 찾을 수 없습니다: " + savedAiMessageId));
 
-                    log.info("[Chat] AI 메시지 저장 완료 - messageId: {}, length: {}",
-                        savedAiMessage.getId(), finalText.length());
+                        ObjectNode finalContent = objectMapper.createObjectNode();
+                        finalContent.put("text", finalText);
+                        savedAiMessage.updateContentAndStatus(finalContent, MessageStatus.COMPLETED);
+                        chatMessageRepository.save(savedAiMessage);
 
-                    // 크레딧 차감
+                        log.info("[Chat] AI 메시지 저장 완료 - messageId: {}, length: {}",
+                            savedAiMessage.getId(), finalText.length());
+                    });
+
+                    // 크레딧 차감 (별도 트랜잭션)
                     if (request.getChosenFeatures() != null && !request.getChosenFeatures().isEmpty()) {
                         for (String feature : request.getChosenFeatures()) {
                             try {
@@ -274,12 +277,14 @@ public class ChatServiceImpl implements ChatService {
                     }
 
                     log.info("Streaming completed for session: {}, message: {}",
-                            chatSession.getId(), savedAiMessage.getId());
+                            chatSession.getId(), savedAiMessageId);
                 })
                 .doOnError(error -> {
-                    // 에러 발생 시 메시지 삭제
+                    // 에러 발생 시 메시지 삭제 - 별도 트랜잭션에서 수행
                     log.error("Streaming error for session: {}", chatSession.getId(), error);
-                    chatMessageRepository.delete(savedAiMessage);
+                    transactionTemplate.executeWithoutResult(status -> {
+                        chatMessageRepository.deleteById(savedAiMessageId);
+                    });
                 })
                 .onErrorResume(error -> {
                     log.error("Proovy-ai streaming failed", error);
@@ -524,4 +529,15 @@ public class ChatServiceImpl implements ChatService {
         
         return metadata;
     }
+
+    /**
+     * 스트리밍 초기화 데이터를 담는 레코드
+     */
+    private record StreamInitData(
+            ChatSession chatSession,
+            Note note,
+            ChatMessage aiMessage,
+            String threadId,
+            List<String> filesUrl
+    ) {}
 }
