@@ -139,6 +139,7 @@ public class ChatServiceImpl implements ChatService {
                     .status(MessageStatus.COMPLETED)
                     .build();
             ChatMessage savedUserMessage = chatMessageRepository.save(userMessage);
+            chatMessageRepository.flush(); // ID 확보 후 MessageAsset 저장 가능
 
             // 4-1. 메시지-자산 연결 저장 (mentionedAssetIds + canvasImageIds)
             List<Long> allAssetIds = new ArrayList<>();
