@@ -209,6 +209,7 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
     /**
      * ChatMessage 검색 결과를 ConversationSearchItem 목록으로 변환
+     * 노트 제목만 매칭된 경우(메시지 내용에 검색어 없음) 노트당 하나만 반환
      */
     private List<ConversationSearchResponse.ConversationSearchItem> buildSearchItemsFromChatMessages(
             List<ChatMessage> messages,
@@ -218,47 +219,54 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
             return Collections.emptyList();
         }
 
+        String lowerQuery = query.toLowerCase();
         List<ConversationSearchResponse.ConversationSearchItem> results = new ArrayList<>();
+        Set<Long> titleOnlyNoteIds = new HashSet<>();
 
         for (ChatMessage message : messages) {
             Note note = message.getNote();
             if (note == null) {
-                continue; // Note가 없는 메시지는 검색 결과에서 제외
+                continue;
             }
 
             String textContent = message.getTextContent();
-            if (textContent == null || textContent.isBlank()) {
-                continue; // 텍스트가 없는 메시지는 검색 결과에서 제외
+            boolean contentMatches = textContent != null && !textContent.isBlank()
+                    && textContent.toLowerCase().contains(lowerQuery);
+            boolean titleMatches = note.getTitle() != null
+                    && note.getTitle().toLowerCase().contains(lowerQuery);
+
+            // 노트 제목만 매칭(내용에는 검색어 없음)인 경우 노트당 하나만 반환
+            if (!contentMatches && titleMatches) {
+                if (titleOnlyNoteIds.contains(note.getId())) {
+                    continue;
+                }
+                titleOnlyNoteIds.add(note.getId());
             }
 
-            ConversationSearchResponse.MessageInfo messageInfo =
-                    buildMessageInfoFromChatMessage(message, query);
+            if (!contentMatches && !titleMatches) {
+                continue;
+            }
 
-            // 빈 MessageInfo (null 방지)
-            ConversationSearchResponse.MessageInfo emptyMessageInfo =
-                    ConversationSearchResponse.MessageInfo.builder()
-                            .text("")
-                            .preview("")
-                            .highlight("")
-                            .build();
+            ConversationSearchResponse.MessageInfo messageInfo = contentMatches
+                    ? buildMessageInfoFromChatMessage(message, query)
+                    : null;
 
-            // 메시지 역할에 따라 userMessage 또는 assistantMessage 설정
             ConversationSearchResponse.ConversationSearchItem.ConversationSearchItemBuilder builder =
                     ConversationSearchResponse.ConversationSearchItem.builder()
-                            .conversationId(message.getId()) // ChatMessage ID를 conversationId로 사용
+                            .conversationId(contentMatches ? message.getId() : null)
                             .noteId(note.getId())
                             .noteTitle(note.getTitle())
                             .mentionedFiles(Collections.emptyList())
                             .mentionedTools(Collections.emptyList())
-                            .relevance(calculateRelevance(textContent, query))
-                            .createdAt(message.getCreatedAt());
+                            .relevance(contentMatches ? calculateRelevance(textContent, query) : 0.3)
+                            .createdAt(contentMatches ? message.getCreatedAt() : note.getCreatedAt());
 
-            if (message.getRole() == MessageRole.USER) {
-                builder.userMessage(messageInfo);
-                builder.assistantMessage(emptyMessageInfo);
-            } else if (message.getRole() == MessageRole.ASSISTANT) {
-                builder.userMessage(emptyMessageInfo);
-                builder.assistantMessage(messageInfo);
+            if (contentMatches) {
+                if (message.getRole() == MessageRole.USER) {
+                    builder.userMessage(messageInfo);
+                } else if (message.getRole() == MessageRole.ASSISTANT) {
+                    builder.assistantMessage(messageInfo);
+                }
             }
 
             results.add(builder.build());

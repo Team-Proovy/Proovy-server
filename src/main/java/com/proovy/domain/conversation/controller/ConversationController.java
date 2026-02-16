@@ -214,7 +214,11 @@ public class ConversationController {
     @GetMapping("/search")
     @Operation(
             summary = "대화 검색",
-            description = "사용자의 모든 노트에서 대화를 검색합니다. PostgreSQL Full-Text Search를 활용합니다."
+            description = """
+                    사용자의 모든 노트에서 대화를 검색합니다. PostgreSQL Full-Text Search를 활용합니다.
+                    
+                    노트 제목만 매칭된 결과는 conversationId/userMessage/assistantMessage가 null일 수 있습니다.
+                    """
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
