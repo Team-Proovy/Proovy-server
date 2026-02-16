@@ -233,7 +233,7 @@ public class CreditBalanceService {
 
     private void refreshDailyCreditIfExpired(CreditBalance balance, LocalDateTime now) {
         LocalDateTime expiresAt = balance.getDailyExpiresAt();
-        if (expiresAt != null && expiresAt.isAfter(now)) {
+        if (expiresAt == null || expiresAt.isAfter(now)) {
             return;
         }
 
