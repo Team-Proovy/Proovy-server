@@ -149,7 +149,11 @@ public class ChatServiceImpl implements ChatService {
                 allAssetIds.addAll(request.getCanvasImageIds());
             }
             if (!allAssetIds.isEmpty()) {
-                List<Asset> assets = assetRepository.findAllById(allAssetIds);
+                List<Asset> assets = assetRepository.findAllByIdInAndUserId(allAssetIds, userId);
+                if (assets.size() != allAssetIds.size()) {
+                    log.warn("[Chat] 메시지 자산 중 일부가 사용자 소유가 아니거나 존재하지 않음 - 요청: {}, 조회됨: {}, userId: {}",
+                            allAssetIds.size(), assets.size(), userId);
+                }
                 List<MessageAsset> messageAssets = assets.stream()
                         .map(asset -> MessageAsset.builder()
                                 .chatMessage(savedUserMessage)
