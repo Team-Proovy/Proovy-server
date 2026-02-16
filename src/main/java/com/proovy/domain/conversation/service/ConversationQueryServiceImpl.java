@@ -253,13 +253,13 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
             ConversationSearchResponse.ConversationSearchItem.ConversationSearchItemBuilder builder =
                     ConversationSearchResponse.ConversationSearchItem.builder()
-                            .conversationId(message.getId())
+                            .conversationId(contentMatches ? message.getId() : null)
                             .noteId(note.getId())
                             .noteTitle(note.getTitle())
                             .mentionedFiles(Collections.emptyList())
                             .mentionedTools(Collections.emptyList())
                             .relevance(contentMatches ? calculateRelevance(textContent, query) : 0.3)
-                            .createdAt(message.getCreatedAt());
+                            .createdAt(contentMatches ? message.getCreatedAt() : note.getCreatedAt());
 
             if (contentMatches) {
                 if (message.getRole() == MessageRole.USER) {
