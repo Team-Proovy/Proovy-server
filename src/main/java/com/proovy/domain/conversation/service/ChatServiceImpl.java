@@ -18,8 +18,10 @@ import com.proovy.domain.conversation.entity.ChatSession;
 import com.proovy.domain.conversation.entity.ChatSessionStatus;
 import com.proovy.domain.conversation.entity.MessageRole;
 import com.proovy.domain.conversation.entity.MessageStatus;
+import com.proovy.domain.conversation.entity.MessageAsset;
 import com.proovy.domain.conversation.repository.ChatMessageRepository;
 import com.proovy.domain.conversation.repository.ChatSessionRepository;
+import com.proovy.domain.conversation.repository.MessageAssetRepository;
 import com.proovy.domain.conversation.repository.MessageAttachmentRepository;
 import com.proovy.domain.user.entity.User;
 import com.proovy.domain.user.repository.UserRepository;
@@ -51,6 +53,7 @@ public class ChatServiceImpl implements ChatService {
 
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final MessageAssetRepository messageAssetRepository;
     private final MessageAttachmentRepository messageAttachmentRepository;
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
@@ -135,7 +138,31 @@ public class ChatServiceImpl implements ChatService {
                     .messageType("text")
                     .status(MessageStatus.COMPLETED)
                     .build();
-            chatMessageRepository.save(userMessage);
+            ChatMessage savedUserMessage = chatMessageRepository.save(userMessage);
+
+            // 4-1. 메시지-자산 연결 저장 (mentionedAssetIds + canvasImageIds)
+            List<Long> allAssetIds = new ArrayList<>();
+            if (request.getMentionedAssetIds() != null) {
+                allAssetIds.addAll(request.getMentionedAssetIds());
+            }
+            if (request.getCanvasImageIds() != null) {
+                allAssetIds.addAll(request.getCanvasImageIds());
+            }
+            if (!allAssetIds.isEmpty()) {
+                List<Asset> assets = assetRepository.findAllByIdInAndUserId(allAssetIds, userId);
+                if (assets.size() != allAssetIds.size()) {
+                    log.warn("[Chat] 메시지 자산 중 일부가 사용자 소유가 아니거나 존재하지 않음 - 요청: {}, 조회됨: {}, userId: {}",
+                            allAssetIds.size(), assets.size(), userId);
+                }
+                List<MessageAsset> messageAssets = assets.stream()
+                        .map(asset -> MessageAsset.builder()
+                                .chatMessage(savedUserMessage)
+                                .asset(asset)
+                                .build())
+                        .collect(Collectors.toList());
+                messageAssetRepository.saveAll(messageAssets);
+                log.info("[Chat] MessageAsset 저장 완료 - messageId: {}, assetCount: {}", savedUserMessage.getId(), messageAssets.size());
+            }
 
             // 5. AI 메시지 placeholder 생성 (ChatMessage with Note)
             ObjectNode emptyContent = objectMapper.createObjectNode();
