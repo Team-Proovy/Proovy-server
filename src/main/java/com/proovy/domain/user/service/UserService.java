@@ -31,6 +31,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +43,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
+    private static final ZoneId BILLING_ZONE = ZoneId.of("Asia/Seoul");
 
     private final UserRepository userRepository;
     private final UserPlanRepository userPlanRepository;
@@ -102,7 +105,7 @@ public class UserService {
                 .limit(balance.getDailyFreeLimit())
                 .resetsAt(balance.getDailyExpiresAt() != null
                         ? balance.getDailyExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                        : LocalDate.now().plusDays(1).atStartOfDay().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                        : LocalDate.now(BILLING_ZONE).plusDays(1).atStartOfDay().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .build();
 
         // 월간 크레딧: 유료 플랜 구독 시 부여되는 크레딧
@@ -197,7 +200,7 @@ public class UserService {
         log.info("사용자 탈퇴 완료: userId={}", userId);
 
         return DeleteUserResponse.of(
-                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                nowInBillingZone().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
     }
 
@@ -236,5 +239,9 @@ public class UserService {
                 });
             }
         });
+    }
+
+    private LocalDateTime nowInBillingZone() {
+        return ZonedDateTime.now(BILLING_ZONE).toLocalDateTime();
     }
 }

@@ -13,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -37,6 +38,9 @@ class CreditBalanceServiceTest {
 
     @Mock
     private CreditHistoryRepository creditHistoryRepository;
+
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     @Test
     @DisplayName("같은 userPlanId로 월간 크레딧 재지급 요청 시 중복 지급하지 않는다")
@@ -91,5 +95,29 @@ class CreditBalanceServiceTest {
         ArgumentCaptor<CreditHistory> historyCaptor = ArgumentCaptor.forClass(CreditHistory.class);
         then(creditHistoryRepository).should().save(historyCaptor.capture());
         assertThat(historyCaptor.getValue().getAmount()).isEqualTo(5000);
+    }
+
+    @Test
+    @DisplayName("만료된 일일 크레딧은 조회 시 즉시 초기화된다")
+    void refreshExpiredDailyCreditWhenBalanceRequested() {
+        Long userId = 1L;
+        User user = User.builder().build();
+
+        CreditBalance balance = CreditBalance.builder()
+                .user(user)
+                .dailyFreeCredit(0)
+                .dailyFreeLimit(100)
+                .dailyExpiresAt(LocalDateTime.of(2026, 1, 1, 0, 0))
+                .freeCredit(0)
+                .paidCredit(0)
+                .build();
+
+        given(creditBalanceRepository.findByUserId(userId)).willReturn(Optional.of(balance));
+
+        CreditBalance result = creditBalanceService.getOrCreateBalance(userId);
+
+        assertThat(result.getDailyFreeCredit()).isEqualTo(100);
+        assertThat(result.getDailyExpiresAt()).isAfter(LocalDateTime.now());
+        then(creditBalanceRepository).should().save(balance);
     }
 }
