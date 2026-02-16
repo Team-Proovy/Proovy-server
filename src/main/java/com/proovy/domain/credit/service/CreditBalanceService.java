@@ -37,23 +37,29 @@ public class CreditBalanceService {
 
     @Transactional
     public CreditBalance getOrCreateBalance(Long userId) {
-        return creditBalanceRepository.findByUserId(userId)
+        CreditBalance balance = creditBalanceRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     // 가입 보너스는 signup 경로에서만 지급됩니다.
                     createInitialBalanceSafely(userId, 0);
                     return creditBalanceRepository.findByUserId(userId)
                             .orElseThrow(() -> new BusinessException(ErrorCode.CREDIT4041));
                 });
+
+        refreshDailyCreditIfExpired(balance, nowInBillingZone());
+        return balance;
     }
 
     @Transactional
     public CreditBalance getOrCreateBalanceForUpdate(Long userId) {
-        return creditBalanceRepository.findByUserIdForUpdate(userId)
+        CreditBalance balance = creditBalanceRepository.findByUserIdForUpdate(userId)
                 .orElseGet(() -> {
                     createInitialBalanceSafely(userId, 0);
                     return creditBalanceRepository.findByUserIdForUpdate(userId)
                             .orElseThrow(() -> new BusinessException(ErrorCode.CREDIT4041));
                 });
+
+        refreshDailyCreditIfExpired(balance, nowInBillingZone());
+        return balance;
     }
 
     @Transactional
@@ -223,5 +229,19 @@ public class CreditBalanceService {
 
     private LocalDateTime nextDailyResetAt(LocalDateTime now) {
         return now.toLocalDate().plusDays(1).atStartOfDay();
+    }
+
+    private void refreshDailyCreditIfExpired(CreditBalance balance, LocalDateTime now) {
+        LocalDateTime expiresAt = balance.getDailyExpiresAt();
+        if (expiresAt != null && expiresAt.isAfter(now)) {
+            return;
+        }
+
+        LocalDateTime nextResetAt = nextDailyResetAt(now);
+        balance.resetDailyCredit(nextResetAt);
+        creditBalanceRepository.save(balance);
+
+        log.info("[DailyCredit] 접근 시 만료 감지로 즉시 초기화: userId={}, prevExpiresAt={}, nextResetAt={}",
+                balance.getUser().getId(), expiresAt, nextResetAt);
     }
 }

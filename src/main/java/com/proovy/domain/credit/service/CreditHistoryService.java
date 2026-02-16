@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
@@ -39,6 +41,7 @@ public class CreditHistoryService {
     private static final int MIN_PAGE_SIZE = 1;
     private static final int MAX_PAGE_SIZE = 100;
     private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final ZoneId BILLING_ZONE = ZoneId.of("Asia/Seoul");
 
     @Transactional
     public CreditHistoryResponse getCreditHistory(
@@ -75,7 +78,7 @@ public class CreditHistoryService {
 
         // 6. 기간 통계 조회
         LocalDateTime summaryStartDate = startDate != null ? startDate : LocalDateTime.of(2020, 1, 1, 0, 0);
-        LocalDateTime summaryEndDate = endDate != null ? endDate : LocalDateTime.now().plusDays(1);
+        LocalDateTime summaryEndDate = endDate != null ? endDate : nowInBillingZone().plusDays(1);
 
         CreditHistoryRepository.CreditPeriodSummary periodSummary =
                 creditHistoryRepository.calculatePeriodSummary(
@@ -226,5 +229,9 @@ public class CreditHistoryService {
                 .history(historyDto)
                 .periodSummary(periodSummaryDto)
                 .build();
+    }
+
+    private LocalDateTime nowInBillingZone() {
+        return ZonedDateTime.now(BILLING_ZONE).toLocalDateTime();
     }
 }
