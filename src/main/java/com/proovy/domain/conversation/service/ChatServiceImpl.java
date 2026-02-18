@@ -179,9 +179,17 @@ public class ChatServiceImpl implements ChatService {
                     .build();
             ChatMessage savedAiMessage = chatMessageRepository.save(aiMessage);
 
-            // 6. 자산 URL 변환
-            List<String> filesUrl = convertAssetIdsToUrls(request.getMentionedAssetIds(), userId);
-            log.info("[Chat] 자산 URL 변환 완료 - assetIds: {}, filesUrl: {}", request.getMentionedAssetIds(), filesUrl);
+            // 6. 자산 URL 변환 (mentionedAssetIds + canvasImageIds 모두 포함)
+            List<Long> allAssetIdsForUrl = new ArrayList<>();
+            if (request.getMentionedAssetIds() != null) {
+                allAssetIdsForUrl.addAll(request.getMentionedAssetIds());
+            }
+            if (request.getCanvasImageIds() != null) {
+                allAssetIdsForUrl.addAll(request.getCanvasImageIds());
+            }
+            List<String> filesUrl = convertAssetIdsToUrls(allAssetIdsForUrl, userId);
+            log.info("[Chat] 자산 URL 변환 완료 - mentionedAssetIds: {}, canvasImageIds: {}, filesUrl: {}",
+                    request.getMentionedAssetIds(), request.getCanvasImageIds(), filesUrl);
 
             return new StreamInitData(chatSession, note, savedAiMessage, threadIdToUse, filesUrl);
         });
