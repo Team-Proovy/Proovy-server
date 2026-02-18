@@ -37,7 +37,7 @@ public class GeminiClient {
             - 질문의 핵심 주제를 간결하게 표현
             - 제목만 출력 (설명, 따옴표, 줄바꿈 없이)
 
-            질문: %s
+            질문: {{QUESTION}}
             """;
 
     /**
@@ -52,7 +52,7 @@ public class GeminiClient {
                 ? questionText.substring(0, 500)
                 : questionText;
 
-        String prompt = String.format(TITLE_PROMPT_TEMPLATE, truncatedText);
+        String prompt = TITLE_PROMPT_TEMPLATE.replace("{{QUESTION}}", truncatedText);
 
         Map<String, Object> requestBody = Map.of(
                 "model", model,
