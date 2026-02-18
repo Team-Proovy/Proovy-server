@@ -6,14 +6,15 @@ import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.conversation.entity.*;
 import com.proovy.domain.conversation.repository.*;
 import com.proovy.domain.note.dto.request.CreateNoteRequest;
+import com.proovy.domain.note.dto.request.GenerateTitleRequest;
 import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteDetailResponse;
-import com.proovy.domain.note.dto.response.DeleteNoteResponse;
 import com.proovy.domain.note.dto.response.NoteListResponse;
 import com.proovy.domain.note.dto.response.UpdateNoteTitleResponse;
 import com.proovy.domain.note.dto.response.AssetListResponse;
+import com.proovy.global.infra.gemini.GeminiClient;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.embedding.service.EmbeddingJobPublisher;
@@ -53,6 +54,7 @@ public class NoteServiceImpl implements NoteService {
     private final com.proovy.domain.user.repository.UserPlanRepository userPlanRepository;
     private final S3Service s3Service;
     private final EmbeddingJobPublisher embeddingJobPublisher;
+    private final GeminiClient geminiClient;
 
     @Override
     public CreateNoteResponse createNote(Long userId, CreateNoteRequest request) {
@@ -284,6 +286,40 @@ public class NoteServiceImpl implements NoteService {
         log.info("노트 제목 수정 완료 - noteId: {}", noteId);
 
         // 4. Response 생성
+        return UpdateNoteTitleResponse.builder()
+                .noteId(note.getId())
+                .title(note.getTitle())
+                .updatedAt(note.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    public UpdateNoteTitleResponse generateNoteTitle(Long userId, Long noteId, GenerateTitleRequest request) {
+        log.info("AI 노트 제목 생성 요청 - userId: {}, noteId: {}", userId, noteId);
+
+        // 1. 노트 조회 및 권한 확인
+        Note note = noteRepository.findById(noteId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTE4041));
+
+        if (!note.getUser().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NOTE4031);
+        }
+
+        // 2. Gemini로 제목 생성
+        String generatedTitle;
+        try {
+            generatedTitle = geminiClient.generateNoteTitle(request.text());
+        } catch (Exception e) {
+            log.warn("Gemini 제목 생성 실패 - noteId: {}, error: {}", noteId, e.getMessage());
+            throw new BusinessException(ErrorCode.NOTE5001);
+        }
+
+        // 3. 제목 업데이트
+        note.updateTitle(generatedTitle);
+        note = noteRepository.save(note);
+
+        log.info("AI 노트 제목 생성 완료 - noteId: {}, title: {}", noteId, generatedTitle);
+
         return UpdateNoteTitleResponse.builder()
                 .noteId(note.getId())
                 .title(note.getTitle())

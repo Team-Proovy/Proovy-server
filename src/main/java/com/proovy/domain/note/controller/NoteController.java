@@ -1,6 +1,7 @@
 package com.proovy.domain.note.controller;
 
 import com.proovy.domain.note.dto.request.CreateNoteRequest;
+import com.proovy.domain.note.dto.request.GenerateTitleRequest;
 import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
@@ -315,6 +316,50 @@ public class NoteController {
         List<Tool> tools = toolService.getToolList(query);
         ToolListResponse response = ToolListResponse.from(tools);
         return ApiResponse.success("도구 목록 조회에 성공했습니다.", response);
+    }
+
+    @PostMapping("/{noteId}/generate-title")
+    @Operation(
+            summary = "첫 질문 기반 노트 제목 AI 생성",
+            description = """
+                    사용자의 첫 질문 내용을 Gemini로 분석하여 노트 제목을 자동 생성하고 업데이트합니다.
+
+                    - 노트 생성 직후, 첫 대화 전송과 병렬로 호출합니다.
+                    - 생성된 제목은 30자 이내입니다.
+                    - 생성 실패 시 기존 날짜/시간 제목이 유지됩니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "제목 생성 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "노트 접근 권한 없음 (NOTE4031)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "노트 없음 (NOTE4041)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "AI 제목 생성 실패 (NOTE5001)"
+            )
+    })
+    public ApiResponse<UpdateNoteTitleResponse> generateNoteTitle(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Parameter(description = "제목을 생성할 노트의 고유 ID", example = "10")
+            @PathVariable Long noteId,
+            @Valid @RequestBody GenerateTitleRequest request
+    ) {
+        log.info("AI 노트 제목 생성 요청 - userId: {}, noteId: {}", userPrincipal.getUserId(), noteId);
+        UpdateNoteTitleResponse response = noteService.generateNoteTitle(
+                userPrincipal.getUserId(),
+                noteId,
+                request
+        );
+        return ApiResponse.success("노트 제목이 생성되었습니다.", response);
     }
 
     @GetMapping("/{noteId}/assets")
