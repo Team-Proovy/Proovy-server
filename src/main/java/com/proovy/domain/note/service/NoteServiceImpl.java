@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.proovy.global.infra.s3.S3Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -114,7 +115,7 @@ public class NoteServiceImpl implements NoteService {
             return normalized;
         }
 
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        String timestamp = LocalDateTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
         return "새 노트 " + timestamp;
     }
 
