@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -71,20 +72,24 @@ public class GeminiClient {
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(OpenRouterResponse.class)
-                .block();
+                .block(Duration.ofSeconds(10));
 
-        if (response == null
-                || response.choices() == null
-                || response.choices().isEmpty()
-                || response.choices().get(0).message() == null) {
+        String content = (response != null
+                && response.choices() != null
+                && !response.choices().isEmpty()
+                && response.choices().get(0).message() != null)
+                ? response.choices().get(0).message().content()
+                : null;
+
+        if (content == null || content.isBlank()) {
             throw new RuntimeException("OpenRouter API 응답이 비어있습니다.");
         }
 
-        String title = response.choices().get(0).message().content().trim();
+        String title = content.trim();
 
-        // 30자 초과 시 자르기
+        // 30자 초과 시 말줄임표 처리
         if (title.length() > 30) {
-            title = title.substring(0, 30);
+            title = title.substring(0, 27) + "...";
         }
 
         log.debug("OpenRouter 제목 생성 완료: {}", title);

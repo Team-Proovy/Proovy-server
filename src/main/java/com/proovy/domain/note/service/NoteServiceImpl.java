@@ -305,16 +305,30 @@ public class NoteServiceImpl implements NoteService {
             throw new BusinessException(ErrorCode.NOTE4031);
         }
 
-        // 2. Gemini로 제목 생성
+        // 2. Gemini로 제목 생성 (실패 시 기존 제목 유지)
         String generatedTitle;
         try {
             generatedTitle = geminiClient.generateNoteTitle(request.text());
         } catch (Exception e) {
-            log.warn("Gemini 제목 생성 실패 - noteId: {}, error: {}", noteId, e.getMessage());
-            throw new BusinessException(ErrorCode.NOTE5001);
+            log.warn("Gemini 제목 생성 실패 - noteId: {}, 기존 제목 유지, error: {}", noteId, e.getMessage());
+            return UpdateNoteTitleResponse.builder()
+                    .noteId(note.getId())
+                    .title(note.getTitle())
+                    .updatedAt(note.getUpdatedAt())
+                    .build();
         }
 
-        // 3. 제목 업데이트
+        // 3. 빈 제목 방어 (비어있으면 기존 제목 유지)
+        if (generatedTitle == null || generatedTitle.isBlank()) {
+            log.warn("Gemini 제목 생성 결과가 비어있음 - noteId: {}, 기존 제목 유지", noteId);
+            return UpdateNoteTitleResponse.builder()
+                    .noteId(note.getId())
+                    .title(note.getTitle())
+                    .updatedAt(note.getUpdatedAt())
+                    .build();
+        }
+
+        // 4. 제목 업데이트
         note.updateTitle(generatedTitle);
         note = noteRepository.save(note);
 
