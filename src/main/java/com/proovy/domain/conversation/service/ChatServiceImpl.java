@@ -141,14 +141,8 @@ public class ChatServiceImpl implements ChatService {
             ChatMessage savedUserMessage = chatMessageRepository.save(userMessage);
             chatMessageRepository.flush(); // ID 확보 후 MessageAsset 저장 가능
 
-            // 4-1. 메시지-자산 연결 저장 (mentionedAssetIds + canvasImageIds)
-            List<Long> allAssetIds = new ArrayList<>();
-            if (request.getMentionedAssetIds() != null) {
-                allAssetIds.addAll(request.getMentionedAssetIds());
-            }
-            if (request.getCanvasImageIds() != null) {
-                allAssetIds.addAll(request.getCanvasImageIds());
-            }
+            // 4-1. 메시지-자산 연결 저장 (mentionedAssetIds + canvasImageIds, 중복 제거)
+            List<Long> allAssetIds = mergeDistinctAssetIds(request.getMentionedAssetIds(), request.getCanvasImageIds());
             if (!allAssetIds.isEmpty()) {
                 List<Asset> assets = assetRepository.findAllByIdInAndUserId(allAssetIds, userId);
                 if (assets.size() != allAssetIds.size()) {
@@ -179,9 +173,10 @@ public class ChatServiceImpl implements ChatService {
                     .build();
             ChatMessage savedAiMessage = chatMessageRepository.save(aiMessage);
 
-            // 6. 자산 URL 변환
-            List<String> filesUrl = convertAssetIdsToUrls(request.getMentionedAssetIds(), userId);
-            log.info("[Chat] 자산 URL 변환 완료 - assetIds: {}, filesUrl: {}", request.getMentionedAssetIds(), filesUrl);
+            // 6. 자산 URL 변환 (mentionedAssetIds + canvasImageIds 모두 포함, 중복 제거)
+            List<String> filesUrl = convertAssetIdsToUrls(allAssetIds, userId);
+            log.info("[Chat] 자산 URL 변환 완료 - mentionedAssetIds: {}, canvasImageIds: {}, filesUrl count: {}",
+                    request.getMentionedAssetIds(), request.getCanvasImageIds(), filesUrl.size());
 
             return new StreamInitData(chatSession, note, savedAiMessage, threadIdToUse, filesUrl);
         });
@@ -211,8 +206,8 @@ public class ChatServiceImpl implements ChatService {
             .authToken(accessToken)  // Spring 인증 토큰 전달
             .build();
 
-        log.info("[Chat] Proovy-ai 요청 생성 - threadId: {}, filesUrl: {}, message: {}",
-                finalThreadIdToUse, filesUrl, request.getText());
+        log.info("[Chat] Proovy-ai 요청 생성 - threadId: {}, filesUrl count: {}, message: {}",
+                finalThreadIdToUse, filesUrl.size(), request.getText());
 
         // 8. SSE 스트리밍 호출
         final StringBuilder contentBuilder = new StringBuilder();
@@ -485,12 +480,21 @@ public class ChatServiceImpl implements ChatService {
             return Collections.emptyList();
         }
 
-        List<Asset> assets = assetRepository.findAllByIdInAndUserId(assetIds, userId);
-        log.info("[Chat] 자산 조회 결과 - 요청: {}, 조회됨: {}, userId: {}", assetIds, assets.size(), userId);
+        List<Long> distinctAssetIds = assetIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
 
-        if (assets.size() != assetIds.size()) {
+        if (distinctAssetIds.size() != assetIds.size()) {
+            log.debug("[Chat] 자산 ID 중복/NULL 제거 - 원본: {}, 정제 후: {}", assetIds.size(), distinctAssetIds.size());
+        }
+
+        List<Asset> assets = assetRepository.findAllByIdInAndUserId(distinctAssetIds, userId);
+        log.info("[Chat] 자산 조회 결과 - 요청: {}, 조회됨: {}, userId: {}", distinctAssetIds, assets.size(), userId);
+
+        if (assets.size() != distinctAssetIds.size()) {
             log.warn("[Chat] 일부 자산 조회 실패 - 요청: {}, 조회됨: {}",
-                    assetIds.size(), assets.size());
+                    distinctAssetIds.size(), assets.size());
         }
 
         List<String> urls = assets.stream()
@@ -498,13 +502,25 @@ public class ChatServiceImpl implements ChatService {
                     // Presigned URL 생성 (15분 유효)
                     String url = s3Service.generatePresignedDownloadUrl(
                             asset.getS3Key(), asset.getFileName(), 15);
-                    log.info("[Chat] Presigned URL 생성 - assetId: {}, s3Key: {}, url: {}",
-                            asset.getId(), asset.getS3Key(), url);
+                    log.debug("[Chat] Presigned URL 생성 - assetId: {}, s3Key: {}",
+                            asset.getId(), asset.getS3Key());
                     return url;
                 })
                 .collect(Collectors.toList());
 
         return urls;
+    }
+
+    private List<Long> mergeDistinctAssetIds(List<Long> mentionedAssetIds, List<Long> canvasImageIds) {
+        LinkedHashSet<Long> merged = new LinkedHashSet<>();
+        if (mentionedAssetIds != null) {
+            merged.addAll(mentionedAssetIds);
+        }
+        if (canvasImageIds != null) {
+            merged.addAll(canvasImageIds);
+        }
+        merged.remove(null);
+        return new ArrayList<>(merged);
     }
 
     /**
