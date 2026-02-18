@@ -139,6 +139,14 @@ embedding:
       prefix: emb:lock
       ttl: 3600
 
+# ===============================
+# OpenRouter API (Gemini 2.5 Flash 경유)
+# ===============================
+openrouter:
+  api:
+    key: ${OPENROUTER_API_KEY}
+    model: google/gemini-2.5-flash-lite-preview-09-2025
+
 ---
 # ===============================
 # Local 환경

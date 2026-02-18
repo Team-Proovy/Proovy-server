@@ -69,10 +69,11 @@ public enum ErrorCode {
     CONV5001("CONV5001", "Proovy-ai 통신 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     CONV5002("CONV5002", "Proovy-ai 스트리밍 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     // Note
-    NOTE4001("NOTE4001", "노트 제목은 50자 이내로 입력해주세요.", HttpStatus.BAD_REQUEST),
+    NOTE4001("NOTE4001", "노트 제목은 30자 이내로 입력해주세요.", HttpStatus.BAD_REQUEST),
     NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),
     NOTE4041("NOTE4041", "노트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     NOTE4031("NOTE4031", "노트 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
+    NOTE5001("NOTE5001", "AI 노트 제목 생성에 실패했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // Credit
     CREDIT4001("CREDIT4001", "날짜 형식이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),

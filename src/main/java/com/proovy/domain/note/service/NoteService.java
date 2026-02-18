@@ -1,6 +1,7 @@
 package com.proovy.domain.note.service;
 
 import com.proovy.domain.note.dto.request.CreateNoteRequest;
+import com.proovy.domain.note.dto.request.GenerateTitleRequest;
 import com.proovy.domain.note.dto.request.UpdateNoteTitleRequest;
 import com.proovy.domain.note.dto.response.CreateNoteResponse;
 import com.proovy.domain.note.dto.response.DeleteNoteResponse;
@@ -15,6 +16,8 @@ public interface NoteService {
     NoteListResponse getNoteList(Long userId, int page, int size, String sort);
 
     UpdateNoteTitleResponse updateNoteTitle(Long userId, Long noteId, UpdateNoteTitleRequest request);
+
+    UpdateNoteTitleResponse generateNoteTitle(Long userId, Long noteId, GenerateTitleRequest request);
 
     DeleteNoteResponse deleteNote(Long userId, Long noteId);
 
