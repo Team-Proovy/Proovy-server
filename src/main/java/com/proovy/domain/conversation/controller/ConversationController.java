@@ -121,35 +121,23 @@ public class ConversationController {
         return chatService.streamConversation(userId, request, accessToken)
                 .map(event -> {
                     try {
-                        // ProovyAiStreamEvent를 프론트엔드 형식으로 변환
-                        // 프론트엔드는 data 필드에 {"type":"...", ...} 형태를 기대
+                        // V2: SSE 표준 event 필드를 사용하여 이벤트를 구분합니다.
+                        // 프론트엔드에서는 addEventListener(eventType, ...)로 수신해야 합니다.
                         String eventType = event.getEvent();
-
-                        // [DONE] 이벤트는 특별 처리
-                        if ("[DONE]".equals(eventType)) {
-                            return ServerSentEvent.<String>builder()
-                                    .data("[DONE]")
-                                    .build();
-                        }
-
-                        // 일반 이벤트: {"type": "...", ...data...} 형태로 병합
-                        java.util.Map<String, Object> payload = new java.util.HashMap<>();
-                        // event.getData()의 내용을 payload에 병합
-                        if (event.getData() != null) {
-                            payload.putAll(event.getData());
-                        }
-                        // event 데이터에 type이 있어도 컨트롤러에서 계산한 eventType이 우선한다.
-                        payload.put("type", eventType);
-
+                        
+                        // 데이터 Payload JSON 변환
+                        Object payload = event.getData() != null ? event.getData() : java.util.Collections.emptyMap();
                         String dataJson = convertToJson(payload);
 
                         return ServerSentEvent.<String>builder()
+                                .event(eventType) // SSE 표준 event 헤더 설정
                                 .data(dataJson)
                                 .build();
                     } catch (Exception e) {
                         log.error("Failed to build SSE event", e);
                         return ServerSentEvent.<String>builder()
-                                .data("{\"type\":\"error\",\"content\":\"Failed to process event\"}")
+                                .event("error")
+                                .data("{\"message\":\"Failed to process event\"}")
                                 .build();
                     }
                 })

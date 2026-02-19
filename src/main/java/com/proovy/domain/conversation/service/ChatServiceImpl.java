@@ -37,6 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -222,6 +224,16 @@ public class ChatServiceImpl implements ChatService {
                 .publishOn(Schedulers.boundedElastic())
                 .doOnNext(event -> {
                     Map<String, Object> data = event.getData();
+                    String eventType = event.getEvent();
+
+                    // 에러 이벤트 처리
+                    if ("run.failed".equals(eventType) || "error".equals(eventType)) {
+                        String errMsg = "Stream Error";
+                        if (data != null) {
+                            errMsg = String.valueOf(data.getOrDefault("message", "Unknown error"));
+                        }
+                        throw new BusinessException(ErrorCode.CONV5002, "스트리밍 중 에러 발생: " + errMsg);
+                    }
 
                     // thread_id 업데이트 (payload 내부에 포함되는 경우)
                     if (data != null && data.containsKey("thread_id")) {
@@ -251,10 +263,10 @@ public class ChatServiceImpl implements ChatService {
                         }
                     }
 
-                    // 토큰 스트림(type = token) 기준으로 내용 누적
+                    // 토큰 스트림(event = llm.token.delta) 기준으로 내용 누적
                     // FinalResponse 노드에서 LLM이 생성하는 토큰을 실시간으로 수집
-                    if ("token".equals(event.getEvent()) && data != null) {
-                        Object content = data.get("content");
+                    if ("llm.token.delta".equals(eventType) && data != null) {
+                        Object content = data.get("delta");
                         if (content != null) {
                             contentBuilder.append(content.toString());
                             log.trace("[Chat] 토큰 수신 - content: {}", content);
@@ -349,10 +361,14 @@ public class ChatServiceImpl implements ChatService {
     /**
      * Proovy-ai /stream 호출
      */
+    /**
+     * Proovy-ai /stream/v2 호출 (SSE v2)
+     */
     private Flux<ProovyAiStreamEvent> callProovyAiStream(ProovyAiRequest request) {
-        String streamUrl = proovyAiHost + "/stream";
+        // v2 엔드포인트 사용
+        String streamUrl = proovyAiHost + "/stream/v2";
         
-        log.info("Calling Proovy-ai stream: {}", streamUrl);
+        log.info("Calling Proovy-ai stream v2: {}", streamUrl);
         log.debug("Request payload: {}", request);
 
         return webClient.post()
@@ -361,11 +377,13 @@ public class ChatServiceImpl implements ChatService {
                 .bodyValue(request)
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .retrieve()
-                .bodyToFlux(String.class)
+                // v2는 ServerSentEvent 객체로 받아서 이벤트 필드를 활용
+                .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
                 .timeout(Duration.ofMinutes(5))
                 .flatMap(this::parseSseEvent)
                 .doOnNext(event -> log.debug("Received event: {}", event.getEvent()))
-                .takeUntil(event -> "[DONE]".equals(event.getEvent()));
+                // 완료 이벤트 체크 (run.completed 또는 run.failed)
+                .takeUntil(event -> "run.completed".equals(event.getEvent()) || "run.failed".equals(event.getEvent()));
     }
 
     /**
@@ -407,58 +425,42 @@ public class ChatServiceImpl implements ChatService {
     /**
      * SSE 이벤트 파싱
      */
-    private Mono<ProovyAiStreamEvent> parseSseEvent(String rawEvent) {
+    /**
+     * SSE 이벤트 파싱 (v2: ServerSentEvent -> ProovyAiStreamEvent)
+     */
+    private Mono<ProovyAiStreamEvent> parseSseEvent(ServerSentEvent<String> sse) {
         return Mono.fromCallable(() -> {
             try {
-                if (rawEvent == null || rawEvent.trim().isEmpty()) {
-                    return null; // null 이벤트는 건너뛰기
-                }
+                String eventName = sse.event();
+                String dataStr = sse.data();
 
-                String trimmed = rawEvent.trim();
-
-                // [DONE] 토큰 처리
-                if ("[DONE]".equals(trimmed)) {
+                if (dataStr == null || dataStr.trim().isEmpty()) {
+                    // 데이터 없는 ping(heartbeat)이거나 payload 없는 이벤트
                     return ProovyAiStreamEvent.builder()
-                            .event("[DONE]")
+                            .event(eventName != null ? eventName : "heartbeat")
                             .data(Collections.emptyMap())
                             .build();
                 }
 
-                // "data: {..}" 형태인 경우 prefix 제거
-                if (trimmed.startsWith("data:")) {
-                    trimmed = trimmed.substring(5).trim();
-
-                    // data: [DONE] 형태도 처리
-                    if ("[DONE]".equals(trimmed)) {
-                        return ProovyAiStreamEvent.builder()
-                                .event("[DONE]")
-                                .data(Collections.emptyMap())
-                                .build();
-                    }
-                }
-
                 // JSON payload 파싱
                 @SuppressWarnings("unchecked")
-                Map<String, Object> payload = objectMapper.readValue(trimmed, Map.class);
+                Map<String, Object> payload = objectMapper.readValue(dataStr, Map.class);
 
-                // type 필드 추출 (없으면 "message"로 기본 설정)
-                String type = Objects.toString(payload.get("type"), "message");
-
-                log.debug("[Chat] SSE 이벤트 파싱 - type: {}, payload keys: {}", type, payload.keySet());
+                log.debug("[Chat] SSE v2 이벤트 수신 - event: {}, keys: {}", eventName, payload.keySet());
 
                 return ProovyAiStreamEvent.builder()
-                        .event(type)
+                        .event(eventName != null ? eventName : "message")
                         .data(payload)
                         .build();
 
             } catch (Exception e) {
-                log.warn("[Chat] SSE 이벤트 파싱 실패: {}", rawEvent, e);
+                log.warn("[Chat] SSE 이벤트 파싱 실패: {}", sse, e);
                 return ProovyAiStreamEvent.builder()
                         .event("error")
-                        .data(Map.of("error", "Failed to parse event", "raw", rawEvent))
+                        .data(Map.of("error", "Failed to parse event", "raw", String.valueOf(sse.data())))
                         .build();
             }
-        }).filter(event -> event != null); // null 이벤트 필터링
+        });
     }
 
     private String toPersistableText(Object messageContent) {
