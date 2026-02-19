@@ -71,7 +71,7 @@ public class ChatServiceImpl implements ChatService {
     private static final Set<String> SUPPORTED_FEATURES = Set.of(
             "Solve", "Check", "Explain", "Variant", "Practice",
             "Solution", "SOLUTION",
-            "VARIATION", "Variant",
+            "VARIATION",
             "GRAPH", "CreateGraph"
     );
 
