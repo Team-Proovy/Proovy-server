@@ -67,9 +67,12 @@ public class ChatServiceImpl implements ChatService {
     @Value("${proovy.ai.host}")
     private String proovyAiHost;
 
-    // 지원되는 기능 목록 (향후 확장 가능)
+    // 지원되는 기능 목록 - DB toolCode(대문자)와 AI feature명(PascalCase) 모두 허용
     private static final Set<String> SUPPORTED_FEATURES = Set.of(
-            "Solve", "Check", "Explain", "Variant", "Practice"
+            "Solve", "Check", "Explain", "Variant", "Practice",
+            "Solution", "SOLUTION",
+            "VARIATION",
+            "GRAPH", "CreateGraph"
     );
 
     @Override
