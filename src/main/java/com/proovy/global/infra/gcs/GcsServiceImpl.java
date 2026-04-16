@@ -159,6 +159,9 @@ public class GcsServiceImpl implements GcsService {
         if (gcsKey == null || gcsKey.isBlank()) {
             throw new BusinessException(ErrorCode.COMMON400);
         }
+        if (fileName == null || fileName.isBlank()) {
+            throw new BusinessException(ErrorCode.COMMON400);
+        }
 
         try {
             String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
