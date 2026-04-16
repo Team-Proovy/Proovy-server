@@ -26,7 +26,7 @@ import com.proovy.domain.conversation.repository.MessageAttachmentRepository;
 import com.proovy.domain.user.entity.User;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
-import com.proovy.global.infra.s3.S3Service;
+import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +60,7 @@ public class ChatServiceImpl implements ChatService {
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
-    private final S3Service s3Service;
+    private final GcsService s3Service;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final CreditUseService creditUseService;

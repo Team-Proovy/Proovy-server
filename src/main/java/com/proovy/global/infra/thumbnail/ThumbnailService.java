@@ -3,7 +3,7 @@ package com.proovy.global.infra.thumbnail;
 import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.global.exception.BusinessException;
-import com.proovy.global.infra.s3.S3Service;
+import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,11 +39,11 @@ import java.util.Iterator;
 @RequiredArgsConstructor
 public class ThumbnailService {
 
-    private final S3Service s3Service;
+    private final GcsService s3Service;
     private final AssetRepository assetRepository;
     private final ApplicationContext applicationContext;
 
-    @Value("${aws.s3.bucket}")
+    @Value("${gcs.bucket}")
     private String bucketName;
 
     private static final int THUMBNAIL_WIDTH = 400;

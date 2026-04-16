@@ -11,7 +11,7 @@ import com.proovy.domain.user.entity.UserPlan;
 import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
-import com.proovy.global.infra.s3.S3Service;
+import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.response.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,7 +52,7 @@ class StorageServiceTest {
     private UserPlanRepository userPlanRepository;
 
     @Mock
-    private S3Service s3Service;
+    private GcsService s3Service;
 
     private User testUser;
     private Note testNote;

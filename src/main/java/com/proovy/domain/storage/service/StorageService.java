@@ -14,7 +14,7 @@ import com.proovy.domain.user.entity.UserPlan;
 import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
-import com.proovy.global.infra.s3.S3Service;
+import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ public class StorageService {
     private final UserRepository userRepository;
     private final NoteRepository noteRepository;
     private final UserPlanRepository userPlanRepository;
-    private final S3Service s3Service;
+    private final GcsService s3Service;
 
     /**
      * 자산 일괄 삭제

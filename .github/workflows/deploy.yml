@@ -1,4 +1,4 @@
-name: Deploy Backend (SSM + S3)
+name: Deploy to Cloud Run
 
 on:
   workflow_run:
@@ -36,55 +36,32 @@ jobs:
       - name: Build (bootJar, skip tests)
         run: ./gradlew clean bootJar -x test
 
-      - name: Find bootJar (exclude plain)
-        run: |
-          ls -al build/libs
-          JAR_PATH="$(ls -1 build/libs/*.jar | grep -v plain | head -n 1)"
-          if [ -z "$JAR_PATH" ]; then
-            echo "ERROR: No boot jar found in build/libs"
-            exit 1
-          fi
-          echo "JAR_PATH=$JAR_PATH" >> $GITHUB_ENV
-          echo "JAR_NAME=$(basename "$JAR_PATH")" >> $GITHUB_ENV
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Upload artifact to S3
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
         run: |
           SHA="${{ github.event.workflow_run.head_sha }}"
-          KEY="${{ secrets.DEPLOY_KEY_PREFIX }}/${SHA}/${{ env.JAR_NAME }}"
-          echo "S3_KEY=$KEY" >> $GITHUB_ENV
-          aws s3 cp "${{ env.JAR_PATH }}" "s3://${{ secrets.DEPLOY_BUCKET }}/$KEY"
+          IMAGE="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/${{ secrets.SERVICE_NAME }}:${SHA}"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
 
-      - name: Deploy on EC2 via SSM
+      - name: Deploy to Cloud Run
         run: |
-          DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
-          SERVICE_NAME="${{ secrets.SERVICE_NAME }}"
-          BUCKET="${{ secrets.DEPLOY_BUCKET }}"
-          KEY="${{ env.S3_KEY }}"
-          SHA="${{ github.event.workflow_run.head_sha }}"
-
-          # Flyway runs automatically on Spring Boot startup.
-          # Do not run `java -jar app.jar migrate` in this pipeline.
-
-          aws ssm send-command \
-            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
-            --comment "Deploy backend ${SHA:0:7}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters commands="[ 
-              \"set -e\",
-              \"echo Deploying $KEY\",
-              \"sudo mkdir -p ${DEPLOY_PATH}\",
-              \"sudo chown -R ec2-user:ec2-user ${DEPLOY_PATH}\",
-              \"sudo aws s3 cp s3://${BUCKET}/${KEY} ${DEPLOY_PATH}/app.jar\",
-              \"sudo chmod 644 ${DEPLOY_PATH}/app.jar\",
-              \"sudo systemctl daemon-reload\",
-              \"sudo systemctl restart ${SERVICE_NAME}\",
-              \"sudo systemctl is-active ${SERVICE_NAME}\"
-            ]" \
-            --output text
+          gcloud run deploy ${{ secrets.SERVICE_NAME }} \
+            --image "${{ env.IMAGE }}" \
+            --region ${{ secrets.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --min-instances 1 \
+            --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
+            --project ${{ secrets.GCP_PROJECT_ID }}
