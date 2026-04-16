@@ -49,7 +49,7 @@ public class GcsHealthController {
 
                 log.error("[GCS Health Check] 버킷 없음 - Bucket: {}", bucketName);
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
-                        ApiResponse.success("GCS 연결 테스트 실패", result)
+                        ApiResponse.failure("GCS503", "GCS 연결 테스트 실패: 버킷을 찾을 수 없습니다.")
                 );
             }
 
@@ -62,28 +62,17 @@ public class GcsHealthController {
             return ResponseEntity.ok(ApiResponse.success("GCS 연결 테스트 성공", result));
 
         } catch (StorageException e) {
-            result.put("status", "ERROR");
-            result.put("bucketName", bucketName);
-            result.put("accessible", false);
-            result.put("errorCode", e.getCode());
-            result.put("errorMessage", e.getMessage());
-
             log.error("[GCS Health Check] 실패 - Bucket: {}, Code: {}, Error: {}",
                     bucketName, e.getCode(), e.getMessage());
 
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
-                    ApiResponse.success("GCS 연결 테스트 실패", result)
+                    ApiResponse.failure("GCS503", "GCS 연결 테스트 실패: " + e.getMessage())
             );
         } catch (Exception e) {
-            result.put("status", "ERROR");
-            result.put("bucketName", bucketName);
-            result.put("accessible", false);
-            result.put("errorMessage", e.getMessage());
-
             log.error("[GCS Health Check] 예외 발생 - Bucket: {}, Error: {}", bucketName, e.getMessage());
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    ApiResponse.success("GCS 연결 테스트 중 오류 발생", result)
+                    ApiResponse.failure("GCS500", "GCS 연결 테스트 중 오류 발생: " + e.getMessage())
             );
         }
     }
