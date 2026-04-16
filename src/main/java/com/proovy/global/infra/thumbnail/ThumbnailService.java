@@ -27,11 +27,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.Iterator;
 
 @Slf4j
@@ -51,10 +46,6 @@ public class ThumbnailService {
     private static final float THUMBNAIL_QUALITY = 0.85f;
     private static final int PDF_DPI = 150;
     private static final long MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 제한
-
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(30))
-            .build();
 
     /**
      * 셀프 프록시 주입 (트랜잭션 AOP 적용용)
@@ -76,13 +67,10 @@ public class ThumbnailService {
                 return null;
             }
 
-            // 1. 원본 파일 다운로드 URL 생성
-            String fileUrl = s3Service.getFileUrl(s3Key);
+            // 1. 원본 파일 직접 읽기 (private 버킷 지원)
+            byte[] fileBytes = readFileWithSizeCheck(s3Key);
 
-            // 2. 파일 다운로드
-            byte[] fileBytes = downloadFile(fileUrl);
-
-            // 3. 썸네일 생성
+            // 2. 썸네일 생성
             byte[] thumbnailBytes = createImageThumbnail(fileBytes);
 
             // 4. 썸네일 S3 키 생성
@@ -115,13 +103,10 @@ public class ThumbnailService {
             log.info("[Thumbnail] 썸네일 생성 시작 - assetId: {}, s3Key: {}, mimeType: {}",
                     assetId, s3Key, mimeType);
 
-            // 1. 원본 파일 다운로드 URL 생성
-            String fileUrl = s3Service.getFileUrl(s3Key);
+            // 1. 원본 파일 직접 읽기 (private 버킷 지원)
+            byte[] fileBytes = readFileWithSizeCheck(s3Key);
 
-            // 2. 파일 다운로드
-            byte[] fileBytes = downloadFile(fileUrl);
-
-            // 3. 썸네일 생성
+            // 2. 썸네일 생성
             byte[] thumbnailBytes;
             if (mimeType.equals("application/pdf")) {
                 thumbnailBytes = createPdfThumbnail(fileBytes);
@@ -255,32 +240,18 @@ public class ThumbnailService {
     }
 
     /**
-     * 파일 다운로드 (HTTP) - 크기 체크 포함
+     * GCS에서 파일 직접 읽기 - 크기 체크 포함 (private 버킷 지원)
      */
-    private byte[] downloadFile(String fileUrl) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(fileUrl))
-                .GET()
-                .timeout(Duration.ofSeconds(30))
-                .build();
+    private byte[] readFileWithSizeCheck(String gcsKey) {
+        byte[] bytes = s3Service.readFileBytes(gcsKey);
 
-        HttpResponse<byte[]> response = httpClient.send(request,
-                HttpResponse.BodyHandlers.ofByteArray());
-
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("파일 다운로드 실패: HTTP " + response.statusCode());
-        }
-
-        byte[] body = response.body();
-
-        // 파일 크기 체크 (OOM 방지)
-        if (body.length > MAX_FILE_SIZE_BYTES) {
+        if (bytes.length > MAX_FILE_SIZE_BYTES) {
             throw new IllegalArgumentException(
                     String.format("파일 크기가 너무 큽니다: %d bytes (최대 %d bytes)",
-                            body.length, MAX_FILE_SIZE_BYTES));
+                            bytes.length, MAX_FILE_SIZE_BYTES));
         }
 
-        return body;
+        return bytes;
     }
 
     /**

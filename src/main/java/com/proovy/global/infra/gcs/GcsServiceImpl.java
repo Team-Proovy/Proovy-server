@@ -155,6 +155,24 @@ public class GcsServiceImpl implements GcsService {
     }
 
     @Override
+    public byte[] readFileBytes(String gcsKey) {
+        if (gcsKey == null || gcsKey.isBlank()) {
+            throw new BusinessException(ErrorCode.COMMON400);
+        }
+
+        try {
+            byte[] bytes = storage.readAllBytes(bucketName, gcsKey);
+            if (bytes == null) {
+                throw new BusinessException(ErrorCode.COMMON500);
+            }
+            return bytes;
+        } catch (StorageException e) {
+            log.error("[GCS] 파일 읽기 실패: {}, message={}", gcsKey, e.getMessage(), e);
+            throw new BusinessException(ErrorCode.COMMON500);
+        }
+    }
+
+    @Override
     public String generatePresignedDownloadUrl(String gcsKey, String fileName, int durationMinutes) {
         if (gcsKey == null || gcsKey.isBlank()) {
             throw new BusinessException(ErrorCode.COMMON400);

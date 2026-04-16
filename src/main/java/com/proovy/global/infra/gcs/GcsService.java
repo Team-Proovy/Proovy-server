@@ -65,4 +65,11 @@ public interface GcsService {
      * @return Signed URL
      */
     String generatePresignedDownloadUrl(String gcsKey, String fileName, int durationMinutes);
+
+    /**
+     * GCS에서 파일 바이트 직접 읽기 (서버 내부용, 버킷 공개 여부 무관)
+     * @param gcsKey GCS 저장 경로
+     * @return 파일 바이트 배열
+     */
+    byte[] readFileBytes(String gcsKey);
 }
