@@ -27,6 +27,9 @@ public class GcsServiceImpl implements GcsService {
     @Value("${gcs.bucket}")
     private String bucketName;
 
+    @Value("${gcs.endpoint:}")
+    private String endpoint;
+
     @Override
     public void deleteFile(String gcsKey) {
         if (gcsKey == null || gcsKey.isBlank()) return;
@@ -99,7 +102,10 @@ public class GcsServiceImpl implements GcsService {
     public String getFileUrl(String gcsKey) {
         String encodedKey = URLEncoder.encode(gcsKey, StandardCharsets.UTF_8)
                 .replace("+", "%20");
-        return String.format("https://storage.googleapis.com/%s/%s", bucketName, encodedKey);
+        String baseUrl = (endpoint != null && !endpoint.isBlank())
+                ? endpoint
+                : "https://storage.googleapis.com";
+        return String.format("%s/%s/%s", baseUrl, bucketName, encodedKey);
     }
 
     @Override

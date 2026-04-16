@@ -20,6 +20,9 @@ public class GcsConfig {
     @Value("${gcs.credentials-json:}")
     private String credentialsJson;
 
+    @Value("${gcs.endpoint:}")
+    private String endpoint;
+
     @Bean
     public Storage gcsStorage() throws IOException {
         StorageOptions.Builder builder = StorageOptions.newBuilder()
@@ -33,6 +36,10 @@ public class GcsConfig {
         }
         // credentialsJson 미설정 시 ADC(Application Default Credentials) 사용
         // Cloud Run에서는 서비스 계정이 자동 적용됨
+
+        if (endpoint != null && !endpoint.isBlank()) {
+            builder.setHost(endpoint);
+        }
 
         return builder.build().getService();
     }
