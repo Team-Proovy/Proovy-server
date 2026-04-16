@@ -148,7 +148,7 @@ public class GcsServiceImpl implements GcsService {
 
             log.info("[GCS] Upload Signed URL 생성 성공: {}", gcsKey);
             return signedUrl.toString();
-        } catch (StorageException e) {
+        } catch (IllegalStateException | StorageException e) {
             log.error("[GCS] Upload Signed URL 생성 실패: {}, message={}", gcsKey, e.getMessage(), e);
             throw new BusinessException(ErrorCode.COMMON500);
         }
@@ -178,7 +178,7 @@ public class GcsServiceImpl implements GcsService {
 
             log.debug("[GCS] Download Signed URL 생성 성공: {}", gcsKey);
             return signedUrl.toString();
-        } catch (StorageException e) {
+        } catch (IllegalStateException | StorageException e) {
             log.error("[GCS] Download Signed URL 생성 실패: {}, message={}", gcsKey, e.getMessage(), e);
             throw new BusinessException(ErrorCode.COMMON500);
         }
