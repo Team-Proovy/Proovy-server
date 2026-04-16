@@ -63,11 +63,10 @@ public class GcsServiceImpl implements GcsService {
 
         try {
             List<Boolean> results = storage.delete(blobIds);
-            long failCount = results.stream().filter(r -> !r).count();
+            long missingCount = results.stream().filter(Boolean.FALSE::equals).count();
 
-            if (failCount > 0) {
-                log.error("[GCS] {} 개 파일 삭제 실패", failCount);
-                throw new BusinessException(ErrorCode.COMMON500);
+            if (missingCount > 0) {
+                log.warn("[GCS] {} 개 파일은 이미 존재하지 않아 삭제를 건너뛰었습니다.", missingCount);
             }
 
             log.info("[GCS] 파일 일괄 삭제 성공: {} 개", results.size());
