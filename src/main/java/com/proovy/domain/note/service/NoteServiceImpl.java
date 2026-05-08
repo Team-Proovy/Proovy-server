@@ -31,7 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.proovy.global.infra.s3.S3Service;
+import com.proovy.global.infra.gcs.GcsService;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -52,7 +52,7 @@ public class NoteServiceImpl implements NoteService {
     private final MessageToolRepository messageToolRepository;
     private final AssetRepository assetRepository;
     private final com.proovy.domain.user.repository.UserPlanRepository userPlanRepository;
-    private final S3Service s3Service;
+    private final GcsService s3Service;
     private final EmbeddingJobPublisher embeddingJobPublisher;
     private final GeminiClient geminiClient;
 

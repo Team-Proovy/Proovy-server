@@ -13,7 +13,7 @@ import com.proovy.domain.conversation.repository.ChatMessageRepository;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.global.exception.BusinessException;
-import com.proovy.global.infra.s3.S3Service;
+import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +36,7 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
     private final ChatMessageRepository chatMessageRepository;
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
-    private final S3Service s3Service;
+    private final GcsService s3Service;
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final Set<String> ALLOWED_CANVAS_MIME_TYPES = Set.of("image/png", "image/jpeg", "image/webp");

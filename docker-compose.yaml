@@ -1,18 +1,14 @@
 version: '3.8'
 
 services:
-  localstack:
-    image: localstack/localstack:latest
-    container_name: proovy-localstack
+  # GCS 로컬 에뮬레이터 (fake-gcs-server)
+  # 접속: http://localhost:4443/storage/v1/
+  fake-gcs:
+    image: fsouza/fake-gcs-server:latest
+    container_name: proovy-fake-gcs
     ports:
-      - "4566:4566"
-    environment:
-      - SERVICES=s3
-      - DEBUG=1
-      - TMPDIR=/var/lib/localstack/tmp
-    volumes:
-      - "./localstack-data:/var/lib/localstack"
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "4443:4443"
+    command: -scheme http -port 4443 -public-host localhost:4443
 
   postgres:
     image: pgvector/pgvector:pg15

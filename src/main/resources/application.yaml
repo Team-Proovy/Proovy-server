@@ -57,19 +57,15 @@ server:
   forward-headers-strategy: framework
 
 # ===============================
-# AWS 설정
+# GCS 설정
 # ===============================
-cloud:
-  aws:
-    credentials:
-      access-key: ${AWS_S3_ACCESS_KEY}
-      secret-key: ${AWS_S3_SECRET_KEY}
-    region:
-      static: ${AWS_REGION:ap-northeast-2}
-    s3:
-      bucket: ${AWS_S3_BUCKET:proovy-assets-dev}
-    stack:
-      auto: false  # CloudFormation 스택 생성 비활성화
+gcs:
+  project-id: ${GCS_PROJECT_ID}
+  bucket: ${GCS_BUCKET:proovy-assets-dev}
+  # 서비스 계정 JSON 키 (문자열 전체). 미설정 시 ADC 사용 (Cloud Run 권장)
+  credentials-json: ${GCS_CREDENTIALS_JSON:}
+  # 로컬 GCS 에뮬레이터 endpoint. 미설정 시 실제 GCS 사용
+  endpoint: ${GCS_ENDPOINT:}
 
 # ===============================
 # OAuth 설정

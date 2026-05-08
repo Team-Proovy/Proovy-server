@@ -50,9 +50,9 @@ dependencies {
     // Swagger (Springdoc OpenAPI)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.15'
 
-    // AWS S3 SDK
-    implementation platform('software.amazon.awssdk:bom:2.20.26')
-    implementation 'software.amazon.awssdk:s3'
+    // Google Cloud Storage SDK
+    implementation platform('com.google.cloud:libraries-bom:26.34.0')
+    implementation 'com.google.cloud:google-cloud-storage'
 
     // PDF/이미지 처리 (썸네일 생성용)
     implementation 'org.apache.pdfbox:pdfbox:3.0.6'
@@ -78,4 +78,12 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+tasks.named('bootJar') {
+	archiveFileName = 'app.jar'
+}
+
+tasks.named('jar') {
+	enabled = false
 }

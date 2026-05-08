@@ -13,7 +13,7 @@ import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.entity.PlanType;
 import com.proovy.domain.user.repository.UserPlanRepository;
 import com.proovy.global.exception.BusinessException;
-import com.proovy.global.infra.s3.S3Service;
+import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.infra.thumbnail.ThumbnailService;
 import com.proovy.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +40,7 @@ public class AssetsServiceImpl implements AssetsService {
 
     private final AssetRepository assetRepository;
     private final NoteRepository noteRepository;
-    private final S3Service s3Service;
+    private final GcsService s3Service;
     private final UserPlanRepository userPlanRepository;
     private final ThumbnailService thumbnailService;
 
