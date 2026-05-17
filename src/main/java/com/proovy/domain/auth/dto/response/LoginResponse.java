@@ -9,8 +9,7 @@ public record LoginResponse(
         TokenDto token,            // 기존 유저인 경우 JWT 토큰
         String signupToken,        // 신규 유저인 경우 회원가입용 임시 토큰
         KakaoUserInfo kakaoInfo,   // 신규 유저인 경우 카카오에서 받은 정보
-        NaverUserInfo naverInfo,    // 네이버 신규 유저
-        GoogleUserInfo googleInfo  // 구글 신규 유저
+        NaverUserInfo naverInfo    // 네이버 신규 유저
 ) {
     public static LoginResponse login(UserDto user, TokenDto token) {
         return LoginResponse.builder()
@@ -38,12 +37,4 @@ public record LoginResponse(
                 .build();
     }
 
-    // 구글 신규 유저
-    public static LoginResponse signupRequired(String signupToken, GoogleUserInfo googleInfo) {
-        return LoginResponse.builder()
-                .loginType("SIGNUP_REQUIRED")
-                .signupToken(signupToken)
-                .googleInfo(googleInfo)
-                .build();
-    }
 }

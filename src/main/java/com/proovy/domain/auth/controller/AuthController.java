@@ -1,6 +1,5 @@
 package com.proovy.domain.auth.controller;
 
-import com.proovy.domain.auth.dto.request.GoogleLoginRequest;
 import com.proovy.domain.auth.dto.request.KakaoLoginRequest;
 import com.proovy.domain.auth.dto.request.LogoutRequest;
 import com.proovy.domain.auth.dto.request.NaverLoginRequest;
@@ -91,28 +90,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(message, response));
     }
 
-    @PostMapping("/login/google")
-    @Operation(
-            operationId = "04_googleLogin",
-            summary = "구글 소셜 로그인",
-            description = "구글 인가 코드로 로그인합니다. 신규 유저는 회원가입 토큰을 반환합니다.")
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Redirect URI 불일치 (AUTH4001)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "유효하지 않은 인증 코드 (AUTH4011)"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "구글 서버 오류 (AUTH5023)")
-    })
-    public ResponseEntity<ApiResponse<LoginResponse>> googleLogin(
-            @Valid @RequestBody GoogleLoginRequest request
-    ) {
-        LoginResponse response = authService.googleLogin(request);
-
-        String message = "SIGNUP_REQUIRED".equals(response.loginType())
-                ? "추가 정보 입력이 필요합니다."
-                : "로그인에 성공했습니다.";
-
-        return ResponseEntity.ok(ApiResponse.success(message, response));
-    }
 
     @PostMapping("/signup/complete")
     @Operation(
