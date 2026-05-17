@@ -2,8 +2,7 @@ package com.proovy.domain.user.entity;
 
 public enum OAuthProvider {
     KAKAO("/images/logo/kakao.png"),
-    NAVER("/images/logo/naver.png"),
-    GOOGLE("/images/logo/google.png");
+    NAVER("/images/logo/naver.png");
 
     private final String logoUrl;
 
