@@ -357,20 +357,20 @@ public class NoteServiceImpl implements NoteService {
         long messageCount = chatMessageRepository.countByNoteId(noteId);
         long conversationCount = messageCount / 2;
 
-        // 3. S3 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
+        // 3. GCS 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
         List<Asset> assets = assetRepository.findAllByNoteId(noteId);
         int assetCount = assets.size();
 
-        List<String> s3KeysToDelete = new ArrayList<>();
+        Set<String> objectKeysToDelete = new HashSet<>();
         long freedStorageBytes = 0L;
 
         for (Asset asset : assets) {
             if (asset.getObjectKey() != null) {
-                s3KeysToDelete.add(asset.getObjectKey());
+                objectKeysToDelete.add(asset.getObjectKey());
                 freedStorageBytes += asset.getFileSize();
             }
-            if (asset.getThumbnailObjectKey() != null) {
-                s3KeysToDelete.add(asset.getThumbnailObjectKey());
+            if (asset.getThumbnailObjectKey() != null && !asset.getThumbnailObjectKey().equals(asset.getObjectKey())) {
+                objectKeysToDelete.add(asset.getThumbnailObjectKey());
             }
         }
 
@@ -379,10 +379,10 @@ public class NoteServiceImpl implements NoteService {
                 .map(Asset::getId)
                 .collect(Collectors.toList());
 
-        // 5. S3 파일 삭제
-        if (!s3KeysToDelete.isEmpty()) {
-            s3Service.deleteFiles(s3KeysToDelete);
-            log.info("S3 파일 삭제 완료 - {} 개 파일", s3KeysToDelete.size());
+        // 5. GCS 파일 삭제
+        if (!objectKeysToDelete.isEmpty()) {
+            s3Service.deleteFiles(new ArrayList<>(objectKeysToDelete));
+            log.info("GCS 파일 삭제 완료 - {} 개 파일", objectKeysToDelete.size());
         }
 
         // 6. ChatMessage ID 목록 조회

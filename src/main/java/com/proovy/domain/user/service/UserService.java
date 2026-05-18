@@ -36,6 +36,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -205,13 +206,13 @@ public class UserService {
     }
 
     private void deleteUserData(Long userId) {
-        // GCS 키를 먼저 수집 (원본 + 썸네일)
-        List<String> objectKeys = new java.util.ArrayList<>();
+        // GCS 키를 먼저 수집 (원본 + 썸네일, 중복 제거)
+        Set<String> objectKeys = new java.util.HashSet<>();
         assetRepository.findAllByUserId(userId).forEach(asset -> {
             if (asset.getObjectKey() != null) {
                 objectKeys.add(asset.getObjectKey());
             }
-            if (asset.getThumbnailObjectKey() != null) {
+            if (asset.getThumbnailObjectKey() != null && !asset.getThumbnailObjectKey().equals(asset.getObjectKey())) {
                 objectKeys.add(asset.getThumbnailObjectKey());
             }
         });
