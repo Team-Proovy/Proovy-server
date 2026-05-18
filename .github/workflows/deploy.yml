@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: backend-deploy-${{ github.event.workflow_run.head_branch }}
@@ -17,7 +16,6 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev' }}
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout (same commit as CI)
         uses: actions/checkout@v4
@@ -40,8 +38,7 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_DEPLOYER_SA }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -52,19 +49,19 @@ jobs:
       - name: Build and push Docker image
         run: |
           SHA="${{ github.event.workflow_run.head_sha }}"
-          IMAGE="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO }}/${{ secrets.SERVICE_NAME }}:${SHA}"
+          IMAGE="${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.AR_REPO_BACKEND }}/${{ secrets.SERVICE_NAME_BACKEND }}:${SHA}"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy ${{ secrets.SERVICE_NAME }} \
+          gcloud run deploy ${{ secrets.SERVICE_NAME_BACKEND }} \
             --image "${{ env.IMAGE }}" \
             --region ${{ secrets.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated \
             --min-instances 1 \
             --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
-            --set-secrets "DB_HOST=db-host:latest,DB_PORT=db-port:latest,DB_NAME=db-name:latest,DB_USERNAME=db-username:latest,DB_PASSWORD=db-password:latest,REDIS_HOST=redis-host:latest,REDIS_PORT=redis-port:latest,JWT_SECRET=jwt-secret:latest,KAKAO_CLIENT_ID=kakao-client-id:latest,KAKAO_CLIENT_SECRET=kakao-client-secret:latest,NAVER_CLIENT_ID=naver-client-id:latest,NAVER_CLIENT_SECRET=naver-client-secret:latest,GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest,GCS_PROJECT_ID=gcs-project-id:latest,GCS_BUCKET=gcs-bucket:latest,GCS_CREDENTIALS_JSON=gcs-credentials-json:latest,INTERNAL_API_TOKEN=internal-api-token:latest,OPENROUTER_API_KEY=openrouter-api-key:latest" \
+            --set-secrets "DB_HOST=db-host:latest,DB_PORT=db-port:latest,DB_NAME=db-name:latest,DB_USERNAME=db-username:latest,DB_PASSWORD=db-password:latest,REDIS_HOST=redis-host:latest,REDIS_PORT=redis-port:latest,JWT_SECRET=jwt-secret:latest,KAKAO_CLIENT_ID=kakao-client-id:latest,KAKAO_CLIENT_SECRET=kakao-client-secret:latest,KAKAO_REDIRECT_URI=kakao-redirect-uri:latest,NAVER_CLIENT_ID=naver-client-id:latest,NAVER_CLIENT_SECRET=naver-client-secret:latest,NAVER_REDIRECT_URI=naver-redirect-uri:latest,GCS_PROJECT_ID=gcs-project-id:latest,GCS_BUCKET=gcs-bucket:latest,GCS_CREDENTIALS_JSON=gcs-credentials-json:latest,INTERNAL_API_TOKEN=internal-api-token:latest,OPENROUTER_API_KEY=openrouter-api-key:latest" \
             --project ${{ secrets.GCP_PROJECT_ID }}
