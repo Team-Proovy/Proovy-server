@@ -22,7 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -62,18 +64,18 @@ public class StorageService {
             throw new BusinessException(ErrorCode.STORAGE4031);
         }
 
-        // S3 키 수집 (원본 + 썸네일)
-        List<String> s3KeysToDelete = new ArrayList<>();
+        // GCS 키 수집 (원본 + 썸네일, 중복 제거)
+        Set<String> objectKeysToDelete = new HashSet<>();
         long totalFileSize = 0L;
 
         for (Asset asset : assets) {
             // 원본 파일
-            s3KeysToDelete.add(asset.getS3Key());
+            objectKeysToDelete.add(asset.getObjectKey());
             totalFileSize += asset.getFileSize();
 
-            // 썸네일 파일
-            if (asset.getThumbnailS3Key() != null) {
-                s3KeysToDelete.add(asset.getThumbnailS3Key());
+            // 썸네일 파일 (원본과 다른 경우에만)
+            if (asset.getThumbnailObjectKey() != null && !asset.getThumbnailObjectKey().equals(asset.getObjectKey())) {
+                objectKeysToDelete.add(asset.getThumbnailObjectKey());
             }
         }
 
@@ -81,7 +83,7 @@ public class StorageService {
         assetRepository.deleteAllInBatch(assets);
 
         // S3에서 파일 삭제
-        s3Service.deleteFiles(s3KeysToDelete);
+        s3Service.deleteFiles(new ArrayList<>(objectKeysToDelete));
 
         // 스토리지 용량 반환 로깅
         log.info("[Storage] 사용자 {} - {} 개 파일 삭제, 용량 반환: {} bytes",
@@ -151,7 +153,7 @@ public class StorageService {
                             .filter(asset -> lowerKeyword == null || titleMatches ||
                                     asset.getFileName().toLowerCase().contains(lowerKeyword))
                             .map(asset -> {
-                                String thumbnailUrl = s3Service.getThumbnailUrl(asset.getThumbnailS3Key());
+                                String thumbnailUrl = s3Service.getThumbnailUrl(asset.getThumbnailObjectKey());
                                 return AssetSummaryDto.of(asset, thumbnailUrl);
                             })
                             .toList();

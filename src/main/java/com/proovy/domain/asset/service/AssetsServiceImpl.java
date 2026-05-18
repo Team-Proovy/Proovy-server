@@ -94,7 +94,7 @@ public class AssetsServiceImpl implements AssetsService {
                 .fileName(request.getFileName())
                 .fileSize(request.getFileSize())
                 .mimeType(request.getMimeType())
-                .s3Key(s3Key)
+                .objectKey(s3Key)
                 .source(Asset.AssetSource.upload)
                 .status(AssetStatus.PENDING)
                 .uploadExpiresAt(expiresAt)
@@ -172,7 +172,7 @@ public class AssetsServiceImpl implements AssetsService {
         // 3. Presigned URL 생성
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(PRESIGNED_URL_DURATION_MINUTES);
         String downloadUrl = s3Service.generatePresignedDownloadUrl(
-                asset.getS3Key(),
+                asset.getObjectKey(),
                 asset.getFileName(),
                 PRESIGNED_URL_DURATION_MINUTES
         );
@@ -200,7 +200,7 @@ public class AssetsServiceImpl implements AssetsService {
         }
 
         // 4. S3 파일 존재 여부 확인
-        if (!s3Service.doesFileExist(asset.getS3Key())) {
+        if (!s3Service.doesFileExist(asset.getObjectKey())) {
             throw new BusinessException(ErrorCode.ASSET4007);
         }
 
@@ -217,7 +217,7 @@ public class AssetsServiceImpl implements AssetsService {
 
         // 6. 썸네일 생성
         final Long savedAssetId = asset.getId();
-        final String s3Key = asset.getS3Key();
+        final String s3Key = asset.getObjectKey();
         final String mimeType = asset.getMimeType();
 
         // 이미지 파일인 경우: 동기적으로 썸네일 생성 (빠른 응답)
@@ -252,8 +252,8 @@ public class AssetsServiceImpl implements AssetsService {
                 assetId, userId, asset.getOcrStatus());
 
         // 썸네일 URL 생성 (있는 경우)
-        String thumbnailUrl = asset.getThumbnailS3Key() != null
-                ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+        String thumbnailUrl = asset.getThumbnailObjectKey() != null
+                ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())
                 : null;
 
         return AssetDetailResponse.from(asset, thumbnailUrl);
@@ -273,8 +273,8 @@ public class AssetsServiceImpl implements AssetsService {
         log.debug("[Asset] 자산 상세 조회 - assetId: {}, ocrStatus: {}", assetId, asset.getOcrStatus());
 
         // 썸네일 URL 생성 (있는 경우)
-        String thumbnailUrl = asset.getThumbnailS3Key() != null
-                ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+        String thumbnailUrl = asset.getThumbnailObjectKey() != null
+                ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())
                 : null;
 
         return AssetDetailResponse.from(asset, thumbnailUrl);
@@ -292,32 +292,32 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.ASSET4031);
         }
 
-        // S3 키 저장 (트랜잭션 커밋 후 삭제를 위해)
-        final String s3Key = asset.getS3Key();
-        final String thumbnailS3Key = asset.getThumbnailS3Key();
+        // GCS 키 저장 (트랜잭션 커밋 후 삭제를 위해)
+        final String objectKey = asset.getObjectKey();
+        final String thumbnailObjectKey = asset.getThumbnailObjectKey();
 
         // 3. DB Asset 레코드 삭제 (먼저 수행)
         assetRepository.delete(asset);
 
-        // 4. 트랜잭션 커밋 후 S3 파일 삭제 (afterCommit 콜백)
+        // 4. 트랜잭션 커밋 후 GCS 파일 삭제 (afterCommit 콜백)
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                // S3 원본 파일 삭제
+                // GCS 원본 파일 삭제
                 try {
-                    s3Service.deleteFile(s3Key);
-                    log.info("[Asset] S3 원본 파일 삭제 완료 - s3Key: {}", s3Key);
+                    s3Service.deleteFile(objectKey);
+                    log.info("[Asset] GCS 원본 파일 삭제 완료 - objectKey: {}", objectKey);
                 } catch (Exception e) {
-                    log.error("[Asset] S3 원본 파일 삭제 실패 - s3Key: {}, error: {}", s3Key, e.getMessage());
+                    log.error("[Asset] GCS 원본 파일 삭제 실패 - objectKey: {}, error: {}", objectKey, e.getMessage());
                 }
 
-                // S3 썸네일 삭제 (있는 경우)
-                if (thumbnailS3Key != null && !thumbnailS3Key.equals(s3Key)) {
+                // GCS 썸네일 삭제 (원본과 다른 경우에만)
+                if (thumbnailObjectKey != null && !thumbnailObjectKey.equals(objectKey)) {
                     try {
-                        s3Service.deleteFile(thumbnailS3Key);
-                        log.info("[Asset] S3 썸네일 삭제 완료 - s3Key: {}", thumbnailS3Key);
+                        s3Service.deleteFile(thumbnailObjectKey);
+                        log.info("[Asset] GCS 썸네일 삭제 완료 - thumbnailObjectKey: {}", thumbnailObjectKey);
                     } catch (Exception e) {
-                        log.error("[Asset] S3 썸네일 삭제 실패 - s3Key: {}, error: {}", thumbnailS3Key, e.getMessage());
+                        log.error("[Asset] GCS 썸네일 삭제 실패 - thumbnailObjectKey: {}, error: {}", thumbnailObjectKey, e.getMessage());
                     }
                 }
             }

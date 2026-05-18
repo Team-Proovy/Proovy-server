@@ -357,20 +357,20 @@ public class NoteServiceImpl implements NoteService {
         long messageCount = chatMessageRepository.countByNoteId(noteId);
         long conversationCount = messageCount / 2;
 
-        // 3. S3 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
+        // 3. GCS 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
         List<Asset> assets = assetRepository.findAllByNoteId(noteId);
         int assetCount = assets.size();
 
-        List<String> s3KeysToDelete = new ArrayList<>();
+        Set<String> objectKeysToDelete = new HashSet<>();
         long freedStorageBytes = 0L;
 
         for (Asset asset : assets) {
-            if (asset.getS3Key() != null) {
-                s3KeysToDelete.add(asset.getS3Key());
+            if (asset.getObjectKey() != null) {
+                objectKeysToDelete.add(asset.getObjectKey());
                 freedStorageBytes += asset.getFileSize();
             }
-            if (asset.getThumbnailS3Key() != null) {
-                s3KeysToDelete.add(asset.getThumbnailS3Key());
+            if (asset.getThumbnailObjectKey() != null && !asset.getThumbnailObjectKey().equals(asset.getObjectKey())) {
+                objectKeysToDelete.add(asset.getThumbnailObjectKey());
             }
         }
 
@@ -379,10 +379,10 @@ public class NoteServiceImpl implements NoteService {
                 .map(Asset::getId)
                 .collect(Collectors.toList());
 
-        // 5. S3 파일 삭제
-        if (!s3KeysToDelete.isEmpty()) {
-            s3Service.deleteFiles(s3KeysToDelete);
-            log.info("S3 파일 삭제 완료 - {} 개 파일", s3KeysToDelete.size());
+        // 5. GCS 파일 삭제
+        if (!objectKeysToDelete.isEmpty()) {
+            s3Service.deleteFiles(new ArrayList<>(objectKeysToDelete));
+            log.info("GCS 파일 삭제 완료 - {} 개 파일", objectKeysToDelete.size());
         }
 
         // 6. ChatMessage ID 목록 조회
@@ -503,8 +503,8 @@ public class NoteServiceImpl implements NoteService {
         // 12. 자산 정보 DTO 생성
         List<NoteDetailResponse.AssetInfo> assetInfos = noteAssets.stream()
                 .map(asset -> {
-                    String thumbnailUrl = asset.getThumbnailS3Key() != null
-                            ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                    String thumbnailUrl = asset.getThumbnailObjectKey() != null
+                            ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())
                             : null;
                     FileCategory category = FileCategory.fromMimeType(asset.getMimeType());
 
@@ -672,7 +672,7 @@ public class NoteServiceImpl implements NoteService {
                             .fileId(asset.getId())
                             .fileName(asset.getFileName())
                             .fileType("SOLUTION")
-                            .downloadUrl(s3Service.getFileUrl(asset.getS3Key()))
+                            .downloadUrl(s3Service.getFileUrl(asset.getObjectKey()))
                             .build())
                     .collect(Collectors.toList());
             if (generatedFiles.isEmpty()) {
@@ -713,8 +713,8 @@ public class NoteServiceImpl implements NoteService {
         // 3. 자산 정보 DTO 생성
         List<AssetListResponse.AssetInfo> assetInfos = assets.stream()
                 .map(asset -> {
-                    String thumbnailUrl = asset.getThumbnailS3Key() != null
-                            ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                    String thumbnailUrl = asset.getThumbnailObjectKey() != null
+                            ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())
                             : null;
                     FileCategory category = FileCategory.fromMimeType(asset.getMimeType());
 

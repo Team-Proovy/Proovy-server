@@ -26,7 +26,7 @@ public class CanvasImageUploadResponse {
                 .fileName(asset.getFileName())
                 .fileSize(asset.getFileSize())
                 .mimeType(asset.getMimeType())
-                .storageKey(asset.getS3Key())
+                .storageKey(asset.getObjectKey())
                 .uploadUrl(uploadUrl)
                 .createdAt(asset.getCreatedAt())
                 .build();
