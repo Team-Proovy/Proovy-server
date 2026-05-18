@@ -63,7 +63,7 @@ jobs:
             --allow-unauthenticated \
             --service-account proovy-backend-sa@proovy.iam.gserviceaccount.com \
             --min-instances 1 \
-            --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
+            --set-env-vars "SPRING_PROFILES_ACTIVE=prod,SPRING_DATA_REDIS_URL=rediss://default:redis-password@redis-host:latest:6379" \
             --set-secrets "DB_HOST=db-host:latest,DB_PORT=db-port:latest,DB_NAME=db-name:latest,DB_USERNAME=db-username:latest,DB_PASSWORD=db-password:latest,REDIS_HOST=redis-host:latest,REDIS_PORT=redis-port:latest,JWT_SECRET=jwt-secret:latest,KAKAO_CLIENT_ID=kakao-client-id:latest,KAKAO_CLIENT_SECRET=kakao-client-secret:latest,KAKAO_REDIRECT_URI=kakao-redirect-uri:latest,NAVER_CLIENT_ID=naver-client-id:latest,NAVER_CLIENT_SECRET=naver-client-secret:latest,NAVER_REDIRECT_URI=naver-redirect-uri:latest,GCS_PROJECT_ID=gcs-project-id:latest,GCS_BUCKET=gcs-bucket:latest,GCS_CREDENTIALS_JSON=gcs-credentials-json:latest,INTERNAL_API_TOKEN=internal-api-token:latest,OPENROUTER_API_KEY=openrouter-api-key:latest,PROOVY_AI_HOST=proovy-agent-url:latest,REDIS_PASSWORD=redis-password:latest" \
             --project ${{ secrets.GCP_PROJECT_ID }}
   
