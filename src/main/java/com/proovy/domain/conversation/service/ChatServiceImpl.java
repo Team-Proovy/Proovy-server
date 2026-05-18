@@ -506,9 +506,9 @@ public class ChatServiceImpl implements ChatService {
                 .map(asset -> {
                     // Presigned URL 생성 (15분 유효)
                     String url = s3Service.generatePresignedDownloadUrl(
-                            asset.getS3Key(), asset.getFileName(), 15);
-                    log.debug("[Chat] Presigned URL 생성 - assetId: {}, s3Key: {}",
-                            asset.getId(), asset.getS3Key());
+                            asset.getObjectKey(), asset.getFileName(), 15);
+                    log.debug("[Chat] Presigned URL 생성 - assetId: {}, objectKey: {}",
+                            asset.getId(), asset.getObjectKey());
                     return url;
                 })
                 .collect(Collectors.toList());

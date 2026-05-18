@@ -365,12 +365,12 @@ public class NoteServiceImpl implements NoteService {
         long freedStorageBytes = 0L;
 
         for (Asset asset : assets) {
-            if (asset.getS3Key() != null) {
-                s3KeysToDelete.add(asset.getS3Key());
+            if (asset.getObjectKey() != null) {
+                s3KeysToDelete.add(asset.getObjectKey());
                 freedStorageBytes += asset.getFileSize();
             }
-            if (asset.getThumbnailS3Key() != null) {
-                s3KeysToDelete.add(asset.getThumbnailS3Key());
+            if (asset.getThumbnailObjectKey() != null) {
+                s3KeysToDelete.add(asset.getThumbnailObjectKey());
             }
         }
 
@@ -503,8 +503,8 @@ public class NoteServiceImpl implements NoteService {
         // 12. 자산 정보 DTO 생성
         List<NoteDetailResponse.AssetInfo> assetInfos = noteAssets.stream()
                 .map(asset -> {
-                    String thumbnailUrl = asset.getThumbnailS3Key() != null
-                            ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                    String thumbnailUrl = asset.getThumbnailObjectKey() != null
+                            ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())
                             : null;
                     FileCategory category = FileCategory.fromMimeType(asset.getMimeType());
 
@@ -672,7 +672,7 @@ public class NoteServiceImpl implements NoteService {
                             .fileId(asset.getId())
                             .fileName(asset.getFileName())
                             .fileType("SOLUTION")
-                            .downloadUrl(s3Service.getFileUrl(asset.getS3Key()))
+                            .downloadUrl(s3Service.getFileUrl(asset.getObjectKey()))
                             .build())
                     .collect(Collectors.toList());
             if (generatedFiles.isEmpty()) {
@@ -713,8 +713,8 @@ public class NoteServiceImpl implements NoteService {
         // 3. 자산 정보 DTO 생성
         List<AssetListResponse.AssetInfo> assetInfos = assets.stream()
                 .map(asset -> {
-                    String thumbnailUrl = asset.getThumbnailS3Key() != null
-                            ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+                    String thumbnailUrl = asset.getThumbnailObjectKey() != null
+                            ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())
                             : null;
                     FileCategory category = FileCategory.fromMimeType(asset.getMimeType());
 

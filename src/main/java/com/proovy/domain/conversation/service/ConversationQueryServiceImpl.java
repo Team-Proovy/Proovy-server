@@ -69,7 +69,7 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                 .fileName(request.getFileName())
                 .fileSize(request.getFileSize())
                 .mimeType(request.getMimeType())
-                .s3Key(s3Key)
+                .objectKey(s3Key)
                 .source(Asset.AssetSource.upload)
                 .status(AssetStatus.PENDING)
                 .uploadExpiresAt(expiresAt)

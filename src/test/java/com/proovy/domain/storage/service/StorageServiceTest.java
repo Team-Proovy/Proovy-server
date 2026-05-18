@@ -79,7 +79,7 @@ class StorageServiceTest {
                 .fileName("test.pdf")
                 .fileSize(1024L * 1024L * 100) // 100MB
                 .mimeType("application/pdf")
-                .s3Key("users/1/assets/test.pdf")
+                .objectKey("users/1/assets/test.pdf")
                 .source(Asset.AssetSource.upload)
                 .build();
         ReflectionTestUtils.setField(testAsset, "id", 1L);
@@ -217,7 +217,7 @@ class StorageServiceTest {
                     .fileName("file1.pdf")
                     .fileSize(1024L * 1024L * 200) // 200MB
                     .mimeType("application/pdf")
-                    .s3Key("key1")
+                    .objectKey("key1")
                     .source(Asset.AssetSource.upload)
                     .build();
             ReflectionTestUtils.setField(asset1, "id", 2L);
@@ -228,7 +228,7 @@ class StorageServiceTest {
                     .fileName("file2.png")
                     .fileSize(1024L * 1024L * 50) // 50MB
                     .mimeType("image/png")
-                    .s3Key("key2")
+                    .objectKey("key2")
                     .source(Asset.AssetSource.upload)
                     .build();
             ReflectionTestUtils.setField(asset2, "id", 3L);

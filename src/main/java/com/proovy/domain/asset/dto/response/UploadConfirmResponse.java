@@ -44,7 +44,7 @@ public class UploadConfirmResponse {
                 .mimeType(asset.getMimeType())
                 .source(asset.getSource().name())
                 .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name() : null)
-                .thumbnailS3Key(asset.getThumbnailS3Key())
+                .thumbnailS3Key(asset.getThumbnailObjectKey())
                 .createdAt(asset.getCreatedAt())
                 .build();
     }

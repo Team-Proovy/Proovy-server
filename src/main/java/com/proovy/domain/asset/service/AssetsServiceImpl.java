@@ -94,7 +94,7 @@ public class AssetsServiceImpl implements AssetsService {
                 .fileName(request.getFileName())
                 .fileSize(request.getFileSize())
                 .mimeType(request.getMimeType())
-                .s3Key(s3Key)
+                .objectKey(s3Key)
                 .source(Asset.AssetSource.upload)
                 .status(AssetStatus.PENDING)
                 .uploadExpiresAt(expiresAt)
@@ -172,7 +172,7 @@ public class AssetsServiceImpl implements AssetsService {
         // 3. Presigned URL 생성
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(PRESIGNED_URL_DURATION_MINUTES);
         String downloadUrl = s3Service.generatePresignedDownloadUrl(
-                asset.getS3Key(),
+                asset.getObjectKey(),
                 asset.getFileName(),
                 PRESIGNED_URL_DURATION_MINUTES
         );
@@ -200,7 +200,7 @@ public class AssetsServiceImpl implements AssetsService {
         }
 
         // 4. S3 파일 존재 여부 확인
-        if (!s3Service.doesFileExist(asset.getS3Key())) {
+        if (!s3Service.doesFileExist(asset.getObjectKey())) {
             throw new BusinessException(ErrorCode.ASSET4007);
         }
 
@@ -217,7 +217,7 @@ public class AssetsServiceImpl implements AssetsService {
 
         // 6. 썸네일 생성
         final Long savedAssetId = asset.getId();
-        final String s3Key = asset.getS3Key();
+        final String s3Key = asset.getObjectKey();
         final String mimeType = asset.getMimeType();
 
         // 이미지 파일인 경우: 동기적으로 썸네일 생성 (빠른 응답)
@@ -252,8 +252,8 @@ public class AssetsServiceImpl implements AssetsService {
                 assetId, userId, asset.getOcrStatus());
 
         // 썸네일 URL 생성 (있는 경우)
-        String thumbnailUrl = asset.getThumbnailS3Key() != null
-                ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+        String thumbnailUrl = asset.getThumbnailObjectKey() != null
+                ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())
                 : null;
 
         return AssetDetailResponse.from(asset, thumbnailUrl);
@@ -273,8 +273,8 @@ public class AssetsServiceImpl implements AssetsService {
         log.debug("[Asset] 자산 상세 조회 - assetId: {}, ocrStatus: {}", assetId, asset.getOcrStatus());
 
         // 썸네일 URL 생성 (있는 경우)
-        String thumbnailUrl = asset.getThumbnailS3Key() != null
-                ? s3Service.getThumbnailUrl(asset.getThumbnailS3Key())
+        String thumbnailUrl = asset.getThumbnailObjectKey() != null
+                ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())
                 : null;
 
         return AssetDetailResponse.from(asset, thumbnailUrl);
@@ -293,8 +293,8 @@ public class AssetsServiceImpl implements AssetsService {
         }
 
         // S3 키 저장 (트랜잭션 커밋 후 삭제를 위해)
-        final String s3Key = asset.getS3Key();
-        final String thumbnailS3Key = asset.getThumbnailS3Key();
+        final String s3Key = asset.getObjectKey();
+        final String thumbnailS3Key = asset.getThumbnailObjectKey();
 
         // 3. DB Asset 레코드 삭제 (먼저 수행)
         assetRepository.delete(asset);

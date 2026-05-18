@@ -37,11 +37,11 @@ public class Asset {
     @Column(nullable = false, length = 100)
     private String mimeType;
 
-    @Column(nullable = false, length = 500)
-    private String s3Key; // S3 저장 경로
+    @Column(name = "object_key", nullable = false, length = 500)
+    private String objectKey; // GCS 저장 경로
 
-    @Column(length = 500)
-    private String thumbnailS3Key; // 썸네일 S3 경로
+    @Column(name = "thumbnail_object_key", length = 500)
+    private String thumbnailObjectKey; // 썸네일 GCS 경로
 
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
@@ -77,15 +77,15 @@ public class Asset {
 
     @Builder
     public Asset(Long userId, Long noteId, String fileName, Long fileSize,
-                 String mimeType, String s3Key, String thumbnailS3Key, AssetSource source,
+                 String mimeType, String objectKey, String thumbnailObjectKey, AssetSource source,
                  AssetStatus status, LocalDateTime uploadExpiresAt) {
         this.userId = userId;
         this.noteId = noteId;
         this.fileName = fileName;
         this.fileSize = fileSize;
         this.mimeType = mimeType;
-        this.s3Key = s3Key;
-        this.thumbnailS3Key = thumbnailS3Key;
+        this.objectKey = objectKey;
+        this.thumbnailObjectKey = thumbnailObjectKey;
         this.source = source;
         this.status = status;
         this.uploadExpiresAt = uploadExpiresAt;
@@ -129,10 +129,10 @@ public class Asset {
     }
 
     /**
-     * 썸네일 S3 키 업데이트
+     * 썸네일 Object 키 업데이트
      */
-    public void updateThumbnail(String thumbnailS3Key) {
-        this.thumbnailS3Key = thumbnailS3Key;
+    public void updateThumbnail(String thumbnailObjectKey) {
+        this.thumbnailObjectKey = thumbnailObjectKey;
         // 이미지 파일은 썸네일만 있으면 완료 (OCR 불필요)
         if (this.ocrStatus == OcrStatus.processing) {
             this.ocrStatus = OcrStatus.completed;

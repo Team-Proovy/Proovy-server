@@ -68,12 +68,12 @@ public class StorageService {
 
         for (Asset asset : assets) {
             // 원본 파일
-            s3KeysToDelete.add(asset.getS3Key());
+            s3KeysToDelete.add(asset.getObjectKey());
             totalFileSize += asset.getFileSize();
 
             // 썸네일 파일
-            if (asset.getThumbnailS3Key() != null) {
-                s3KeysToDelete.add(asset.getThumbnailS3Key());
+            if (asset.getThumbnailObjectKey() != null) {
+                s3KeysToDelete.add(asset.getThumbnailObjectKey());
             }
         }
 
@@ -151,7 +151,7 @@ public class StorageService {
                             .filter(asset -> lowerKeyword == null || titleMatches ||
                                     asset.getFileName().toLowerCase().contains(lowerKeyword))
                             .map(asset -> {
-                                String thumbnailUrl = s3Service.getThumbnailUrl(asset.getThumbnailS3Key());
+                                String thumbnailUrl = s3Service.getThumbnailUrl(asset.getThumbnailObjectKey());
                                 return AssetSummaryDto.of(asset, thumbnailUrl);
                             })
                             .toList();

@@ -205,14 +205,14 @@ public class UserService {
     }
 
     private void deleteUserData(Long userId) {
-        // S3 키를 먼저 수집 (원본 + 썸네일)
-        List<String> s3Keys = new java.util.ArrayList<>();
+        // GCS 키를 먼저 수집 (원본 + 썸네일)
+        List<String> objectKeys = new java.util.ArrayList<>();
         assetRepository.findAllByUserId(userId).forEach(asset -> {
-            if (asset.getS3Key() != null) {
-                s3Keys.add(asset.getS3Key());
+            if (asset.getObjectKey() != null) {
+                objectKeys.add(asset.getObjectKey());
             }
-            if (asset.getThumbnailS3Key() != null) {
-                s3Keys.add(asset.getThumbnailS3Key());
+            if (asset.getThumbnailObjectKey() != null) {
+                objectKeys.add(asset.getThumbnailObjectKey());
             }
         });
 
@@ -230,11 +230,11 @@ public class UserService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                s3Keys.forEach(key -> {
+                objectKeys.forEach(key -> {
                     try {
                         s3Service.deleteFile(key);
                     } catch (Exception e) {
-                        log.warn("S3 파일 삭제 실패: s3Key={}", key, e);
+                        log.warn("GCS 파일 삭제 실패: objectKey={}", key, e);
                     }
                 });
             }
