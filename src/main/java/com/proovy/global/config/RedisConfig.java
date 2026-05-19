@@ -42,7 +42,11 @@ public class RedisConfig {
         config.setPort(port);
         
         // 비밀번호 설정 (비어있지 않은 경우)
-        if (password != null && !password.trim().isEmpty()) {
+        if (sslEnabled && (password == null || password.isBlank())) {
+            throw new IllegalStateException("spring.data.redis.password must be set when SSL is enabled");
+        }
+
+        if (password != null && !password.isBlank()) {
             config.setPassword(password);
         }
 
