@@ -178,8 +178,6 @@ spring:
     redis:
       ssl:
         enabled: true
-        bundle:
-          implicit: true
 
 proovy:
   api:
