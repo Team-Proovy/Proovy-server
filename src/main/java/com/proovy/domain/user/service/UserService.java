@@ -3,9 +3,6 @@ package com.proovy.domain.user.service;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.auth.repository.RefreshTokenRepository;
 import com.proovy.domain.auth.service.AccessTokenBlacklistService;
-import com.proovy.domain.conversation.repository.ChatMessageRepository;
-import com.proovy.domain.conversation.repository.ChatSessionRepository;
-import com.proovy.domain.conversation.repository.MessageAttachmentRepository;
 import com.proovy.domain.credit.entity.CreditBalance;
 import com.proovy.domain.credit.repository.CreditBalanceRepository;
 import com.proovy.domain.credit.repository.CreditHistoryRepository;
@@ -53,9 +50,6 @@ public class UserService {
     private final CreditBalanceRepository creditBalanceRepository;
     private final CreditHistoryRepository creditHistoryRepository;
     private final CreditBalanceService creditBalanceService;
-    private final MessageAttachmentRepository messageAttachmentRepository;
-    private final ChatMessageRepository chatMessageRepository;
-    private final ChatSessionRepository chatSessionRepository;
     private final GcsService s3Service;
     private final RefreshTokenRepository refreshTokenRepository;
     private final AccessTokenBlacklistService accessTokenBlacklistService;
@@ -217,14 +211,10 @@ public class UserService {
             }
         });
 
-        // DB 데이터 삭제 (FK 자식 → 부모 순서)
-        messageAttachmentRepository.deleteAllByUserId(userId);
-        chatMessageRepository.deleteAllByUserId(userId);
-        chatSessionRepository.deleteAllByUserId(userId);
+        // DB 데이터 삭제: Note 삭제가 메시지·run·event·asset·solution을 FK cascade로 정리한다.
+        noteRepository.deleteAllByUserId(userId);
         creditHistoryRepository.deleteAllByUserId(userId);
         creditBalanceRepository.deleteAllByUserId(userId);
-        assetRepository.deleteAllByUserId(userId);
-        noteRepository.deleteAllByUserId(userId);
         userPlanRepository.deleteAllByUserId(userId);
 
         // 커밋 이후 S3 삭제 (best-effort)

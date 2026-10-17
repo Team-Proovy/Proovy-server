@@ -2,7 +2,6 @@ package com.proovy.domain.conversation.service;
 
 import com.proovy.domain.conversation.dto.request.CanvasImageUploadRequest;
 import com.proovy.domain.conversation.dto.response.CanvasImageUploadResponse;
-import com.proovy.domain.conversation.dto.response.ConversationDetailResponse;
 import com.proovy.domain.conversation.dto.response.ConversationSearchResponse;
 import org.springframework.data.domain.Pageable;
 
@@ -27,9 +26,4 @@ public interface ConversationQueryService {
             LocalDate endDate,
             Pageable pageable
     );
-
-    /**
-     * 대화 상세 조회
-     */
-    ConversationDetailResponse getConversationDetail(Long userId, Long conversationId);
 }

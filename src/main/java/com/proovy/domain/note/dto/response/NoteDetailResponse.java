@@ -80,13 +80,10 @@ public class NoteDetailResponse {
     @Getter
     @Builder
     public static class ConversationInfo {
-        @Schema(description = "대화 ID (USER 메시지의 ChatMessage ID)", example = "100")
-        private Long conversationId;
-
         @Schema(description = "사용자 메시지")
         private MessageInfo userMessage;
 
-        @Schema(description = "AI 응답 메시지")
+        @Schema(description = "AI 응답 메시지. 아직 placeholder이거나 없으면 null", nullable = true)
         private MessageInfo assistantMessage;
 
         @Schema(description = "대화 생성 시각")
@@ -97,52 +94,17 @@ public class NoteDetailResponse {
     @Builder
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class MessageInfo {
-        @Schema(description = "메시지 ID", example = "200")
-        private Long messageId;
+        @Schema(description = "메시지 ID (UUID)")
+        private String messageId;
 
-        @Schema(description = "메시지 내용", example = "1번 문제 풀어줘")
+        @Schema(description = "메시지 상태 (PENDING, STREAMING, COMPLETED, FAILED, CANCELED)", example = "COMPLETED")
+        private String status;
+
+        @Schema(description = "공개 본문 plain text (미완료 응답은 null)", example = "1번 문제 풀어줘", nullable = true)
         private String content;
-
-        @Schema(description = "멘션된 파일 목록")
-        private List<MentionedAsset> mentionedAssets;
-
-        @Schema(description = "멘션된 도구 목록")
-        private List<String> mentionedTools;
-
-        @Schema(description = "사용된 도구 목록")
-        private List<String> usedTools;
-
-        @Schema(description = "생성된 파일 목록")
-        private List<GeneratedFile> generatedFiles;
 
         @Schema(description = "메시지 생성 시각")
         private LocalDateTime createdAt;
-    }
-
-    @Getter
-    @Builder
-    public static class MentionedAsset {
-        @Schema(description = "자산 ID", example = "3")
-        private Long assetId;
-
-        @Schema(description = "파일명", example = "discrete_math_HW2.pdf")
-        private String fileName;
-    }
-
-    @Getter
-    @Builder
-    public static class GeneratedFile {
-        @Schema(description = "파일 ID", example = "50")
-        private Long fileId;
-
-        @Schema(description = "파일명", example = "solution_1.pdf")
-        private String fileName;
-
-        @Schema(description = "파일 타입", example = "SOLUTION")
-        private String fileType;
-
-        @Schema(description = "다운로드 URL", example = "https://s3.amazonaws.com/proovy/generated/solution_1.pdf")
-        private String downloadUrl;
     }
 
     @Getter

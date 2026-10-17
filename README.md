@@ -151,12 +151,10 @@ proovy-api/
 - AI 서버 연동
 
 ### 7. Conversation 도메인
-- 사용 가능한 도구 목록 조회
-- 멘션용 파일 검색 (자동완성)
+- Note가 유일한 대화 단위 (`conversationId = noteId`), 메시지는 Note에 직접 연결
 - 캔버스 이미지 업로드
-- 대화 전송 (질문 + AI 응답, SSE 스트리밍)
-- 대화 목록 조회 (검색)
-- 대화 상세 조회
+- 대화 검색
+- 신규 run 접수·SSE·취소는 S07 후속 작업 (구형 `/stream/v2` 경로는 제거됨)
 
 ### 8. Credit 도메인
 - 크레딧 잔액 조회
@@ -165,9 +163,29 @@ proovy-api/
 - 크레딧 비용 정보 조회
 - 예상 크레딧 비용 조회
 
-### 9. Embedding 도메인
-- 노트 임베딩 저장/조회
-- 유사 노트 검색
+### 9. Run 도메인 (S07 저장 기반)
+- `ai_runs`·`ai_run_events`·`run_asset_dependencies`, `verified_solutions`, `request_usage_*` ledger
+- 상태 전이·불변 snapshot·Active Run 제약은 DB baseline에서 강제
+
+## 데이터베이스
+
+- 제품 schema는 빈 DB에서 `db/migration/V1__product_baseline.sql`로 생성한다. 과거 migration·데이터 이관은 없으며 이후 변경은 `V2__...`부터 versioned migration으로 추가한다.
+- `baseline-on-migrate`는 꺼져 있어 과거 schema/history가 있는 DB에서는 기동이 실패한다.
+- Server ↔ Brain DB role 경계는 `db/provisioning/role-boundary.sql`(Flyway 미실행, 운영자 적용)로 고정한다.
+
+### DB 통합 테스트
+
+실제 Postgres에 테스트마다 격리 database를 만들어 제약·role·baseline을 검사한다 (superuser 접속 필요).
+
+```bash
+docker run -d --name proovy-postgres-test -p 127.0.0.1:21432:5432 \
+  -e POSTGRES_USER=proovy -e POSTGRES_PASSWORD=proovy123 postgres:15-alpine
+PROOVY_TEST_PG_URL=jdbc:postgresql://127.0.0.1:21432/postgres \
+PROOVY_TEST_PG_USER=proovy PROOVY_TEST_PG_PASSWORD=proovy123 \
+PROOVY_REQUIRE_DB_TESTS=true ./gradlew test
+```
+
+환경변수가 없으면 DB 테스트는 skip(미실행)되고, `PROOVY_REQUIRE_DB_TESTS=true`(CI)이면 실패한다.
 
 ## API 문서
 

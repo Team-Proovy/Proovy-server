@@ -22,7 +22,7 @@ public class AssetDetailResponse {
     @Schema(description = "소속 노트 ID", example = "10")
     private Long noteId;
 
-    @Schema(description = "파일 출처 (upload: 업로드, ai_generated: AI 생성)", example = "upload")
+    @Schema(description = "파일 출처 (upload: 업로드)", example = "upload")
     private String source;
 
     @Schema(description = "파일명", example = "discrete_math_HW2.pdf")
@@ -92,7 +92,7 @@ public class AssetDetailResponse {
                 .fileSize(asset.getFileSize())
                 .mimeType(asset.getMimeType())
                 .thumbnailUrl(thumbnailUrl)
-                .totalPages(asset.getTotalPages())
+                .totalPages(asset.getPageCount())
                 .ocrStatus(asset.getOcrStatus() != null ? asset.getOcrStatus().name() : null)
                 .ocrProcessedAt(asset.getOcrProcessedAt())
                 .createdAt(asset.getCreatedAt());
