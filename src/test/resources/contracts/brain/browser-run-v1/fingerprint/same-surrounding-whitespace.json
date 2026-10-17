@@ -1,0 +1,60 @@
+{
+  "relation": "same",
+  "rationale": "text·latex 양끝 공백은 strip된다.",
+  "left": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "noteId": "123",
+    "text": "이 문제를 풀고 검산해줘",
+    "latex": "\\int_0^1 x^2\\,dx",
+    "requestedTasks": [
+      "solve",
+      "check"
+    ],
+    "requestedOutputs": [
+      "text"
+    ],
+    "turnAttachmentIds": [
+      "d99f9829-981e-5da9-a3fe-b3bed3b7439e"
+    ],
+    "viewerFocus": {
+      "noteAssetId": "asset-9f8c",
+      "page": 3,
+      "selection": {
+        "left": 0.1,
+        "top": 0.2,
+        "right": 0.6,
+        "bottom": 0.5
+      }
+    }
+  },
+  "right": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "noteId": "123",
+    "text": "  이 문제를 풀고 검산해줘　",
+    "latex": "\\int_0^1 x^2\\,dx\n",
+    "requestedTasks": [
+      "solve",
+      "check"
+    ],
+    "requestedOutputs": [
+      "text"
+    ],
+    "turnAttachmentIds": [
+      "d99f9829-981e-5da9-a3fe-b3bed3b7439e"
+    ],
+    "viewerFocus": {
+      "noteAssetId": "asset-9f8c",
+      "page": 3,
+      "selection": {
+        "left": 0.1,
+        "top": 0.2,
+        "right": 0.6,
+        "bottom": 0.5
+      }
+    }
+  },
+  "expected_canonical_left": "{\"latex\":\"\\\\int_0^1 x^2\\\\,dx\",\"noteId\":\"123\",\"requestedOutputs\":[\"text\"],\"requestedTasks\":[\"check\",\"solve\"],\"text\":\"이 문제를 풀고 검산해줘\",\"turnAttachmentIds\":[\"d99f9829-981e-5da9-a3fe-b3bed3b7439e\"],\"viewerFocus\":{\"noteAssetId\":\"asset-9f8c\",\"page\":3,\"selection\":{\"bottom\":0.5,\"left\":0.1,\"right\":0.6,\"top\":0.2}}}",
+  "expected_canonical_right": "{\"latex\":\"\\\\int_0^1 x^2\\\\,dx\",\"noteId\":\"123\",\"requestedOutputs\":[\"text\"],\"requestedTasks\":[\"check\",\"solve\"],\"text\":\"이 문제를 풀고 검산해줘\",\"turnAttachmentIds\":[\"d99f9829-981e-5da9-a3fe-b3bed3b7439e\"],\"viewerFocus\":{\"noteAssetId\":\"asset-9f8c\",\"page\":3,\"selection\":{\"bottom\":0.5,\"left\":0.1,\"right\":0.6,\"top\":0.2}}}",
+  "expected_fingerprint_left": "7ed6e78fa8f0186b65aab8b6440ece969e79f374b6fcd5092b9bec4014f97cdc",
+  "expected_fingerprint_right": "7ed6e78fa8f0186b65aab8b6440ece969e79f374b6fcd5092b9bec4014f97cdc"
+}

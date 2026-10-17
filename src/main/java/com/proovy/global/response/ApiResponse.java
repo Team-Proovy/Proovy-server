@@ -53,4 +53,9 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> failure(ErrorCode errorCode) {
         return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), null);
     }
+
+    // 실패 응답 (ErrorCode + 복구용 result, 예: RUN4091 activeRunId)
+    public static <T> ApiResponse<T> failure(ErrorCode errorCode, T result) {
+        return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), result);
+    }
 }

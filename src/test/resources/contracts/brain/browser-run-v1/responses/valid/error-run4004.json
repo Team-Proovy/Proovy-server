@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 400,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4004",
+    "message": "다른 실행의 이벤트 재개 위치입니다."
+  }
+}

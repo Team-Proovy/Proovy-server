@@ -1,0 +1,125 @@
+{
+  "rationale": "run.canceling 뒤 page 경계.",
+  "violates": "S3",
+  "schema_rejects": false,
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "3b9e6264-f089-5674-a056-0eb68f7bca88",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "fbdcbaeb-43e1-56ec-9602-cbfcbcb603c4",
+        "noteId": "123",
+        "userMessageId": "b15febec-9788-5f63-aca6-fe161d666f5c",
+        "assistantMessageId": "d08d8d6a-74e3-5fbd-b684-30e6a3c10a26",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "3b9e6264-f089-5674-a056-0eb68f7bca88",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "3b9e6264-f089-5674-a056-0eb68f7bca88",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "3b9e6264-f089-5674-a056-0eb68f7bca88",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "3b9e6264-f089-5674-a056-0eb68f7bca88",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-8",
+        "kind": "note_retrieval",
+        "label": "searching_notes"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "3b9e6264-f089-5674-a056-0eb68f7bca88",
+      "seq": 6,
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "run.canceling",
+      "payload": {
+        "assistantMessageId": "d08d8d6a-74e3-5fbd-b684-30e6a3c10a26",
+        "status": "CANCELING"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "3b9e6264-f089-5674-a056-0eb68f7bca88",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.canceled",
+      "payload": {
+        "activityId": "activity-8",
+        "kind": "note_retrieval"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "seq": 8,
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0,
+        "title": "본문"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "3b9e6264-f089-5674-a056-0eb68f7bca88",
+      "seq": 9,
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "run.canceled",
+      "payload": {
+        "assistantMessageId": "d08d8d6a-74e3-5fbd-b684-30e6a3c10a26",
+        "status": "CANCELED",
+        "cause": "user_requested",
+        "message": "답변 생성을 중단했습니다."
+      }
+    }
+  ]
+}

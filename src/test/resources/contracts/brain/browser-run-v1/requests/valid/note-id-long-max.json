@@ -1,0 +1,10 @@
+{
+  "rationale": "noteId 상한 = Java Long.MAX_VALUE(BIGINT).",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "noteId": "9223372036854775807"
+  },
+  "expected_canonical": "{\"noteId\":\"9223372036854775807\",\"text\":\"이 문제를 풀어줘\"}",
+  "expected_fingerprint": "04cbfa377e8b93a8c2338433bd2f60cf0e179d396a4c0b017d3384e83c51e7d3"
+}

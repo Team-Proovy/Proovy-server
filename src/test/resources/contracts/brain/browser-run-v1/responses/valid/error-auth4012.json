@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 401,
+  "body": {
+    "isSuccess": false,
+    "code": "AUTH4012",
+    "message": "토큰이 만료되었습니다."
+  }
+}

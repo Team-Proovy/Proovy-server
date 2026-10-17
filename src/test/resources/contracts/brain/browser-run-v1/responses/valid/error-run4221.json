@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 422,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4221",
+    "message": "첨부 또는 참조한 자료를 사용할 수 없습니다."
+  }
+}

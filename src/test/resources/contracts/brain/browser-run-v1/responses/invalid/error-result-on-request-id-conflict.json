@@ -1,0 +1,12 @@
+{
+  "schema": "ErrorResponse",
+  "rationale": "RUN4092는 기존 run 정보를 노출하지 않는다.",
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4092",
+    "message": "이미 사용된 요청 ID입니다.",
+    "result": {
+      "activeRunId": "eeff258f-0aa4-5728-a27a-3c05ac927a57"
+    }
+  }
+}

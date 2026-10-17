@@ -1,0 +1,13 @@
+{
+  "rationale": "noteId가 Java Long.MAX_VALUE 초과 — 404가 아니라 형식 오류.",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "noteId": "9223372036854775808"
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

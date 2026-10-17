@@ -1,0 +1,12 @@
+{
+  "rationale": "requestId는 소문자 canonical UUID만 허용.",
+  "request": {
+    "requestId": "7F460A7B-BF54-570E-A3AF-B63A26435627",
+    "text": "이 문제를 풀어줘"
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

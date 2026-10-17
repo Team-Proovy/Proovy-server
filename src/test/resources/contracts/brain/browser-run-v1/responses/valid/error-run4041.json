@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 404,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4041",
+    "message": "대상을 찾을 수 없습니다."
+  }
+}

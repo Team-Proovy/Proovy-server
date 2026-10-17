@@ -1,0 +1,17 @@
+{
+  "relation": "different",
+  "rationale": "noteId 부재와 존재는 다르다 — 받은 run.created.noteId를 넣어 재전송하면 RUN4092.",
+  "left": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘"
+  },
+  "right": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "noteId": "123"
+  },
+  "expected_canonical_left": "{\"text\":\"이 문제를 풀어줘\"}",
+  "expected_canonical_right": "{\"noteId\":\"123\",\"text\":\"이 문제를 풀어줘\"}",
+  "expected_fingerprint_left": "8f8f695c8620b653d591c5098edc3ca99899d8cd7818ef5e7a1ca6866d2f8a7f",
+  "expected_fingerprint_right": "3a0a7f634a91d0faa3359ab4f7a4df58677f25a195c2c9c95c67fb20f538fbb2"
+}

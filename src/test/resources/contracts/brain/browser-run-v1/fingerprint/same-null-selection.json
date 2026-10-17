@@ -1,0 +1,27 @@
+{
+  "relation": "same",
+  "rationale": "selection null과 부재는 같다.",
+  "left": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "noteId": "123",
+    "viewerFocus": {
+      "noteAssetId": "asset-9f8c",
+      "page": 2
+    }
+  },
+  "right": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "noteId": "123",
+    "viewerFocus": {
+      "noteAssetId": "asset-9f8c",
+      "page": 2,
+      "selection": null
+    }
+  },
+  "expected_canonical_left": "{\"noteId\":\"123\",\"text\":\"이 문제를 풀어줘\",\"viewerFocus\":{\"noteAssetId\":\"asset-9f8c\",\"page\":2}}",
+  "expected_canonical_right": "{\"noteId\":\"123\",\"text\":\"이 문제를 풀어줘\",\"viewerFocus\":{\"noteAssetId\":\"asset-9f8c\",\"page\":2}}",
+  "expected_fingerprint_left": "f8e7d2fa5fa677bb5a4535bc166e8540cb92d82f9cc2825c52e633efee9d7004",
+  "expected_fingerprint_right": "f8e7d2fa5fa677bb5a4535bc166e8540cb92d82f9cc2825c52e633efee9d7004"
+}

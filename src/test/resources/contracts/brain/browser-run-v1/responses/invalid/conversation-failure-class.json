@@ -1,0 +1,37 @@
+{
+  "schema": "ConversationPageResponse",
+  "rationale": "assistant failure에 failureClass.",
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "noteId": "123",
+      "activeRun": null,
+      "messages": [
+        {
+          "messageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+          "role": "assistant",
+          "status": "FAILED",
+          "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+          "createdAt": "2026-10-17T09:00:01Z",
+          "assistant": {
+            "responseDisposition": null,
+            "clarificationReason": null,
+            "assistantResponse": null,
+            "verificationSummary": [],
+            "failure": {
+              "code": "verification_failed",
+              "reason": null,
+              "message": "풀이의 오류를 수정하지 못했습니다. 새 요청으로 다시 시도할 수 있습니다.",
+              "recoverable": true,
+              "failureClass": "provider_timeout"
+            },
+            "cancel": null
+          }
+        }
+      ],
+      "nextBefore": null
+    }
+  }
+}

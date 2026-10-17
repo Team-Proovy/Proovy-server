@@ -1,0 +1,1998 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proovy.invalid/contracts/browser-run-v1/schemas/browser-run.schema.json",
+  "title": "browser-run-v1",
+  "description": "Browser run API wire contract (meaning owned by Proovy-server, task 1.75). Validate with a registry that maps https://proovy.invalid/contracts/terminal-v2/browser.schema.json to terminal-v2/browser.schema.json.",
+  "$defs": {
+    "Uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])"
+    },
+    "NoteId": {
+      "type": "string",
+      "pattern": "^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)(?![\\s\\S])"
+    },
+    "OpaqueId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}(?![\\s\\S])"
+    },
+    "Seq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "EventId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:(?:[1-9][0-9]{0,14}|[1-8][0-9]{15}|900[0-6][0-9]{12}|90070[0-9]{11}|90071[0-8][0-9]{10}|900719[0-8][0-9]{9}|9007199[0-1][0-9]{8}|90071992[0-4][0-9]{7}|900719925[0-3][0-9]{6}|9007199254[0-6][0-9]{5}|90071992547[0-3][0-9]{4}|9007199254740[0-8][0-9]{2}|90071992547409[0-8][0-9]|9007199254740990|9007199254740991)(?![\\s\\S])"
+    },
+    "OccurredAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z(?![\\s\\S])"
+    },
+    "PublicRunStatus": {
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "CANCELING",
+        "COMPLETED",
+        "FAILED",
+        "CANCELED"
+      ]
+    },
+    "ActiveRunStatus": {
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "CANCELING"
+      ]
+    },
+    "RequestedTask": {
+      "enum": [
+        "solve",
+        "check",
+        "explain"
+      ]
+    },
+    "RequestedOutput": {
+      "description": "video is a known value but Phase-1 gated: RUN4002.",
+      "enum": [
+        "text",
+        "video"
+      ]
+    },
+    "CancelCause": {
+      "enum": [
+        "user_requested",
+        "asset_deleting",
+        "budget_exhausted"
+      ]
+    },
+    "AttachmentMime": {
+      "enum": [
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+      ]
+    },
+    "PageSelection": {
+      "description": "page-selection-v1; left<right and top<bottom are contract checks (RUN4001) beyond this schema.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "left",
+        "top",
+        "right",
+        "bottom"
+      ],
+      "properties": {
+        "left": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "top": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "right": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "bottom": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "ViewerFocus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "noteAssetId",
+        "page"
+      ],
+      "properties": {
+        "noteAssetId": {
+          "$ref": "#/$defs/OpaqueId"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PageSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ConversationRunRequest": {
+      "description": "POST /api/conversations body. Closed: unknown or forbidden fields are RUN4001.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "text"
+      ],
+      "properties": {
+        "requestId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "noteId": {
+          "$ref": "#/$defs/NoteId"
+        },
+        "text": {
+          "description": "1..10000 code points after stripping the internal-run-v1 strip set (Python str.strip()); the upper bound is a contract check (RUN4001) beyond this schema because the raw value may carry surrounding blanks.",
+          "type": "string",
+          "minLength": 1,
+          "pattern": "[^\\t\\n\\u000b\\f\\r\\u001c-\\u001f \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+        },
+        "latex": {
+          "anyOf": [
+            {
+              "description": "1..10000 code points after stripping the internal-run-v1 strip set (Python str.strip()); the upper bound is a contract check (RUN4001) beyond this schema because the raw value may carry surrounding blanks.",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "[^\\t\\n\\u000b\\f\\r\\u001c-\\u001f \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requestedTasks": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/RequestedTask"
+          }
+        },
+        "requestedOutputs": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/RequestedOutput"
+          }
+        },
+        "turnAttachmentIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/Uuid"
+          }
+        },
+        "viewerFocus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ViewerFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "isSuccess",
+        "code",
+        "message"
+      ],
+      "properties": {
+        "isSuccess": {
+          "const": false
+        },
+        "code": {
+          "enum": [
+            "AUTH4010",
+            "AUTH4012",
+            "AUTH4013",
+            "RUN4001",
+            "RUN4002",
+            "RUN4003",
+            "RUN4004",
+            "RUN4021",
+            "RUN4041",
+            "RUN4091",
+            "RUN4092",
+            "RUN4221",
+            "RUN4291"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "$ref": "#/$defs/ActiveRunConflict"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "AUTH4010"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "인증 토큰이 필요합니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "AUTH4012"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "토큰이 만료되었습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "AUTH4013"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "유효하지 않은 토큰입니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4001"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "요청 형식이 올바르지 않습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4002"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "지원하지 않는 요청 항목이 포함되어 있습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4003"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "이벤트 재개 위치가 올바르지 않습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4004"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "다른 실행의 이벤트 재개 위치입니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4021"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "사용 가능한 잔여 사용량이 부족합니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4041"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "대상을 찾을 수 없습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4091"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "이 노트에서 진행 중인 답변이 있습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4092"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "이미 사용된 요청 ID입니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4221"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "첨부 또는 참조한 자료를 사용할 수 없습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4291"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RUN4091"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "result"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "result"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ActiveRunConflict": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "activeRunId"
+      ],
+      "properties": {
+        "activeRunId": {
+          "$ref": "#/$defs/Uuid"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        }
+      ]
+    },
+    "RunFailureSummary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "reason",
+        "recoverable"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "../../terminal-v2/browser.schema.json#/$defs/FailureCode"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "../../terminal-v2/browser.schema.json#/$defs/AttachmentFailureReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        }
+      ]
+    },
+    "RunStatus": {
+      "description": "Internal RETRYING is projected to RUNNING.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "runId",
+        "requestId",
+        "noteId",
+        "userMessageId",
+        "assistantMessageId",
+        "status",
+        "cancelable",
+        "lastSeq",
+        "responseDisposition",
+        "failure",
+        "createdAt",
+        "completedAt"
+      ],
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "requestId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "noteId": {
+          "$ref": "#/$defs/NoteId"
+        },
+        "userMessageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "assistantMessageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "status": {
+          "$ref": "#/$defs/PublicRunStatus"
+        },
+        "cancelable": {
+          "type": "boolean"
+        },
+        "lastSeq": {
+          "$ref": "#/$defs/Seq"
+        },
+        "responseDisposition": {
+          "anyOf": [
+            {
+              "$ref": "../../terminal-v2/browser.schema.json#/$defs/ResponseDisposition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RunFailureSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "$ref": "#/$defs/OccurredAt"
+        },
+        "completedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OccurredAt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        },
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "RUNNING"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": true
+              },
+              "responseDisposition": {
+                "type": "null"
+              },
+              "failure": {
+                "type": "null"
+              },
+              "completedAt": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "CANCELING"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": false
+              },
+              "responseDisposition": {
+                "type": "null"
+              },
+              "failure": {
+                "type": "null"
+              },
+              "completedAt": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "COMPLETED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": false
+              },
+              "responseDisposition": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "failure": {
+                "type": "null"
+              },
+              "completedAt": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "FAILED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": false
+              },
+              "responseDisposition": {
+                "type": "null"
+              },
+              "failure": {
+                "not": {
+                  "type": "null"
+                }
+              },
+              "completedAt": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "CANCELED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": false
+              },
+              "responseDisposition": {
+                "type": "null"
+              },
+              "failure": {
+                "type": "null"
+              },
+              "completedAt": {
+                "not": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RunCancelResult": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "runId",
+        "status",
+        "outcome"
+      ],
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "status": {
+          "$ref": "#/$defs/PublicRunStatus"
+        },
+        "outcome": {
+          "enum": [
+            "accepted",
+            "already_canceling",
+            "already_terminal"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        },
+        {
+          "if": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "accepted"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "CANCELING",
+                  "CANCELED"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "already_canceling"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "CANCELING"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "already_terminal"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "COMPLETED",
+                  "FAILED",
+                  "CANCELED"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "TurnAttachmentView": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "attachmentId",
+        "mime",
+        "displayName"
+      ],
+      "properties": {
+        "attachmentId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "mime": {
+          "$ref": "#/$defs/AttachmentMime"
+        },
+        "displayName": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        }
+      ]
+    },
+    "UserMessageContent": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "text",
+        "latex",
+        "requestedTasks",
+        "requestedOutputs",
+        "turnAttachments",
+        "viewerFocus"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "latex": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requestedTasks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/RequestedTask"
+          }
+        },
+        "requestedOutputs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "const": "text"
+          }
+        },
+        "turnAttachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TurnAttachmentView"
+          }
+        },
+        "viewerFocus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ViewerFocus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        }
+      ]
+    },
+    "AssistantFailure": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "code",
+        "reason",
+        "message",
+        "recoverable"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "../../terminal-v2/browser.schema.json#/$defs/FailureCode"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "../../terminal-v2/browser.schema.json#/$defs/AttachmentFailureReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        }
+      ]
+    },
+    "AssistantCancel": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "cause",
+        "message"
+      ],
+      "properties": {
+        "cause": {
+          "$ref": "#/$defs/CancelCause"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        },
+        {
+          "if": {
+            "properties": {
+              "cause": {
+                "const": "user_requested"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "답변 생성을 중단했습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause": {
+                "const": "asset_deleting"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "참조한 파일이 삭제되어 답변 생성을 중단했습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause": {
+                "const": "budget_exhausted"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "처리 한도에 도달해 답변 생성을 중단했습니다."
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AssistantMessageContent": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "responseDisposition",
+        "clarificationReason",
+        "assistantResponse",
+        "verificationSummary",
+        "failure",
+        "cancel"
+      ],
+      "properties": {
+        "responseDisposition": {
+          "anyOf": [
+            {
+              "$ref": "../../terminal-v2/browser.schema.json#/$defs/ResponseDisposition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clarificationReason": {
+          "anyOf": [
+            {
+              "$ref": "../../terminal-v2/browser.schema.json#/$defs/ClarificationReason"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assistantResponse": {
+          "anyOf": [
+            {
+              "$ref": "../../terminal-v2/browser.schema.json#/$defs/AssistantResponseV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verificationSummary": {
+          "type": "array",
+          "items": {
+            "$ref": "../../terminal-v2/browser.schema.json#/$defs/SolutionVerificationSummary"
+          }
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssistantFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cancel": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssistantCancel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        }
+      ]
+    },
+    "ConversationMessage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "messageId",
+        "role",
+        "status",
+        "runId",
+        "createdAt"
+      ],
+      "properties": {
+        "messageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PENDING",
+            "STREAMING",
+            "COMPLETED",
+            "FAILED",
+            "CANCELED"
+          ]
+        },
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/OccurredAt"
+        },
+        "user": {
+          "$ref": "#/$defs/UserMessageContent"
+        },
+        "assistant": {
+          "$ref": "#/$defs/AssistantMessageContent"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        },
+        {
+          "if": {
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "enum": [
+                  "user"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "user"
+            ],
+            "not": {
+              "required": [
+                "assistant"
+              ]
+            },
+            "properties": {
+              "status": {
+                "const": "COMPLETED"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "enum": [
+                  "assistant"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "assistant"
+            ],
+            "not": {
+              "required": [
+                "user"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "STREAMING"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assistant": {
+                "properties": {
+                  "responseDisposition": {
+                    "type": "null"
+                  },
+                  "assistantResponse": {
+                    "type": "null"
+                  },
+                  "failure": {
+                    "type": "null"
+                  },
+                  "cancel": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "FAILED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assistant": {
+                "properties": {
+                  "assistantResponse": {
+                    "type": "null"
+                  },
+                  "failure": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "cancel": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "CANCELED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assistant": {
+                "properties": {
+                  "assistantResponse": {
+                    "type": "null"
+                  },
+                  "failure": {
+                    "type": "null"
+                  },
+                  "cancel": {
+                    "not": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "role",
+              "status"
+            ],
+            "properties": {
+              "role": {
+                "const": "assistant"
+              },
+              "status": {
+                "const": "COMPLETED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assistant": {
+                "properties": {
+                  "responseDisposition": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "assistantResponse": {
+                    "not": {
+                      "type": "null"
+                    }
+                  },
+                  "failure": {
+                    "type": "null"
+                  },
+                  "cancel": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ActiveRunSummary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "runId",
+        "status",
+        "lastSeq"
+      ],
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "status": {
+          "$ref": "#/$defs/ActiveRunStatus"
+        },
+        "lastSeq": {
+          "$ref": "#/$defs/Seq"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        }
+      ]
+    },
+    "ConversationPage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "noteId",
+        "activeRun",
+        "messages",
+        "nextBefore"
+      ],
+      "properties": {
+        "noteId": {
+          "$ref": "#/$defs/NoteId"
+        },
+        "activeRun": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActiveRunSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "messages": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/ConversationMessage"
+          }
+        },
+        "nextBefore": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        }
+      ]
+    },
+    "RunStatusResponse": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "isSuccess",
+        "code",
+        "message",
+        "result"
+      ],
+      "properties": {
+        "isSuccess": {
+          "const": true
+        },
+        "code": {
+          "const": "COMMON200"
+        },
+        "message": {
+          "const": "요청에 성공했습니다."
+        },
+        "result": {
+          "$ref": "#/$defs/RunStatus"
+        }
+      }
+    },
+    "RunCancelResponse": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "isSuccess",
+        "code",
+        "message",
+        "result"
+      ],
+      "properties": {
+        "isSuccess": {
+          "const": true
+        },
+        "code": {
+          "const": "COMMON200"
+        },
+        "message": {
+          "const": "요청에 성공했습니다."
+        },
+        "result": {
+          "$ref": "#/$defs/RunCancelResult"
+        }
+      }
+    },
+    "ConversationPageResponse": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "isSuccess",
+        "code",
+        "message",
+        "result"
+      ],
+      "properties": {
+        "isSuccess": {
+          "const": true
+        },
+        "code": {
+          "const": "COMMON200"
+        },
+        "message": {
+          "const": "요청에 성공했습니다."
+        },
+        "result": {
+          "$ref": "#/$defs/ConversationPage"
+        }
+      }
+    },
+    "RunCreatedPayload": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "requestId",
+        "noteId",
+        "userMessageId",
+        "assistantMessageId",
+        "status",
+        "requestedTasks",
+        "requestedOutputs"
+      ],
+      "properties": {
+        "requestId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "noteId": {
+          "$ref": "#/$defs/NoteId"
+        },
+        "userMessageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "assistantMessageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "status": {
+          "const": "PENDING"
+        },
+        "requestedTasks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/RequestedTask"
+          }
+        },
+        "requestedOutputs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "const": "text"
+          }
+        }
+      }
+    },
+    "ResponsePageStartedPayload": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "assistantMessageId",
+        "responsePageId",
+        "presentation",
+        "pageIndex"
+      ],
+      "properties": {
+        "assistantMessageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "responsePageId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "presentation": {
+          "$ref": "../../terminal-v2/browser.schema.json#/$defs/PagePresentation"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pageIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 19
+        }
+      }
+    },
+    "ResponsePageCompletedPayload": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "assistantMessageId",
+        "responsePageId",
+        "pageIndex"
+      ],
+      "properties": {
+        "assistantMessageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "responsePageId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "pageIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 19
+        }
+      }
+    },
+    "RunCancelingPayload": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "assistantMessageId",
+        "status"
+      ],
+      "properties": {
+        "assistantMessageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "status": {
+          "const": "CANCELING"
+        }
+      }
+    },
+    "RunCanceledPayload": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "assistantMessageId",
+        "status",
+        "cause",
+        "message"
+      ],
+      "properties": {
+        "assistantMessageId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "status": {
+          "const": "CANCELED"
+        },
+        "cause": {
+          "$ref": "#/$defs/CancelCause"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "cause": {
+                "const": "user_requested"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "답변 생성을 중단했습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause": {
+                "const": "asset_deleting"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "참조한 파일이 삭제되어 답변 생성을 중단했습니다."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cause": {
+                "const": "budget_exhausted"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "처리 한도에 도달해 답변 생성을 중단했습니다."
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RunCreatedFrame": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "contractVersion",
+        "runId",
+        "seq",
+        "occurredAt",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "brain-source-v1"
+        },
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "seq": {
+          "$ref": "#/$defs/Seq"
+        },
+        "occurredAt": {
+          "$ref": "#/$defs/OccurredAt"
+        },
+        "type": {
+          "const": "run.created"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunCreatedPayload"
+        }
+      }
+    },
+    "ResponsePageStartedFrame": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "contractVersion",
+        "runId",
+        "seq",
+        "occurredAt",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "brain-source-v1"
+        },
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "seq": {
+          "$ref": "#/$defs/Seq"
+        },
+        "occurredAt": {
+          "$ref": "#/$defs/OccurredAt"
+        },
+        "type": {
+          "const": "response.page.started"
+        },
+        "payload": {
+          "$ref": "#/$defs/ResponsePageStartedPayload"
+        }
+      }
+    },
+    "ResponsePageCompletedFrame": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "contractVersion",
+        "runId",
+        "seq",
+        "occurredAt",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "brain-source-v1"
+        },
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "seq": {
+          "$ref": "#/$defs/Seq"
+        },
+        "occurredAt": {
+          "$ref": "#/$defs/OccurredAt"
+        },
+        "type": {
+          "const": "response.page.completed"
+        },
+        "payload": {
+          "$ref": "#/$defs/ResponsePageCompletedPayload"
+        }
+      }
+    },
+    "RunCancelingFrame": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "contractVersion",
+        "runId",
+        "seq",
+        "occurredAt",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "brain-source-v1"
+        },
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "seq": {
+          "$ref": "#/$defs/Seq"
+        },
+        "occurredAt": {
+          "$ref": "#/$defs/OccurredAt"
+        },
+        "type": {
+          "const": "run.canceling"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunCancelingPayload"
+        }
+      }
+    },
+    "RunCanceledFrame": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "contractVersion",
+        "runId",
+        "seq",
+        "occurredAt",
+        "type",
+        "payload"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "brain-source-v1"
+        },
+        "runId": {
+          "$ref": "#/$defs/Uuid"
+        },
+        "seq": {
+          "$ref": "#/$defs/Seq"
+        },
+        "occurredAt": {
+          "$ref": "#/$defs/OccurredAt"
+        },
+        "type": {
+          "const": "run.canceled"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunCanceledPayload"
+        }
+      }
+    },
+    "ServerOwnedFrame": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RunCreatedFrame"
+        },
+        {
+          "$ref": "#/$defs/ResponsePageStartedFrame"
+        },
+        {
+          "$ref": "#/$defs/ResponsePageCompletedFrame"
+        },
+        {
+          "$ref": "#/$defs/RunCancelingFrame"
+        },
+        {
+          "$ref": "#/$defs/RunCanceledFrame"
+        }
+      ]
+    },
+    "BrowserFrame": {
+      "description": "Any durable browser frame: Server-owned types here, activity/run.completed/run.failed from terminal-v2 browser schema. Internal fields are forbidden on every frame and payload.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/NoInternalKeys"
+        },
+        {
+          "properties": {
+            "payload": {
+              "$ref": "#/$defs/NoInternalKeys"
+            }
+          }
+        },
+        {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ServerOwnedFrame"
+            },
+            {
+              "$ref": "../../terminal-v2/browser.schema.json"
+            }
+          ]
+        }
+      ]
+    },
+    "NoInternalKeys": {
+      "description": "Internal run keys never appear on a public frame, payload or Server-owned response object.",
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "attempt"
+            ]
+          },
+          {
+            "required": [
+              "fenceToken"
+            ]
+          },
+          {
+            "required": [
+              "fence_token"
+            ]
+          },
+          {
+            "required": [
+              "sourceEventId"
+            ]
+          },
+          {
+            "required": [
+              "source_event_id"
+            ]
+          },
+          {
+            "required": [
+              "failureClass"
+            ]
+          },
+          {
+            "required": [
+              "failure_class"
+            ]
+          },
+          {
+            "required": [
+              "requestFingerprint"
+            ]
+          },
+          {
+            "required": [
+              "usage"
+            ]
+          },
+          {
+            "required": [
+              "deadline"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

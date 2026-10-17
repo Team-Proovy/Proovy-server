@@ -1,0 +1,90 @@
+{
+  "rationale": "의존 asset 삭제로 인한 취소 — cause=asset_deleting.",
+  "finalStatus": "CANCELED",
+  "runId": "f9bc2780-6825-5a02-b883-f04ff49f86b5",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "f9bc2780-6825-5a02-b883-f04ff49f86b5",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "d6dbe5ff-9827-5840-a250-55377806af5f",
+        "noteId": "123",
+        "userMessageId": "f693514d-9b2e-584a-b559-6f3b7afcb1bb",
+        "assistantMessageId": "b64ffe96-0617-586c-a724-9ff12c694171",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "f9bc2780-6825-5a02-b883-f04ff49f86b5",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "f9bc2780-6825-5a02-b883-f04ff49f86b5",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "f9bc2780-6825-5a02-b883-f04ff49f86b5",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "f9bc2780-6825-5a02-b883-f04ff49f86b5",
+      "seq": 5,
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "run.canceling",
+      "payload": {
+        "assistantMessageId": "b64ffe96-0617-586c-a724-9ff12c694171",
+        "status": "CANCELING"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "f9bc2780-6825-5a02-b883-f04ff49f86b5",
+      "seq": 6,
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "run.canceled",
+      "payload": {
+        "assistantMessageId": "b64ffe96-0617-586c-a724-9ff12c694171",
+        "status": "CANCELED",
+        "cause": "asset_deleting",
+        "message": "참조한 파일이 삭제되어 답변 생성을 중단했습니다."
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: f9bc2780-6825-5a02-b883-f04ff49f86b5:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"f9bc2780-6825-5a02-b883-f04ff49f86b5\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"d6dbe5ff-9827-5840-a250-55377806af5f\",\"noteId\":\"123\",\"userMessageId\":\"f693514d-9b2e-584a-b559-6f3b7afcb1bb\",\"assistantMessageId\":\"b64ffe96-0617-586c-a724-9ff12c694171\",\"status\":\"PENDING\",\"requestedTasks\":[\"solve\"],\"requestedOutputs\":[\"text\"]}}\n\nevent: activity.started\nid: f9bc2780-6825-5a02-b883-f04ff49f86b5:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"f9bc2780-6825-5a02-b883-f04ff49f86b5\",\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-1\",\"responsePageId\":\"page-1\",\"kind\":\"input_analysis\",\"label\":\"analyzing_input\"},\"seq\":2}\n\nevent: activity.updated\nid: f9bc2780-6825-5a02-b883-f04ff49f86b5:3\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"f9bc2780-6825-5a02-b883-f04ff49f86b5\",\"occurredAt\":\"2026-10-17T09:00:02Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-1\",\"status\":\"in_progress\",\"message\":\"입력을 읽고 있다\",\"kind\":\"input_analysis\"},\"seq\":3}\n\nevent: activity.completed\nid: f9bc2780-6825-5a02-b883-f04ff49f86b5:4\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"f9bc2780-6825-5a02-b883-f04ff49f86b5\",\"occurredAt\":\"2026-10-17T09:00:03Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-1\",\"kind\":\"input_analysis\"},\"seq\":4}\n\nevent: run.canceling\nid: f9bc2780-6825-5a02-b883-f04ff49f86b5:5\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"f9bc2780-6825-5a02-b883-f04ff49f86b5\",\"seq\":5,\"occurredAt\":\"2026-10-17T09:00:04Z\",\"type\":\"run.canceling\",\"payload\":{\"assistantMessageId\":\"b64ffe96-0617-586c-a724-9ff12c694171\",\"status\":\"CANCELING\"}}\n\nevent: run.canceled\nid: f9bc2780-6825-5a02-b883-f04ff49f86b5:6\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"f9bc2780-6825-5a02-b883-f04ff49f86b5\",\"seq\":6,\"occurredAt\":\"2026-10-17T09:00:05Z\",\"type\":\"run.canceled\",\"payload\":{\"assistantMessageId\":\"b64ffe96-0617-586c-a724-9ff12c694171\",\"status\":\"CANCELED\",\"cause\":\"asset_deleting\",\"message\":\"참조한 파일이 삭제되어 답변 생성을 중단했습니다.\"}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

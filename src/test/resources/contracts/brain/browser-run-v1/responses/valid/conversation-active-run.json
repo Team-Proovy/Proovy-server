@@ -1,0 +1,170 @@
+{
+  "schema": "ConversationPageResponse",
+  "http": 200,
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "noteId": "123",
+      "activeRun": {
+        "runId": "eeff258f-0aa4-5728-a27a-3c05ac927a57",
+        "status": "RUNNING",
+        "lastSeq": 4
+      },
+      "messages": [
+        {
+          "messageId": "3c6d8af6-22e6-5c9a-a72f-f469cab54082",
+          "role": "user",
+          "status": "COMPLETED",
+          "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+          "createdAt": "2026-10-17T09:00:00Z",
+          "user": {
+            "text": "이 문제를 풀어줘",
+            "latex": null,
+            "requestedTasks": [
+              "solve"
+            ],
+            "requestedOutputs": [
+              "text"
+            ],
+            "turnAttachments": [
+              {
+                "attachmentId": "d99f9829-981e-5da9-a3fe-b3bed3b7439e",
+                "mime": "image/png",
+                "displayName": "문제.png"
+              }
+            ],
+            "viewerFocus": {
+              "noteAssetId": "asset-9f8c",
+              "page": 3,
+              "selection": null
+            }
+          }
+        },
+        {
+          "messageId": "e456a788-9e9e-5a90-8cff-156ae37c83f7",
+          "role": "assistant",
+          "status": "COMPLETED",
+          "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+          "createdAt": "2026-10-17T09:00:01Z",
+          "assistant": {
+            "responseDisposition": "substantive",
+            "clarificationReason": null,
+            "assistantResponse": {
+              "responsePages": [
+                {
+                  "responsePageId": "page-1",
+                  "presentation": "main",
+                  "title": "검증된 풀이",
+                  "resultBlocks": [
+                    {
+                      "blockId": "block-1",
+                      "body": "인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]",
+                      "kind": "solution",
+                      "verification": "verified",
+                      "solutionId": "solution-1",
+                      "claimIds": [
+                        "claim-1"
+                      ],
+                      "stepMarks": [
+                        {
+                          "stepId": "step-1",
+                          "status": "verified",
+                          "anchor": {
+                            "start": 0,
+                            "end": 24
+                          }
+                        },
+                        {
+                          "stepId": "step-2",
+                          "status": "verified",
+                          "anchor": {
+                            "start": 25,
+                            "end": 46
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "sourceReferences": [
+                {
+                  "sourceRefId": "sref-1",
+                  "assetId": "note-alpha",
+                  "pageStart": 3,
+                  "pageEnd": 4,
+                  "displayLabelSnapshot": "개념 노트 3–4쪽",
+                  "available": true
+                }
+              ],
+              "plainText": "검증된 풀이\n\n인수분해하면 (x-2)(x-3)=0이다. 따라서 x=2 또는 x=3이다."
+            },
+            "verificationSummary": [
+              {
+                "solutionId": "solution-1",
+                "overallCoverage": "direct",
+                "claims": [
+                  {
+                    "claimId": "claim-1",
+                    "coverage": "direct",
+                    "methodLabel": "모든 단계를 실행 검사로 확인",
+                    "unconfirmedSteps": []
+                  }
+                ]
+              }
+            ],
+            "failure": null,
+            "cancel": null
+          }
+        },
+        {
+          "messageId": "f2a2fc70-dae0-553e-9540-c3cab1eeef80",
+          "role": "user",
+          "status": "COMPLETED",
+          "runId": "eeff258f-0aa4-5728-a27a-3c05ac927a57",
+          "createdAt": "2026-10-17T09:01:00Z",
+          "user": {
+            "text": "다른 방법으로도 풀어줘",
+            "latex": null,
+            "requestedTasks": [
+              "solve"
+            ],
+            "requestedOutputs": [
+              "text"
+            ],
+            "turnAttachments": [
+              {
+                "attachmentId": "d99f9829-981e-5da9-a3fe-b3bed3b7439e",
+                "mime": "image/png",
+                "displayName": "문제.png"
+              }
+            ],
+            "viewerFocus": {
+              "noteAssetId": "asset-9f8c",
+              "page": 3,
+              "selection": null
+            }
+          }
+        },
+        {
+          "messageId": "5e660284-9268-53b9-b89f-75ccdf70e43c",
+          "role": "assistant",
+          "status": "STREAMING",
+          "runId": "eeff258f-0aa4-5728-a27a-3c05ac927a57",
+          "createdAt": "2026-10-17T09:01:01Z",
+          "assistant": {
+            "responseDisposition": null,
+            "clarificationReason": null,
+            "assistantResponse": null,
+            "verificationSummary": [],
+            "failure": null,
+            "cancel": null
+          }
+        }
+      ],
+      "nextBefore": "7a5b37eb-5cb9-543a-8e41-0f9cea9d55e4"
+    }
+  }
+}

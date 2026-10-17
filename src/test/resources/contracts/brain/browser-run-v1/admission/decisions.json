@@ -1,0 +1,540 @@
+{
+  "precedence": [
+    "authenticated",
+    "request:schema_invalid",
+    "request:unsupported",
+    "existing:same_user_same_fingerprint",
+    "existing:other",
+    "note",
+    "references",
+    "activeRun",
+    "rateLimited",
+    "balance",
+    "accept"
+  ],
+  "cases": [
+    {
+      "name": "new-accepted",
+      "rationale": "정상 신규 접수 — seq 1 run.created부터.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 200,
+        "outcome": "stream_new",
+        "replayFromSeq": 1,
+        "sideEffects": "created"
+      }
+    },
+    {
+      "name": "new-without-note",
+      "rationale": "noteId 없는 첫 요청 — Note 자동 생성.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "absent",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 200,
+        "outcome": "stream_new",
+        "replayFromSeq": 1,
+        "sideEffects": "created"
+      }
+    },
+    {
+      "name": "duplicate-same-user-running",
+      "rationale": "같은 사용자·같은 의미 재전송 — 기존 run replay 후 live 합류.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": {
+          "sameUser": true,
+          "sameFingerprint": true,
+          "runStatus": "RUNNING"
+        },
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 200,
+        "outcome": "stream_replay",
+        "replayFromSeq": 1,
+        "thenLive": true,
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "duplicate-same-user-completed",
+      "rationale": "terminal run 재전송 — terminal까지 replay 후 종료.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": {
+          "sameUser": true,
+          "sameFingerprint": true,
+          "runStatus": "COMPLETED"
+        },
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 200,
+        "outcome": "stream_replay",
+        "replayFromSeq": 1,
+        "thenLive": false,
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "duplicate-different-meaning",
+      "rationale": "같은 사용자, 다른 의미의 requestId 재사용.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": {
+          "sameUser": true,
+          "sameFingerprint": false,
+          "runStatus": "COMPLETED"
+        },
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 409,
+        "outcome": "error",
+        "code": "RUN4092",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "duplicate-other-user",
+      "rationale": "다른 사용자의 requestId — 상태·runId·noteId 비노출, 다른 의미와 동일 body.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": {
+          "sameUser": false,
+          "sameFingerprint": true,
+          "runStatus": "RUNNING"
+        },
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 409,
+        "outcome": "error",
+        "code": "RUN4092",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "duplicate-with-note-id-added",
+      "rationale": "run.created.noteId를 추가해 재전송 — 다른 의미.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": {
+          "sameUser": true,
+          "sameFingerprint": false,
+          "runStatus": "RUNNING"
+        },
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 409,
+        "outcome": "error",
+        "code": "RUN4092",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "duplicate-wins-over-active-run",
+      "rationale": "이미 접수된 요청의 재전송은 자기 자신 때문에 409 Active Run을 받지 않는다.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": {
+          "sameUser": true,
+          "sameFingerprint": true,
+          "runStatus": "PENDING"
+        },
+        "note": "owned",
+        "references": "ok",
+        "activeRun": {
+          "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+          "status": "PENDING"
+        },
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 200,
+        "outcome": "stream_replay",
+        "replayFromSeq": 1,
+        "thenLive": true,
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "duplicate-not-rate-limited",
+      "rationale": "재조회는 rate limit·잔액 대상이 아니다.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": {
+          "sameUser": true,
+          "sameFingerprint": true,
+          "runStatus": "COMPLETED"
+        },
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": true,
+        "balance": "insufficient"
+      },
+      "expected": {
+        "http": 200,
+        "outcome": "stream_replay",
+        "replayFromSeq": 1,
+        "thenLive": false,
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "active-run-conflict",
+      "rationale": "같은 Note에 RUNNING run — activeRunId가 담긴 409.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "owned",
+        "references": "ok",
+        "activeRun": {
+          "runId": "eeff258f-0aa4-5728-a27a-3c05ac927a57",
+          "status": "RUNNING"
+        },
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 409,
+        "outcome": "error",
+        "code": "RUN4091",
+        "sideEffects": "none",
+        "result": {
+          "activeRunId": "eeff258f-0aa4-5728-a27a-3c05ac927a57"
+        }
+      }
+    },
+    {
+      "name": "active-run-canceling-conflict",
+      "rationale": "CANCELING도 Active Run이다.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "owned",
+        "references": "ok",
+        "activeRun": {
+          "runId": "eeff258f-0aa4-5728-a27a-3c05ac927a57",
+          "status": "CANCELING"
+        },
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 409,
+        "outcome": "error",
+        "code": "RUN4091",
+        "sideEffects": "none",
+        "result": {
+          "activeRunId": "eeff258f-0aa4-5728-a27a-3c05ac927a57"
+        }
+      }
+    },
+    {
+      "name": "note-missing",
+      "rationale": "없는 Note.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "missing",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 404,
+        "outcome": "error",
+        "code": "RUN4041",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "note-other-user",
+      "rationale": "타인 Note — 존재 비노출.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "other_user",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 404,
+        "outcome": "error",
+        "code": "RUN4041",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "note-deleting",
+      "rationale": "삭제 중 Note.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "deleting",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 404,
+        "outcome": "error",
+        "code": "RUN4041",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "note-check-before-active-run",
+      "rationale": "Note 권한 검사가 Active Run보다 먼저 — 타인 Note의 activeRunId를 노출하지 않는다.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "other_user",
+        "references": "ok",
+        "activeRun": {
+          "runId": "eeff258f-0aa4-5728-a27a-3c05ac927a57",
+          "status": "RUNNING"
+        },
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 404,
+        "outcome": "error",
+        "code": "RUN4041",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "attachment-other-note",
+      "rationale": "다른 Note의 첨부.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "owned",
+        "references": "invalid",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 422,
+        "outcome": "error",
+        "code": "RUN4221",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "attachment-policy-exceeded",
+      "rationale": "policy 개수/용량 한도 초과.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "owned",
+        "references": "policy_exceeded",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 422,
+        "outcome": "error",
+        "code": "RUN4221",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "rate-limited",
+      "rationale": "사용자별 반복 요청 제한.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": true,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 429,
+        "outcome": "error",
+        "code": "RUN4291",
+        "sideEffects": "none",
+        "headers": {
+          "Retry-After": "30"
+        }
+      }
+    },
+    {
+      "name": "active-run-before-rate-limit",
+      "rationale": "Active Run 409가 rate limit보다 먼저(상태 복구에 필요).",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "owned",
+        "references": "ok",
+        "activeRun": {
+          "runId": "eeff258f-0aa4-5728-a27a-3c05ac927a57",
+          "status": "RUNNING"
+        },
+        "rateLimited": true,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 409,
+        "outcome": "error",
+        "code": "RUN4091",
+        "sideEffects": "none",
+        "result": {
+          "activeRunId": "eeff258f-0aa4-5728-a27a-3c05ac927a57"
+        }
+      }
+    },
+    {
+      "name": "insufficient-balance",
+      "rationale": "잔액 부족.",
+      "state": {
+        "authenticated": true,
+        "request": "valid",
+        "existing": null,
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "insufficient"
+      },
+      "expected": {
+        "http": 402,
+        "outcome": "error",
+        "code": "RUN4021",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "schema-invalid",
+      "rationale": "구조 위반은 requestId 조회보다 먼저.",
+      "state": {
+        "authenticated": true,
+        "request": "schema_invalid",
+        "existing": {
+          "sameUser": true,
+          "sameFingerprint": true,
+          "runStatus": "RUNNING"
+        },
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 400,
+        "outcome": "error",
+        "code": "RUN4001",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "unsupported-output",
+      "rationale": "video output.",
+      "state": {
+        "authenticated": true,
+        "request": "unsupported",
+        "existing": null,
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 400,
+        "outcome": "error",
+        "code": "RUN4002",
+        "sideEffects": "none"
+      }
+    },
+    {
+      "name": "unauthenticated",
+      "rationale": "인증 실패가 가장 먼저.",
+      "state": {
+        "authenticated": false,
+        "request": "schema_invalid",
+        "existing": null,
+        "note": "owned",
+        "references": "ok",
+        "activeRun": null,
+        "rateLimited": false,
+        "balance": "sufficient"
+      },
+      "expected": {
+        "http": 401,
+        "outcome": "error",
+        "code": "AUTH4010",
+        "sideEffects": "none"
+      }
+    }
+  ]
+}

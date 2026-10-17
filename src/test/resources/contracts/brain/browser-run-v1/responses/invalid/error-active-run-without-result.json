@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "rationale": "RUN4091은 activeRunId 필수.",
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4091",
+    "message": "이 노트에서 진행 중인 답변이 있습니다."
+  }
+}

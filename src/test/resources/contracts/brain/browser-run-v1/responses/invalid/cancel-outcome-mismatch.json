@@ -1,0 +1,14 @@
+{
+  "schema": "RunCancelResponse",
+  "rationale": "already_terminal인데 CANCELING.",
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "status": "CANCELING",
+      "outcome": "already_terminal"
+    }
+  }
+}

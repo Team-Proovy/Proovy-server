@@ -1,0 +1,254 @@
+{
+  "rationale": "seq 빈틈.",
+  "violates": "S1",
+  "schema_rejects": false,
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+        "noteId": "123",
+        "userMessageId": "f0df72b5-b974-5cc7-b7e8-7e85173ba4df",
+        "assistantMessageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 40
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "label": "verifying_steps",
+        "methodLabel": "단계별 함의 검사"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-7",
+        "status": "in_progress",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 2,
+          "total": 5
+        }
+      },
+      "seq": 8
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 5,
+          "total": 5
+        }
+      },
+      "seq": 9
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "seq": 10,
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0,
+        "title": "본문"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "seq": 11,
+      "occurredAt": "2026-10-17T09:00:10Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "seq": 12,
+      "occurredAt": "2026-10-17T09:00:11Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+        "responsePageId": "page-2",
+        "presentation": "thread_like",
+        "pageIndex": 1,
+        "title": "보조"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "seq": 13,
+      "occurredAt": "2026-10-17T09:00:12Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+        "responsePageId": "page-2",
+        "pageIndex": 1
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "seq": 14,
+      "occurredAt": "2026-10-17T09:00:13Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "title": "본문",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "본문 풀이가 여기 있다.",
+                  "kind": "solution",
+                  "verification": "verified",
+                  "solutionId": "solution-7",
+                  "claimIds": [
+                    "claim-1"
+                  ],
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "verified"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "responsePageId": "page-2",
+              "presentation": "thread_like",
+              "title": "보조",
+              "resultBlocks": [
+                {
+                  "blockId": "block-2",
+                  "body": "스레드에 붙는 보조 설명이다.",
+                  "kind": "explanation",
+                  "claimIds": []
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "본문\n\n본문 풀이가 여기 있다.\n\n보조\n\n스레드에 붙는 보조 설명이다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [
+          {
+            "solutionId": "solution-7",
+            "overallCoverage": "direct",
+            "claims": [
+              {
+                "claimId": "claim-1",
+                "coverage": "direct",
+                "methodLabel": "모든 단계를 실행 검사로 확인",
+                "unconfirmedSteps": []
+              }
+            ]
+          }
+        ],
+        "assistantMessageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f"
+      }
+    }
+  ]
+}
