@@ -5,9 +5,10 @@ spring:
     redis:
       timeout: 2000
 
+  # 테스트도 Flyway baseline으로 schema를 만들고 Hibernate는 검증만 한다.
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
