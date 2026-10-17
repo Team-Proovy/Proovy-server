@@ -7,6 +7,7 @@ import com.proovy.domain.user.entity.PlanType;
 import com.proovy.domain.user.entity.User;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -35,9 +36,14 @@ public class CreditBalanceService {
     private final CreditBalanceCreator creditBalanceCreator;
     private final CreditHistoryRepository creditHistoryRepository;
     private final PlatformTransactionManager transactionManager;
+    private final EntityManager entityManager;
 
-    @Transactional
-    public CreditBalance getOrCreateBalance(Long userId) {
+    /**
+     * 조회용 잔액. 잠그지 않으므로 잔액 row에 쓰지 않는다. 만료된 일일 크레딧은 리셋된 값으로 계산만 하고
+     * 실제 리셋은 잠금 경로(스케줄러·차감·지급)가 수행한다.
+     */
+    @Transactional(readOnly = true)
+    public CreditBalanceSnapshot getBalanceSnapshot(Long userId) {
         CreditBalance balance = creditBalanceRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     // 가입 보너스는 signup 경로에서만 지급됩니다.
@@ -46,36 +52,41 @@ public class CreditBalanceService {
                             .orElseThrow(() -> new BusinessException(ErrorCode.CREDIT4041));
                 });
 
-        refreshDailyCreditIfExpired(balance, nowInBillingZone());
-        return balance;
+        LocalDateTime now = nowInBillingZone();
+        boolean dailyExpired = isDailyExpired(balance, now);
+        return new CreditBalanceSnapshot(
+                dailyExpired ? balance.getDailyFreeLimit() : balance.getDailyFreeCredit(),
+                balance.getDailyFreeLimit(),
+                dailyExpired ? nextDailyResetAt(now) : balance.getDailyExpiresAt(),
+                balance.getFreeCredit(),
+                balance.getPaidCredit(),
+                balance.getPaidExpiresAt());
     }
 
     @Transactional
     public CreditBalance getOrCreateBalanceForUpdate(Long userId) {
-        CreditBalance balance = creditBalanceRepository.findByUserIdForUpdate(userId)
-                .orElseGet(() -> {
-                    createInitialBalanceSafely(userId, 0);
-                    return creditBalanceRepository.findByUserIdForUpdate(userId)
-                            .orElseThrow(() -> new BusinessException(ErrorCode.CREDIT4041));
-                });
-
-        refreshDailyCreditIfExpired(balance, nowInBillingZone());
-        return balance;
+        return lockAndRefresh(userId);
     }
 
     /**
      * 호출자 transaction 안에서 잔액 row를 잠그고(없으면 같은 transaction에서 생성) 만료된 일일 크레딧을 갱신한다.
-     * {@link #getOrCreateBalanceForUpdate}와 달리 REQUIRES_NEW 생성을 쓰지 않아 독립 commit이 없다.
-     * 요청 사용량 차감·보상({@code RequestUsageService})이 쓴다.
+     * 독립 commit이 없다. 요청 사용량 차감·보상({@code RequestUsageService})이 쓴다.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public CreditBalance lockBalanceInCurrentTransaction(Long userId) {
+        return lockAndRefresh(userId);
+    }
+
+    private CreditBalance lockAndRefresh(Long userId) {
         CreditBalance balance = creditBalanceRepository.findByUserIdForUpdate(userId)
                 .orElseGet(() -> {
                     creditBalanceCreator.insertInitialBalanceIfAbsent(userId);
                     return creditBalanceRepository.findByUserIdForUpdate(userId)
                             .orElseThrow(() -> new BusinessException(ErrorCode.CREDIT4041));
                 });
+        // 같은 persistence context에 이미 로드된 인스턴스면 잠금 조회도 캐시된 상태를 돌려준다.
+        // 잠근 뒤 다시 읽어 그 사이 commit된 차감·보상을 덮어쓰지 않게 한다.
+        entityManager.refresh(balance);
 
         refreshDailyCreditIfExpired(balance, nowInBillingZone());
         return balance;
@@ -213,7 +224,8 @@ public class CreditBalanceService {
 
         try {
             return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-                CreditBalance balance = creditBalanceRepository.findById(creditBalanceId)
+                // 잠그고 읽어야 리셋 UPDATE가 동시에 commit된 차감·보상을 덮어쓰지 않는다
+                CreditBalance balance = creditBalanceRepository.findByIdForUpdate(creditBalanceId)
                         .orElse(null);
 
                 if (balance == null) {
@@ -250,11 +262,17 @@ public class CreditBalanceService {
         return now.toLocalDate().plusDays(1).atStartOfDay();
     }
 
-    private void refreshDailyCreditIfExpired(CreditBalance balance, LocalDateTime now) {
+    private static boolean isDailyExpired(CreditBalance balance, LocalDateTime now) {
         LocalDateTime expiresAt = balance.getDailyExpiresAt();
-        if (expiresAt == null || expiresAt.isAfter(now)) {
+        return expiresAt != null && !expiresAt.isAfter(now);
+    }
+
+    // 잠금 경로에서만 호출한다 (row를 잠그지 않고 쓰면 lost update가 생긴다)
+    private void refreshDailyCreditIfExpired(CreditBalance balance, LocalDateTime now) {
+        if (!isDailyExpired(balance, now)) {
             return;
         }
+        LocalDateTime expiresAt = balance.getDailyExpiresAt();
 
         LocalDateTime nextResetAt = nextDailyResetAt(now);
         balance.resetDailyCredit(nextResetAt);

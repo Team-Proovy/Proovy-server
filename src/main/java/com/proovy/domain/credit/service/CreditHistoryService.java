@@ -1,7 +1,7 @@
 package com.proovy.domain.credit.service;
 
 import com.proovy.domain.credit.dto.response.CreditHistoryResponse;
-import com.proovy.domain.credit.entity.CreditBalance;
+import com.proovy.domain.credit.entity.CreditEventType;
 import com.proovy.domain.credit.entity.CreditChangeType;
 import com.proovy.domain.credit.entity.CreditHistory;
 import com.proovy.domain.credit.entity.CreditType;
@@ -67,7 +67,7 @@ public class CreditHistoryService {
         CreditType creditType = parseCreditType(creditTypeStr);
 
         // 4. 크레딧 잔액 조회
-        CreditBalance balance = creditBalanceService.getOrCreateBalance(userId);
+        CreditBalanceSnapshot balance = creditBalanceService.getBalanceSnapshot(userId);
 
         // 5. 크레딧 내역 조회
         Pageable pageable = PageRequest.of(validatedPage, validatedSize, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -86,6 +86,7 @@ public class CreditHistoryService {
                         CreditChangeType.EARN,
                         CreditChangeType.SPEND,
                         CreditChangeType.EXPIRE,
+                        CreditEventType.LLM_QUERY_COMPENSATION,
                         summaryStartDate,
                         summaryEndDate
                 );
@@ -160,7 +161,7 @@ public class CreditHistoryService {
     }
 
     private CreditHistoryResponse buildResponse(
-            CreditBalance balance,
+            CreditBalanceSnapshot balance,
             Page<CreditHistory> historyPage,
             CreditHistoryRepository.CreditPeriodSummary periodSummary,
             String startDateStr,
@@ -169,18 +170,18 @@ public class CreditHistoryService {
         // 크레딧 요약
         CreditHistoryResponse.CreditSummaryDto creditSummary = CreditHistoryResponse.CreditSummaryDto.builder()
                 .dailyFreeCredit(CreditHistoryResponse.DailyFreeCreditDto.builder()
-                        .balance(balance.getDailyFreeCredit())
-                        .limit(balance.getDailyFreeLimit())
-                        .expiresAt(balance.getDailyExpiresAt())
+                        .balance(balance.dailyFreeCredit())
+                        .limit(balance.dailyFreeLimit())
+                        .expiresAt(balance.dailyExpiresAt())
                         .build())
                 .freeCredit(CreditHistoryResponse.FreeCreditDto.builder()
-                        .balance(balance.getFreeCredit())
+                        .balance(balance.freeCredit())
                         .build())
                 .paidCredit(CreditHistoryResponse.PaidCreditDto.builder()
-                        .balance(balance.getPaidCredit())
-                        .expiresAt(balance.getPaidExpiresAt())
+                        .balance(balance.paidCredit())
+                        .expiresAt(balance.paidExpiresAt())
                         .build())
-                .totalAvailable(balance.getTotalAvailable())
+                .totalAvailable(balance.totalAvailable())
                 .build();
 
         // 내역 변환

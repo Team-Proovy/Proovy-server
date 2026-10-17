@@ -1,7 +1,6 @@
 package com.proovy.domain.credit.service;
 
 import com.proovy.domain.credit.dto.response.CreditBalanceResponse;
-import com.proovy.domain.credit.entity.CreditBalance;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,20 +20,20 @@ public class CreditUseService {
     /**
      * 크레딧 잔액 조회
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public CreditBalanceResponse getBalance(Long userId, Integer checkCost) {
-        CreditBalance balance = creditBalanceService.getOrCreateBalance(userId);
+        CreditBalanceSnapshot balance = creditBalanceService.getBalanceSnapshot(userId);
 
-        Integer totalAvailable = balance.getTotalAvailable();
+        Integer totalAvailable = balance.totalAvailable();
         Boolean canUse = checkCost == null || totalAvailable >= checkCost;
 
         return CreditBalanceResponse.builder()
-                .dailyFreeCredit(balance.getDailyFreeCredit())
-                .dailyFreeLimit(balance.getDailyFreeLimit())
-                .dailyExpiresAt(balance.getDailyExpiresAt())
-                .freeCredit(balance.getFreeCredit())
-                .paidCredit(balance.getPaidCredit())
-                .paidExpiresAt(balance.getPaidExpiresAt())
+                .dailyFreeCredit(balance.dailyFreeCredit())
+                .dailyFreeLimit(balance.dailyFreeLimit())
+                .dailyExpiresAt(balance.dailyExpiresAt())
+                .freeCredit(balance.freeCredit())
+                .paidCredit(balance.paidCredit())
+                .paidExpiresAt(balance.paidExpiresAt())
                 .totalAvailable(totalAvailable)
                 .canUse(canUse)
                 .checkedCost(checkCost)

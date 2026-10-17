@@ -1,5 +1,7 @@
 package com.proovy.domain.usage.service;
 
+import com.proovy.domain.credit.service.CreditBalanceService;
+import com.proovy.domain.credit.service.CreditUseService;
 import com.proovy.domain.run.repository.AiRunRepository;
 import com.proovy.domain.usage.entity.UsageCompensationReason;
 import com.proovy.domain.usage.exception.InsufficientUsageBalanceException;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -88,6 +91,8 @@ class RequestUsageServicePostgresTest {
     }
 
     @Autowired RequestUsageService usageService;
+    @Autowired CreditBalanceService creditBalanceService;
+    @Autowired CreditUseService creditUseService;
     @Autowired AiRunRepository aiRunRepository;
     @Autowired TransactionTemplate tx;
     @Autowired JdbcTemplate jdbc;
@@ -386,6 +391,107 @@ class RequestUsageServicePostgresTest {
         for (UUID run : runs) {
             finishRun(run);
         }
+    }
+
+    // ------------------------------------------------------------------
+    // 기존 잔액 writer와의 경합 (일일 리셋·조회가 ledger 차감을 덮어쓰지 않는다)
+    // ------------------------------------------------------------------
+
+    @Test
+    void dailyResetSchedulerOverlappingChargeDoesNotLoseDeduction() throws Exception {
+        expireDailyCredit(BOB);
+        String requestId = nextRequestId();
+
+        // 차감 tx가 만료 balance를 리셋·차감하고 잠금을 쥔 채로 있을 때 스케줄러가 같은 row를 리셋한다
+        holdChargeWhile(BOB, BOB_NOTE, requestId, () -> creditBalanceService.resetExpiredDailyCredits());
+
+        assertDeductionMatchesLedger(BOB, new Balance(100, 0, 1000), requestId);
+    }
+
+    @Test
+    void balanceReadOverlappingChargeDoesNotOverwriteIt() throws Exception {
+        expireDailyCredit(BOB);
+        String requestId = nextRequestId();
+
+        holdChargeWhile(BOB, BOB_NOTE, requestId, () -> {
+            // 조회는 잠그지 않고 리셋된 값을 계산만 한다 (차감 tx 미commit 상태를 본다)
+            assertThat(creditUseService.getBalance(BOB, null).getDailyFreeCredit()).isEqualTo(100);
+            assertThat(jdbc.queryForObject("SELECT daily_free_credit FROM credit_balance WHERE user_id = ?",
+                    Integer.class, BOB)).isZero();
+        });
+
+        assertDeductionMatchesLedger(BOB, new Balance(100, 0, 1000), requestId);
+    }
+
+    @Test
+    void balanceLoadedEarlierInSameTransactionIsRefreshedUnderLock() throws Exception {
+        String first = nextRequestId();
+        String second = nextRequestId();
+        long otherNote = insertNote(BOB, "bob stale");
+        Balance before = balance(BOB);
+        ExecutorService other = Executors.newSingleThreadExecutor();
+        try {
+            UUID runId = tx.execute(status -> {
+                // 호출자가 사전 조회로 balance를 같은 persistence context에 올려 둔다
+                creditBalanceService.getBalanceSnapshot(BOB);
+                // 그 사이 다른 request의 차감이 commit된다
+                try {
+                    other.submit(() -> chargedPendingRun(second, BOB, otherNote)).get(30, TimeUnit.SECONDS);
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+                UUID run = insertPendingRun(first, BOB, BOB_NOTE);
+                usageService.chargeRequest(BOB, first, run);
+                return run;
+            });
+            finishRun(runId);
+        } finally {
+            other.shutdownNow();
+        }
+        finishRun(aiRunRepository.findByRequestId(second).orElseThrow().getId());
+
+        assertThat(balance(BOB)).isEqualTo(before.minusDaily(2 * UNIT));
+    }
+
+    private void expireDailyCredit(long userId) {
+        jdbc.update("""
+                UPDATE credit_balance SET daily_free_credit = 0, daily_free_limit = 100, free_credit = 0, paid_credit = 1000,
+                       daily_expires_at = '2000-01-01 00:00:00' WHERE user_id = ?
+                """, userId);
+    }
+
+    /** 차감 tx가 잔액 잠금을 쥔 동안 action을 실행하고, 잠시 뒤 차감 tx를 commit한다. */
+    private void holdChargeWhile(long userId, long noteId, String requestId, Runnable action) throws Exception {
+        CountDownLatch charged = new CountDownLatch(1);
+        ExecutorService holder = Executors.newSingleThreadExecutor();
+        try {
+            Future<UUID> chargeTx = holder.submit(() -> tx.execute(status -> {
+                UUID run = insertPendingRun(requestId, userId, noteId);
+                usageService.chargeRequest(userId, requestId, run);
+                charged.countDown();
+                try {
+                    Thread.sleep(700);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return run;
+            }));
+            assertThat(charged.await(30, TimeUnit.SECONDS)).isTrue();
+            action.run();
+            finishRun(chargeTx.get(30, TimeUnit.SECONDS));
+        } finally {
+            holder.shutdownNow();
+        }
+    }
+
+    /** 리셋 기준 잔액에서 줄어든 양이 ledger의 charged_* 합과 같다. */
+    private void assertDeductionMatchesLedger(long userId, Balance resetBaseline, String requestId) {
+        Integer charged = jdbc.queryForObject(
+                "SELECT charged_daily + charged_free + charged_paid FROM request_usage_charges WHERE request_id = ?",
+                Integer.class, requestId);
+        assertThat(charged).isEqualTo(UNIT);
+        assertThat(resetBaseline.total() - balance(userId).total()).isEqualTo(charged);
+        assertThat(balance(userId)).isEqualTo(resetBaseline.minusDaily(UNIT));
     }
 
     // ------------------------------------------------------------------

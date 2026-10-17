@@ -59,9 +59,9 @@ public class CreditBalanceCreator {
         }
         PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
                 .orElse(PlanType.FREE);
-        LocalDateTime now = nowInBillingZone();
+        // created_at/updated_at은 JPA auditing과 같은 JVM 기본 시계, 일일 만료는 과금 zone(Asia/Seoul) 기준이다.
         creditBalanceRepository.insertInitialIfAbsent(
-                userId, planType.getDailyCreditLimit(), nextDailyResetAt(now), now);
+                userId, planType.getDailyCreditLimit(), nextDailyResetAt(nowInBillingZone()), LocalDateTime.now());
     }
 
     private LocalDateTime nowInBillingZone() {
