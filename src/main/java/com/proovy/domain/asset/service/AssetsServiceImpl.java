@@ -137,7 +137,7 @@ public class AssetsServiceImpl implements AssetsService {
     }
 
     private void validateStorageCapacity(Long noteId, Long fileSize) {
-        Long uploadedSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.UPLOADED);
+        Long uploadedSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.ACTIVE);
         Long pendingSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.PENDING);
 
         long currentUsage = (uploadedSize != null ? uploadedSize : 0L) + (pendingSize != null ? pendingSize : 0L);
@@ -165,7 +165,7 @@ public class AssetsServiceImpl implements AssetsService {
         }
 
         // 3. 업로드 완료 상태 검증
-        if (asset.getStatus() != AssetStatus.UPLOADED) {
+        if (asset.getStatus() != AssetStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ASSET4006);
         }
 
@@ -195,7 +195,7 @@ public class AssetsServiceImpl implements AssetsService {
         }
 
         // 3. 이미 확인된 자산인지 확인 (중복 호출 방지)
-        if (asset.getStatus() == AssetStatus.UPLOADED) {
+        if (asset.getStatus() == AssetStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ASSET4091);
         }
 
@@ -204,7 +204,7 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.ASSET4007);
         }
 
-        // 5. Asset 상태 업데이트 (PENDING → UPLOADED, ocrStatus → processing)
+        // 5. Asset 상태 업데이트 (PENDING → ACTIVE, ocrStatus → processing)
         // Optimistic Locking으로 동시 요청 처리
         try {
             asset.markAsUploaded();

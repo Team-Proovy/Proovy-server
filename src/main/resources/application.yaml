@@ -18,9 +18,10 @@ spring:
         jdbc:
           time_zone: Asia/Seoul
 
+  # 신규 제품 baseline(V1)은 빈 DB에서만 시작한다. 과거 migration history가 있거나
+  # history 없이 테이블이 있는 DB는 baseline하지 않고 기동을 실패시킨다 (ADR 0015).
   flyway:
-    baseline-on-migrate: true
-    baseline-version: '0'
+    baseline-on-migrate: false
     locations: classpath:db/migration
 
   data:
@@ -108,12 +109,7 @@ jwt:
   refresh-token-expiration: 604800         # 7일 (초)
   signup-token-expiration: 600             # 10분 (초)
 
-# ===============================
-# Proovy-ai (FastAPI Agent)
-# ===============================
 proovy:
-  ai:
-    host: ${PROOVY_AI_HOST:https://api.proovy.ai.kr/ai}
   api:
     public-base-url: ${PROOVY_API_BASE_URL:}
 
@@ -121,15 +117,6 @@ internal:
   api:
     token: ${INTERNAL_API_TOKEN}
     port: 8081
-
-embedding:
-  redis:
-    stream:
-      key: embedding_jobs
-      consumer-group: spring-publisher
-    lock:
-      prefix: emb:lock
-      ttl: 3600
 
 # ===============================
 # OpenRouter API (Gemini 2.5 Flash 경유)
@@ -148,9 +135,10 @@ spring:
     activate:
       on-profile: local
 
+  # schema는 Flyway만 관리한다. Hibernate는 엔티티와 baseline 정합성만 검증한다.
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:

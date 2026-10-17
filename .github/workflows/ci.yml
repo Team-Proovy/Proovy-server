@@ -64,6 +64,12 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: proovy123
           SPRING_DATA_REDIS_HOST: localhost
           SPRING_DATA_REDIS_PORT: 6379
+          # 실제 Postgres 제약·role·baseline 테스트: 테스트마다 격리 database를 만든다 (superuser 필요).
+          # CI에서는 미구성 시 skip이 아니라 실패한다.
+          PROOVY_TEST_PG_URL: jdbc:postgresql://localhost:5432/postgres
+          PROOVY_TEST_PG_USER: proovy
+          PROOVY_TEST_PG_PASSWORD: proovy123
+          PROOVY_REQUIRE_DB_TESTS: "true"
 
       - name: Upload test report
         if: always()

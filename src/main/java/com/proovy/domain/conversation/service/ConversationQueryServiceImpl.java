@@ -5,7 +5,6 @@ import com.proovy.domain.asset.entity.AssetStatus;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.conversation.dto.request.CanvasImageUploadRequest;
 import com.proovy.domain.conversation.dto.response.CanvasImageUploadResponse;
-import com.proovy.domain.conversation.dto.response.ConversationDetailResponse;
 import com.proovy.domain.conversation.dto.response.ConversationSearchResponse;
 import com.proovy.domain.conversation.entity.ChatMessage;
 import com.proovy.domain.conversation.entity.MessageRole;
@@ -24,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -39,6 +39,7 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
     private final GcsService s3Service;
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
+    private static final ZoneId SERVICE_ZONE = ZoneId.of("Asia/Seoul");
     private static final Set<String> ALLOWED_CANVAS_MIME_TYPES = Set.of("image/png", "image/jpeg", "image/webp");
 
     @Override
@@ -229,7 +230,7 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                 continue;
             }
 
-            String textContent = message.getTextContent();
+            String textContent = message.getPlainText();
             boolean contentMatches = textContent != null && !textContent.isBlank()
                     && textContent.toLowerCase().contains(lowerQuery);
             boolean titleMatches = note.getTitle() != null
@@ -253,13 +254,13 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
 
             ConversationSearchResponse.ConversationSearchItem.ConversationSearchItemBuilder builder =
                     ConversationSearchResponse.ConversationSearchItem.builder()
-                            .conversationId(contentMatches ? message.getId() : null)
+                            .messageId(contentMatches ? message.getId().toString() : null)
                             .noteId(note.getId())
                             .noteTitle(note.getTitle())
-                            .mentionedFiles(Collections.emptyList())
-                            .mentionedTools(Collections.emptyList())
                             .relevance(contentMatches ? calculateRelevance(textContent, query) : 0.3)
-                            .createdAt(contentMatches ? message.getCreatedAt() : note.getCreatedAt());
+                            .createdAt(contentMatches
+                                    ? LocalDateTime.ofInstant(message.getCreatedAt(), SERVICE_ZONE)
+                                    : note.getCreatedAt());
 
             if (contentMatches) {
                 if (message.getRole() == MessageRole.USER) {
@@ -279,7 +280,7 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
      * ChatMessage에서 MessageInfo 생성
      */
     private ConversationSearchResponse.MessageInfo buildMessageInfoFromChatMessage(ChatMessage message, String query) {
-        String textContent = message.getTextContent();
+        String textContent = message.getPlainText();
         if (textContent == null) {
             return null;
         }
@@ -362,53 +363,5 @@ public class ConversationQueryServiceImpl implements ConversationQueryService {
                         .searchTimeMs(searchTimeMs)
                         .build())
                 .build();
-    }
-
-    @Override
-    public ConversationDetailResponse getConversationDetail(Long userId, Long chatMessageId) {
-        // 1. ChatMessage 조회 (이제 conversationId 대신 chatMessageId를 사용)
-        ChatMessage chatMessage = chatMessageRepository.findById(chatMessageId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.CONV4042));
-
-        // 2. 권한 검증 (해당 대화가 사용자의 노트에 속하는지)
-        Note note = chatMessage.getNote();
-        if (note == null) {
-            throw new BusinessException(ErrorCode.CONV4042);
-        }
-        
-        if (!note.getUser().getId().equals(userId)) {
-            throw new BusinessException(ErrorCode.CONV4031);
-        }
-
-        String textContent = chatMessage.getTextContent();
-
-        // 3. 응답 생성
-        ConversationDetailResponse.ConversationDetailResponseBuilder responseBuilder = 
-                ConversationDetailResponse.builder()
-                        .conversationId(chatMessage.getId())
-                        .note(ConversationDetailResponse.NoteInfo.builder()
-                                .noteId(note.getId())
-                                .title(note.getTitle())
-                                .build())
-                        .createdAt(chatMessage.getCreatedAt())
-                        .updatedAt(chatMessage.getCreatedAt());
-
-        if (chatMessage.getRole() == MessageRole.USER) {
-            responseBuilder.userMessage(ConversationDetailResponse.UserMessageDetail.builder()
-                    .messageId(chatMessage.getId())
-                    .text(textContent)
-                    .mentionedFiles(Collections.emptyList())
-                    .mentionedTools(Collections.emptyList())
-                    .createdAt(chatMessage.getCreatedAt())
-                    .build());
-        } else if (chatMessage.getRole() == MessageRole.ASSISTANT) {
-            responseBuilder.assistantMessage(ConversationDetailResponse.AssistantMessageDetail.builder()
-                    .messageId(chatMessage.getId())
-                    .text(textContent)
-                    .createdAt(chatMessage.getCreatedAt())
-                    .build());
-        }
-
-        return responseBuilder.build();
     }
 }

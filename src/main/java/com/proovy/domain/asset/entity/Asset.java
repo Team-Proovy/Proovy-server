@@ -9,7 +9,9 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "assets")
@@ -45,15 +47,22 @@ public class Asset {
 
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
-    private AssetSource source; // upload, ai_generated
+    private AssetSource source; // upload (Phase 1은 생성 파일 저장 없음)
 
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
-    private AssetStatus status; // PENDING, UPLOADED, FAILED
+    private AssetStatus status; // PENDING, ACTIVE, FAILED, DELETING, DELETED
 
     private LocalDateTime uploadExpiresAt; // Presigned URL 만료 시간
 
-    private Integer totalPages; // 총 페이지 수 (PDF/PPT)
+    @Column(name = "content_version", nullable = false)
+    private Integer contentVersion = 1; // run dependency·Source Reference가 고정하는 content version
+
+    @Column(length = 64)
+    private String sha256; // 확정된 원본의 SHA-256 (S09에서 기록)
+
+    @Column(name = "page_count")
+    private Integer pageCount; // PDF 총 페이지 수
 
     @Column(length = 20)
     @Enumerated(EnumType.STRING)
@@ -63,6 +72,19 @@ public class Asset {
     private String ocrText; // OCR 결과 (JSON 형태)
 
     private LocalDateTime ocrProcessedAt; // OCR 처리 완료 시각
+
+    // 삭제 operation (DELETING부터 새 run scope·source availability에서 제외, S13에서 사용)
+    @Column(name = "deletion_operation_id")
+    private UUID deletionOperationId;
+
+    @Column(name = "deletion_requested_at")
+    private Instant deletionRequestedAt;
+
+    @Column(name = "brain_cleanup_acked_at")
+    private Instant brainCleanupAckedAt;
+
+    @Column(name = "storage_cleaned_at")
+    private Instant storageCleanedAt;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
@@ -92,8 +114,7 @@ public class Asset {
     }
 
     public enum AssetSource {
-        upload,
-        ai_generated
+        upload
     }
 
     public enum OcrStatus {
@@ -104,20 +125,20 @@ public class Asset {
     }
 
     /**
-     * 업로드 완료 상태로 변경
+     * 업로드 확정 (PENDING → ACTIVE)
      */
     public void markAsUploaded() {
-        this.status = AssetStatus.UPLOADED;
+        this.status = AssetStatus.ACTIVE;
         this.ocrStatus = OcrStatus.processing;
     }
 
     /**
      * OCR 처리 완료
      */
-    public void completeOcr(String ocrText, Integer totalPages) {
+    public void completeOcr(String ocrText, Integer pageCount) {
         this.ocrStatus = OcrStatus.completed;
         this.ocrText = ocrText;
-        this.totalPages = totalPages;
+        this.pageCount = pageCount;
         this.ocrProcessedAt = LocalDateTime.now();
     }
 
