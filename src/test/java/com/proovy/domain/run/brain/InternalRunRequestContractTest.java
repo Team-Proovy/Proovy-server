@@ -71,6 +71,10 @@ class InternalRunRequestContractTest {
         assertRejected(request -> request.remove("history"));
         assertRejected(request -> ((ObjectNode) request.get("execution_options").get("limits"))
                 .remove("max_claims"));
+        assertRejected(request -> request.putNull("history"));
+        assertRejected(request -> request.putNull("turn_attachments"));
+        assertRejected(request -> ((ObjectNode) request.get("input")).putNull("requested_tasks"));
+        assertRejected(request -> ((ObjectNode) request.get("verified_solution_refs").get(0)).putNull("claims"));
     }
 
     @Test
@@ -127,6 +131,12 @@ class InternalRunRequestContractTest {
         assertThat(rotated.fingerprint()).isEqualTo(first.fingerprint());
         assertThat(rotated.turnAttachments().getFirst().readUrl()).isEqualTo("https://storage.example/att?sig=new");
         assertThat(rotated.assetAccessGrant()).isEqualTo("grant-rotated");
+
+        InternalRunRequest urlOnly = first.withAssetAccess(null, null,
+                Map.of("att-201", "https://storage.example/att?sig=only"));
+        assertThat(urlOnly.assetAccessGrant()).as("null은 유지").isEqualTo(first.assetAccessGrant());
+        assertThat(urlOnly.viewerContext().readUrl()).isEqualTo(first.viewerContext().readUrl());
+        assertThat(first.withAssetAccess(null, null, null)).isEqualTo(first);
     }
 
     @Test
@@ -156,6 +166,29 @@ class InternalRunRequestContractTest {
                 .isEqualTo(OffsetDateTime.parse("2026-10-02T09:30:00Z"));
         assertThat(InternalRunWire.tree(request).get("execution_options").get("request_deadline_at").asText())
                 .isEqualTo("2026-10-02T09:30:00Z");
+    }
+
+    @Test
+    @DisplayName("deadline은 Brain과 같이 µs로 자른다")
+    void deadlineTruncatedToMicros() {
+        ObjectNode raw = (ObjectNode) load("requests/full.json").deepCopy();
+        ((ObjectNode) raw.get("execution_options")).put("request_deadline_at", "2026-10-02T09:30:03.123456789Z");
+        InternalRunRequest request = InternalRunWire.read(raw, InternalRunRequest.class);
+        assertThat(request.executionOptions().requestDeadlineAt())
+                .isEqualTo(OffsetDateTime.parse("2026-10-02T09:30:03.123456Z"));
+    }
+
+    @Test
+    @DisplayName("internal MIME·role 값 집합이 1.75 브라우저 계약 enum과 같다")
+    void enumsMatchBrowserContract() {
+        assertThat(java.util.Arrays.stream(AssetMime.values()).map(AssetMime::wireValue))
+                .containsExactlyInAnyOrderElementsOf(java.util.Arrays.stream(
+                        com.proovy.domain.run.contract.TurnAttachmentMime.values())
+                        .map(com.proovy.domain.run.contract.TurnAttachmentMime::wireValue).toList());
+        assertThat(java.util.Arrays.stream(HistoryRole.values()).map(HistoryRole::wireValue))
+                .containsExactlyInAnyOrderElementsOf(java.util.Arrays.stream(
+                        com.proovy.domain.run.contract.MessageRole.values())
+                        .map(com.proovy.domain.run.contract.MessageRole::wireValue).toList());
     }
 
     private static void assertRejected(java.util.function.Consumer<ObjectNode> mutation) {

@@ -9,6 +9,8 @@ import static com.proovy.domain.run.brain.InternalRunContract.matching;
 import static com.proovy.domain.run.brain.InternalRunContract.optionalText;
 import static com.proovy.domain.run.brain.InternalRunContract.unique;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import com.proovy.domain.run.contract.RequestedOutput;
 import com.proovy.domain.run.contract.RequestedTask;
 import java.util.List;
@@ -20,8 +22,8 @@ import java.util.function.Function;
 public record RunInput(
         String text,
         String latex,
-        List<RequestedTask> requestedTasks,
-        List<RequestedOutput> requestedOutputs,
+        @JsonSetter(nulls = Nulls.FAIL) List<RequestedTask> requestedTasks,
+        @JsonSetter(nulls = Nulls.FAIL) List<RequestedOutput> requestedOutputs,
         String locale) {
 
     public RunInput {

@@ -101,6 +101,8 @@ class BrainRunClientTransportTest {
         assertStreamFailure(403, "{\"error\":\"forbidden_identity\"}", BrainFailureKind.AUTH_REJECTED);
         assertStreamFailure(413, "{\"error\":\"request_too_large\"}", BrainFailureKind.REQUEST_TOO_LARGE);
         assertStreamFailure(404, "{}", BrainFailureKind.UNEXPECTED_STATUS);
+        assertThat(assertStreamFailure(429, "rate limited", BrainFailureKind.CAPACITY).kind().isSafeToResend())
+                .isTrue();
 
         BrainCallException conflict = assertStreamFailure(409, "{\"error\":\"conflict\",\"state\":\"canceling\"}",
                 BrainFailureKind.RUN_CONFLICT);
@@ -182,6 +184,59 @@ class BrainRunClientTransportTest {
                 .isInstanceOfSatisfying(BrainCallException.class,
                         error -> assertThat(error.kind()).isEqualTo(BrainFailureKind.DEADLINE_EXCEEDED));
         assertThat(brain.received()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("stream: deadline은 지났지만 grace 안인 재전달은 보낸다(저장 terminal 회수)")
+    void withinGraceIsSentForTerminalRecovery() throws Exception {
+        brain.handle(exchange -> write(openSse(exchange), frame(storedTerminal("status-terminal"))));
+        Clock afterDeadline = Clock.fixed(Instant.parse("2026-10-02T09:31:00Z"), ZoneOffset.UTC);
+        List<SourceEvent> events = client(afterDeadline).stream(request).collectList().block(WAIT);
+        assertThat(events).extracting(SourceEvent::type).containsExactly(SourceEventType.RUN_COMPLETED);
+        assertThat(brain.received()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("credential 발급 시간은 stream idle에 들어가지 않고, request-timeout을 넘으면 보내지 않는다")
+    void credentialTimeIsBoundedSeparately() {
+        brain.handle(exchange -> write(openSse(exchange), frame(storedTerminal("status-terminal"))));
+        BrainServiceCredentials slow = () -> {
+            try {
+                Thread.sleep(600);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return TOKEN;
+        };
+        BrainClientProperties shortIdle = new BrainClientProperties(brain.baseUrl(), sharedAuth(),
+                Duration.ofSeconds(2), Duration.ofSeconds(3), Duration.ofMillis(300), Duration.ofMinutes(3),
+                DataSize.ofMegabytes(4));
+        assertThat(new BrainRunClient(shortIdle, slow, BEFORE_DEADLINE).stream(request).collectList().block(WAIT))
+                .hasSize(1);
+
+        BrainClientProperties shortRequest = new BrainClientProperties(brain.baseUrl(), sharedAuth(),
+                Duration.ofSeconds(2), Duration.ofMillis(200), Duration.ofSeconds(30), Duration.ofMinutes(3),
+                DataSize.ofMegabytes(4));
+        int before = brain.received().size();
+        assertThatThrownBy(() -> new BrainRunClient(shortRequest, slow, BEFORE_DEADLINE).stream(request)
+                .blockLast(WAIT))
+                .isInstanceOfSatisfying(BrainCallException.class, error -> {
+                    assertThat(error.kind()).isEqualTo(BrainFailureKind.CREDENTIALS_UNAVAILABLE);
+                    assertThat(error.kind().isSafeToResend()).isTrue();
+                });
+        assertThat(brain.received()).hasSize(before);
+    }
+
+    @Test
+    @DisplayName("분류하지 못한 예외도 kind로 감싸고 URL·fence_token이 담긴 원래 message·cause를 버린다")
+    void unknownErrorsAreWrapped() {
+        Throwable mapped = client(BEFORE_DEADLINE).mapError(RunOperation.STATUS,
+                new IllegalStateException("GET http://brain/internal/v1/runs/run-441?fence_token=fence-a1b2"), null);
+        assertThat(mapped).isInstanceOfSatisfying(BrainCallException.class, error -> {
+            assertThat(error.kind()).isEqualTo(BrainFailureKind.TRANSPORT_LOST);
+            assertThat(error).hasNoCause();
+            assertThat(error.getMessage()).doesNotContain("fence-a1b2", "http://");
+        });
     }
 
     @Test

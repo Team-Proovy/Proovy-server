@@ -57,25 +57,32 @@ MIME별 media 사실, conversation = note, scope note, history 중복·참조 �
 | `stream-deadline-grace` | 3m | `request_deadline_at` 뒤 stream 상한(Brain tail은 deadline + 4 × lease TTL 30s) |
 | `max-response-size` | 4MB | JSON 응답·SSE frame 하나 |
 
-deadline + grace가 이미 지난 요청은 보내지 않는다(`DEADLINE_EXCEEDED`).
+deadline + grace가 이미 지난 요청은 보내지 않는다(`DEADLINE_EXCEEDED`). deadline은 지났지만 grace 안인 전송은 의도된 것이다: 같은 fingerprint 재전달이면 Brain이 저장 terminal을 돌려주므로(`RETURN_TERMINAL`) terminal 회수에 쓸 수 있고 새 실행을 만들지 않는다. 회수만 필요하면 `status`가 더 가볍다.
+
+credential 발급(ID token)은 `request-timeout` 안에서 끝나야 하고 넘으면 요청 전 `CREDENTIALS_UNAVAILABLE`이다. stream idle·status 응답 시간에는 들어가지 않는다.
 
 ### 실패 분류 (`BrainFailureKind`)
 
-| kind | 원인 | status 조회로 수습 |
+범주는 셋이다: **status 조회로 수습**(`isRecoverableByStatusQuery()`, 요청이 닿았을 수 있음), **같은 요청 재전송 가능**(`isSafeToResend()`, Brain record에 닿지 않음), 둘 다 아니면 **영구 실패**.
+
+| kind | 원인 | 범주 |
 |---|---|---|
-| `CONNECT_FAILED` | 연결 수립 실패 | – |
-| `TRANSPORT_LOST` | 응답·stream 중간 단절 | ✓ |
-| `TIMEOUT` | 응답·idle 상한 | ✓ |
-| `DEADLINE_EXCEEDED` | 고정 deadline + grace 초과 | ✓ |
-| `CAPACITY` | 503 `reason=capacity` (record 생성 전 거부) | – |
-| `UNAVAILABLE` | 그 밖의 5xx | ✓ |
-| `REQUEST_ID_BOUND_TO_OTHER_RUN` | 409 binding (`existingRunId()`) | – (Server 버그) |
-| `RUN_CONFLICT` | 409 contention (`conflictState()`) | – |
-| `INVALID_REQUEST` / `REQUEST_TOO_LARGE` | 400 / 413 | – |
-| `AUTH_REJECTED` / `CREDENTIALS_UNAVAILABLE` | 401·403 / token 발급 실패 | – |
-| `UNEXPECTED_STATUS` | 그 밖의 status(3xx 포함) | – |
-| `MALFORMED_RESPONSE` / `MALFORMED_SOURCE` | 계약 밖 응답 / frame(`run.canceled`·다른 run_id 포함) | – |
-| `STREAM_ENDED_WITHOUT_TERMINAL` | terminal 없이 종료(취소된 run 등) | ✓ |
+| `CONNECT_FAILED` | 연결 수립 실패 | 재전송 |
+| `TRANSPORT_LOST` | 응답·stream 중간 단절, 분류하지 못한 예외 | status |
+| `TIMEOUT` | 응답·idle 상한 | status |
+| `DEADLINE_EXCEEDED` | 고정 deadline + grace 초과 | status |
+| `CAPACITY` | 503 `reason=capacity`, 429(Cloud Run 앞단) — record 생성 전 거부 | 재전송 |
+| `UNAVAILABLE` | 그 밖의 5xx | status |
+| `REQUEST_ID_BOUND_TO_OTHER_RUN` | 409 binding (`existingRunId()`) | 영구 (Server 버그) |
+| `RUN_CONFLICT` | 409 contention (`conflictState()`) | 영구 |
+| `INVALID_REQUEST` / `REQUEST_TOO_LARGE` | 400 / 413 | 영구 |
+| `AUTH_REJECTED` | 401·403 | 영구 |
+| `CREDENTIALS_UNAVAILABLE` | token 발급 실패·초과 | 재전송 |
+| `UNEXPECTED_STATUS` | 그 밖의 status(3xx 포함) | 영구 |
+| `MALFORMED_RESPONSE` / `MALFORMED_SOURCE` | 계약 밖 응답 / frame(`run.canceled`·다른 run_id 포함) | 영구 |
+| `STREAM_ENDED_WITHOUT_TERMINAL` | terminal 없이 종료(취소된 run 등) | status |
+
+재전송 횟수·간격과 deadline 안 여부는 호출자가 정한다. client는 재시도하지 않는다.
 
 오류 message와 필드에는 kind·HTTP status·409의 state·existing_run_id만 들어간다(본문·token·grant·URL 없음, cause 없음).
 
@@ -107,10 +114,23 @@ proovy:
 
 - **1.78 (snapshot)**: 브라우저 `ConversationRunRequest` → `InternalRunRequest` 매핑. 첫 전달은 `ExecutionUsage.ZERO`.
   history는 공개 Result Block plain text, 현재 input과 같은 user text를 넣지 않는다(생성자가 거부).
-- **1.80 (coordinator)**: `stream` 실패 kind별 처리. `isRecoverableByStatusQuery()`면 같은 attempt·fence로 `status`.
+- **1.80 (coordinator)**: `stream` 실패 kind별 처리. `isRecoverableByStatusQuery()`면 같은 attempt·fence로 `status`, `isSafeToResend()`면 deadline 안에서 같은 요청 재전송.
   재전달은 `forRetry`. `RUN_CONFLICT`·`REQUEST_ID_BOUND_TO_OTHER_RUN`는 재전달하지 않는다. 현재 fence의 event만 저장한다.
 - **1.81 (terminal)**: `SourceEvent`·`StoredTerminal`의 completed·failed payload는 JSON 그대로다. terminal-v2 계약
   (provenance·Verified Solution) 검사는 1.81이 terminal-v2 fixture를 pin해 한다.
 - **1.83 (activity)**: activity payload도 JSON 그대로다. activity-v1 fixture pin과 의미 검사는 1.83 몫이다.
 - `RunCancelCause`(1.74 entity enum)를 cancel 요청·`run.canceled` cause로 그대로 쓴다. 1.74 enum은 고치지 않고
   `InternalRunWire`의 mix-in으로 wire 철자를 쓴다.
+- `withAssetAccess(grant, viewerReadUrl, urls)`의 null은 모두 "기존 값 유지"다. 자격증명을 지우는 API는 없다.
+- 필수 배열(history·참조·첨부·claims·requested_*)에 JSON `null`이 오면 wire 읽기에서 거부한다(Brain closed model과 같다).
+  코드로 만들 때 생성자의 null은 빈 목록이다.
+- `request_deadline_at`은 µs로 자른다(1.75 `wireTime` 관례, Brain pydantic 보존 정밀도).
+
+## 리뷰 r176 후속 메모
+
+- **Brain fixture 추가 요청 (다음 consumer_version)**: fingerprint fixture 27개가 모두 `latex`·`viewer_context`·`selection`을 가진다.
+  latex·viewer가 없는 가장 흔한 요청 형태의 canonical·sha256이 바이트 단위로 고정돼 있지 않다(`requests/minimal.json`에는
+  expected fingerprint가 없다). 코드 대조로는 같지만, proovy-brain에 그 형태의 `fingerprint/` 케이스를 추가해 달라고 요청하고 다음 pin 때 소비한다.
+  Server 사본은 손으로 고치지 않는다.
+- **credential 호출 비용 (1.80 이후 측정)**: shared token·캐시된 ID token도 호출마다 `boundedElastic`으로 옮기고
+  `GoogleIdTokenCredentials`의 monitor를 잡는다. 정확성 문제는 없다. 동시 실행이 늘면 측정해서 줄인다.

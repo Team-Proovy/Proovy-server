@@ -5,6 +5,7 @@ import static com.proovy.domain.run.brain.InternalRunContract.versionLabel;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 
 /**
  * versioned 실행 예산 snapshot과 누적 counter.
@@ -19,7 +20,9 @@ public record ExecutionOptions(
 
     public ExecutionOptions {
         budgetPolicyVersion = versionLabel(budgetPolicyVersion, "execution_options.budget_policy_version");
-        require(requestDeadlineAt, "execution_options.request_deadline_at");
+        // Brain(pydantic)은 µs까지만 보존한다. 1.75 wireTime 관례와 같이 µs로 자른다.
+        requestDeadlineAt = require(requestDeadlineAt, "execution_options.request_deadline_at")
+                .truncatedTo(ChronoUnit.MICROS);
         require(limits, "execution_options.limits");
         require(usage, "execution_options.usage");
     }

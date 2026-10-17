@@ -2,11 +2,13 @@ package com.proovy.global.infra.brain;
 
 /**
  * Brain 내부 API 호출 실패 원인. 호출자(coordinator)가 다음 행동을 고르는 기준이다.
- * client는 어떤 실패에서도 스스로 재시도하거나 새 run·attempt를 만들지 않는다.
+ * client는 어떤 실패에서도 스스로 재시도하거나 새 run·attempt를 만들지 않는다. 범주는 셋이다.
  * <ul>
- *   <li>{@link #isRecoverableByStatusQuery()}: 실행이 Brain에 남아 있을 수 있다. 같은 attempt·fence로
- *       {@code status}를 조회해 수습한다(새 실행 금지).</li>
- *   <li>그 밖은 요청·계약·설정 문제라 같은 요청을 다시 보내도 달라지지 않는다.</li>
+ *   <li>{@link #isRecoverableByStatusQuery()}: 요청이 Brain에 닿았을 수 있어 실행이 남아 있을 수 있다.
+ *       같은 attempt·fence로 {@code status}를 조회해 수습한다(새 실행 금지).</li>
+ *   <li>{@link #isSafeToResend()}: 요청이 Brain record에 닿지 않았다(연결 실패·capacity·429·credential 발급 실패).
+ *       같은 요청(같은 attempt·fence)을 deadline 안에서 다시 보내도 된다. 언제·몇 번 보낼지는 호출자가 정한다.</li>
+ *   <li>둘 다 아니면 영구 실패다(요청·계약·인증·설정 문제, contention 거부). 같은 요청을 다시 보내도 달라지지 않는다.</li>
  * </ul>
  */
 public enum BrainFailureKind {
@@ -18,7 +20,10 @@ public enum BrainFailureKind {
     TIMEOUT,
     /** stream이 요청의 고정 deadline + grace를 넘었다. */
     DEADLINE_EXCEEDED,
-    /** 503 {@code reason=capacity}: Brain 인스턴스 동시 실행 상한. record가 만들어지기 전 거부라 재접수 가능하다. */
+    /**
+     * 503 {@code reason=capacity}(Brain 인스턴스 동시 실행 상한) 또는 429(Cloud Run 앞단 상한).
+     * record가 만들어지기 전 거부라 같은 요청을 다시 보낼 수 있다.
+     */
     CAPACITY,
     /** 그 밖의 5xx(503 unavailable 등). */
     UNAVAILABLE,
@@ -42,6 +47,13 @@ public enum BrainFailureKind {
     MALFORMED_SOURCE,
     /** terminal 없이 stream이 끝났다(취소된 run·Brain 상한·cleanup). status로 저장 terminal을 확인한다. */
     STREAM_ENDED_WITHOUT_TERMINAL;
+
+    public boolean isSafeToResend() {
+        return switch (this) {
+            case CONNECT_FAILED, CAPACITY, CREDENTIALS_UNAVAILABLE -> true;
+            default -> false;
+        };
+    }
 
     public boolean isRecoverableByStatusQuery() {
         return switch (this) {

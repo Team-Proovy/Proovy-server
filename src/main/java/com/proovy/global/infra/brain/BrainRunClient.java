@@ -59,7 +59,9 @@ import reactor.netty.http.client.PrematureCloseException;
  *   <li>서비스 인증 header 하나만 보낸다. 사용자 JWT·쿠키·브라우저 header를 전달할 경로가 없다.</li>
  *   <li>재시도·redirect 추적·새 run 생성을 하지 않는다. 실패는 {@link BrainCallException#kind()}로 구별해 넘긴다.</li>
  *   <li>stream은 frame idle 상한과 요청의 고정 {@code request_deadline_at} + grace 상한을 지킨다. client가
- *       deadline을 늘리지 않으며, 이미 지난 요청은 보내지 않는다.</li>
+ *       deadline을 늘리지 않으며, deadline + grace가 지난 요청은 보내지 않는다. deadline은 지났지만 grace 안인
+ *       전송은 의도된 것이다: 같은 fingerprint 재전달은 Brain이 저장 terminal을 돌려주므로(RETURN_TERMINAL)
+ *       terminal 회수에 쓸 수 있고 새 실행을 만들지 않는다. 회수만 필요하면 {@link #status}가 더 가볍다.</li>
  *   <li>오류에는 본문·token·grant·URL을 담지 않는다.</li>
  * </ul>
  */
@@ -114,9 +116,9 @@ public class BrainRunClient {
                             .bodyValue(body)
                             .exchangeToFlux(response -> response.statusCode().value() == 200
                                     ? sseBody(response)
-                                    : BrainRunClient.<ServerSentEvent<String>>failure(operation, response).flux()))
-                    .timeout(Mono.defer(() -> idleOrDeadline(bound)), frame -> idleOrDeadline(bound))
-                    .onErrorMap(error -> mapError(operation, error, bound))
+                                    : BrainRunClient.<ServerSentEvent<String>>failure(operation, response).flux())
+                            .timeout(Mono.defer(() -> idleOrDeadline(bound)), frame -> idleOrDeadline(bound))
+                            .onErrorMap(error -> mapError(operation, error, bound)))
                     .concatMap(frame -> parseFrame(frame, request.runId()))
                     .takeUntil(SourceEvent::isTerminal)
                     .doOnNext(event -> {
@@ -141,9 +143,9 @@ public class BrainRunClient {
                                 .queryParam("fence_token", "{fence}")
                                 .build(query.runId(), query.fenceToken()))
                         .headers(headers -> serviceHeaders(headers, token, MediaType.APPLICATION_JSON))
-                        .exchangeToMono(response -> json(operation, response, RunStatusResponse.class)))
-                .timeout(properties.requestTimeout())
-                .onErrorMap(error -> mapError(operation, error, null))
+                        .exchangeToMono(response -> json(operation, response, RunStatusResponse.class))
+                        .timeout(properties.requestTimeout())
+                        .onErrorMap(error -> mapError(operation, error, null)))
                 .flatMap(response -> sameRun(operation, response.runId(), query.runId(), response));
     }
 
@@ -169,14 +171,16 @@ public class BrainRunClient {
                         .headers(headers -> serviceHeaders(headers, token, MediaType.APPLICATION_JSON))
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(body)
-                        .exchangeToMono(response -> json(operation, response, type)))
-                .timeout(properties.requestTimeout())
-                .onErrorMap(error -> mapError(operation, error, null));
+                        .exchangeToMono(response -> json(operation, response, type))
+                        .timeout(properties.requestTimeout())
+                        .onErrorMap(error -> mapError(operation, error, null)));
     }
 
+    /** credential 발급은 request-timeout 안에서 끝나야 한다. 실패·초과는 요청을 보내기 전의 CREDENTIALS_UNAVAILABLE이다. */
     private Mono<String> bearer(RunOperation operation) {
         return Mono.fromCallable(credentials::bearerToken)
                 .subscribeOn(Schedulers.boundedElastic())
+                .timeout(properties.requestTimeout())
                 .onErrorMap(error -> BrainCallException.of(operation, BrainFailureKind.CREDENTIALS_UNAVAILABLE));
     }
 
@@ -267,6 +271,8 @@ public class BrainRunClient {
                 yield new BrainCallException(operation, BrainFailureKind.RUN_CONFLICT, status,
                         recordState(text(body, "state")), null);
             }
+            // 429는 Cloud Run 앞단의 instance·동시성 상한 거부다. Brain record가 생기기 전이라 capacity와 같게 다룬다.
+            case 429 -> BrainCallException.of(operation, BrainFailureKind.CAPACITY, status);
             case 503 -> BrainCallException.of(operation,
                     "capacity".equals(reason) ? BrainFailureKind.CAPACITY : BrainFailureKind.UNAVAILABLE, status);
             default -> BrainCallException.of(operation, status >= 500
@@ -274,7 +280,7 @@ public class BrainRunClient {
         };
     }
 
-    private Throwable mapError(RunOperation operation, Throwable error, Instant streamBound) {
+    Throwable mapError(RunOperation operation, Throwable error, Instant streamBound) {
         if (error instanceof BrainCallException) {
             return error;
         }
@@ -299,7 +305,9 @@ public class BrainRunClient {
                 || error.getCause() instanceof PrematureCloseException || error.getCause() instanceof IOException) {
             return as.apply(BrainFailureKind.TRANSPORT_LOST);
         }
-        return error;
+        // 분류하지 못한 예외(codec·pool 등)도 kind로 감싸고 원래 message·cause(URL·fence_token이 들어갈 수 있다)는 버린다.
+        // 요청이 닿았는지 알 수 없으므로 status 조회로 수습하는 TRANSPORT_LOST로 둔다.
+        return as.apply(BrainFailureKind.TRANSPORT_LOST);
     }
 
     private static JsonNode safeTree(String body) {

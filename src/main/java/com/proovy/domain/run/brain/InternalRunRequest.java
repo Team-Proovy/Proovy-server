@@ -16,6 +16,8 @@ import static com.proovy.domain.run.brain.InternalRunContract.unique;
 import static com.proovy.domain.run.brain.InternalRunContract.violation;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -44,12 +46,12 @@ public record InternalRunRequest(
         @JsonProperty(required = true) int attempt,
         String fenceToken,
         RunInput input,
-        @JsonProperty(required = true) List<HistoryMessage> history,
-        @JsonProperty(required = true) List<VerifiedSolutionRef> verifiedSolutionRefs,
-        @JsonProperty(required = true) List<TurnAttachmentRef> turnAttachmentRefs,
+        @JsonSetter(nulls = Nulls.FAIL) @JsonProperty(required = true) List<HistoryMessage> history,
+        @JsonSetter(nulls = Nulls.FAIL) @JsonProperty(required = true) List<VerifiedSolutionRef> verifiedSolutionRefs,
+        @JsonSetter(nulls = Nulls.FAIL) @JsonProperty(required = true) List<TurnAttachmentRef> turnAttachmentRefs,
         ViewerContext viewerContext,
         RetrievalScope retrievalScope,
-        @JsonProperty(required = true) List<TurnAttachment> turnAttachments,
+        @JsonSetter(nulls = Nulls.FAIL) @JsonProperty(required = true) List<TurnAttachment> turnAttachments,
         String assetAccessGrant,
         ExecutionOptions executionOptions) {
 
@@ -130,21 +132,23 @@ public record InternalRunRequest(
 
     /**
      * 실행 자격증명만 바꾼 사본(grant와 짧은 read URL 재발급). 의미 필드가 그대로라 fingerprint가 같다.
+     * 모든 인자는 "주어진 것만 바꾸고 나머지는 유지"다. 자격증명을 지우는 경로는 없다.
      *
-     * @param grant                  새 Asset Access Grant. null이면 보내지 않는다
-     * @param viewerReadUrl          viewer_context의 새 read URL. null이면 보내지 않는다(viewer_context가 없으면 무시)
-     * @param turnAttachmentReadUrls attachment_id → 새 read URL. 없는 id는 기존 URL을 유지한다.
+     * @param grant                  새 Asset Access Grant. null이면 기존 값을 유지한다
+     * @param viewerReadUrl          viewer_context의 새 read URL. null이면 기존 값을 유지한다(viewer_context가 없으면 무시)
+     * @param turnAttachmentReadUrls attachment_id → 새 read URL. null이거나 없는 id는 기존 URL을 유지한다
      */
     public InternalRunRequest withAssetAccess(String grant, String viewerReadUrl,
             Map<String, String> turnAttachmentReadUrls) {
-        ViewerContext viewer = viewerContext == null ? null : viewerContext.withReadUrl(viewerReadUrl);
+        ViewerContext viewer = viewerContext == null || viewerReadUrl == null
+                ? viewerContext : viewerContext.withReadUrl(viewerReadUrl);
+        Map<String, String> urls = turnAttachmentReadUrls == null ? Map.of() : turnAttachmentReadUrls;
         List<TurnAttachment> attachments = turnAttachments.stream()
-                .map(item -> item.withReadUrl(turnAttachmentReadUrls.getOrDefault(item.attachmentId(),
-                        item.readUrl())))
+                .map(item -> item.withReadUrl(urls.getOrDefault(item.attachmentId(), item.readUrl())))
                 .toList();
         return new InternalRunRequest(contractVersion, requestId, runId, userId, noteId, conversationId, attempt,
                 fenceToken, input, history, verifiedSolutionRefs, turnAttachmentRefs, viewer, retrievalScope,
-                attachments, grant, executionOptions);
+                attachments, grant == null ? assetAccessGrant : grant, executionOptions);
     }
 
     @Override

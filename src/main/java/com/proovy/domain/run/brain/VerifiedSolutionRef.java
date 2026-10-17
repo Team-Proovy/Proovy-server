@@ -12,6 +12,8 @@ import static com.proovy.domain.run.brain.InternalRunContract.text;
 import static com.proovy.domain.run.brain.InternalRunContract.unique;
 import static com.proovy.domain.run.brain.InternalRunContract.violation;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import java.util.List;
 
 /**
@@ -24,7 +26,7 @@ public record VerifiedSolutionRef(
         SolutionReferenceStatus status,
         String revisesSolutionId,
         String problemSummary,
-        List<VerifiedSolutionRefClaim> claims) {
+        @JsonSetter(nulls = Nulls.FAIL) List<VerifiedSolutionRefClaim> claims) {
 
     public VerifiedSolutionRef {
         solutionId = matching(solutionId, "verified_solution_refs.solution_id", SOLUTION_ID, MAX_IDENTIFIER_LENGTH);
