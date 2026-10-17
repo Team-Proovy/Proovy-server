@@ -15,7 +15,7 @@ public interface RunSnapshotSources {
     boolean isActiveNoteOwnedBy(long noteId, long userId);
 
     /**
-     * 결과가 확정된(COMPLETED run) turn을 최신부터 최대 {@code limit}개. user·assistant 짝은 run 기준이다
+     * 결과가 확정된(COMPLETED run) turn을 최신(run 생성 순)부터 최대 {@code limit}개. user·assistant 짝은 run 기준이다
      * (run의 user_message_id·assistant_message_id). 실패·취소·진행 중 run의 메시지는 오지 않는다.
      */
     List<CompletedTurn> completedTurnsNewestFirst(long noteId, int limit);
@@ -34,12 +34,13 @@ public interface RunSnapshotSources {
 
     /**
      * @param publicSolutionId        Brain neutral ID(run 안에서만 unique)
+     * @param revisesSolutionId       정정 대상의 Server ID(없으면 null)
      * @param revisesPublicSolutionId 정정 대상의 Brain neutral ID(없으면 null)
      * @param superseded              현재 SUPERSEDED인지(조회 시점 상태)
      * @param claims                  {@code [{claim_id, statement, coverage}]}
      */
     record SolutionRow(UUID solutionId, String publicSolutionId, UUID assistantMessageId, String problemStatement,
-                       JsonNode claims, String revisesPublicSolutionId, boolean superseded) {
+                       JsonNode claims, UUID revisesSolutionId, String revisesPublicSolutionId, boolean superseded) {
     }
 
     record AttachmentRow(UUID attachmentId, UUID sourceMessageId, int attachmentIndex, String sha256,

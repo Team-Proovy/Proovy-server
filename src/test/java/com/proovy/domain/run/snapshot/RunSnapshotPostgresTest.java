@@ -234,6 +234,26 @@ class RunSnapshotPostgresTest {
                 .containsExactly(recentAttachment.toString());
     }
 
+    @Test
+    void aLongNewestAnswerIsKeptWholeWithItsSolutionReference() {
+        long note = newNote(ALICE);
+        Turn older = completedTurn(note, "이전 질문", "이전 답");
+        solution(note, older, "solution-cccccccccccccccccccc-001", null);
+        Turn proof = completedTurn(note, "증명해줘", "증".repeat(30_000));
+        solution(note, proof, "solution-dddddddddddddddddddd-001", null);
+
+        RunSnapshot snapshot = admit(UUID.randomUUID(), note, request(note, "그 풀이 3단계 다시 설명해줘", null),
+                Instant.now());
+        InternalRunRequest delivered = RunSnapshotFactoryTest.firstDelivery(snapshot, RunAssetAccess.NONE);
+
+        assertThat(delivered.history()).extracting(HistoryMessage::messageId)
+                .containsExactly(proof.assistantMessageId().toString());
+        assertThat(delivered.history().get(0).text()).hasSize(30_000);
+        assertThat(delivered.verifiedSolutionRefs()).extracting(VerifiedSolutionRef::solutionId)
+                .containsExactly("solution-dddddddddddddddddddd-001");
+        assertThat(snapshot.policySnapshot().at("/history/estimated_tokens").asInt()).isEqualTo(30_008);
+    }
+
     // ------------------------------------------------------------------
     // 거부
     // ------------------------------------------------------------------

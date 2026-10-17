@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Repository;
  * {@link RunSnapshotSources}의 SQL 구현. 필요한 열만 읽고(response_pages·solution_text 등 공개되지 않을 수 있는 본문은
  * 읽지 않는다) 개수 상한을 DB에서 건다.
  */
+@Slf4j
 @Repository
 public class JdbcRunSnapshotSources implements RunSnapshotSources {
 
@@ -36,6 +38,10 @@ public class JdbcRunSnapshotSources implements RunSnapshotSources {
         return Boolean.TRUE.equals(owned);
     }
 
+    /**
+     * turn 순서는 run 생성 순서다({@code idx_ai_runs_note_created}를 탄다). 접수(1.79)가 한 transaction에서 user 메시지와
+     * run을 함께 만들고 Note당 Active Run이 하나라, run 생성 순서는 user 메시지 순서와 같다.
+     */
     @Override
     public List<CompletedTurn> completedTurnsNewestFirst(long noteId, int limit) {
         return jdbc.query("""
@@ -46,7 +52,7 @@ public class JdbcRunSnapshotSources implements RunSnapshotSources {
                 JOIN chat_messages a ON a.message_id = r.assistant_message_id AND a.note_id = r.note_id
                 WHERE r.note_id = :noteId AND r.status = 'COMPLETED'
                   AND u.status = 'COMPLETED' AND a.status = 'COMPLETED'
-                ORDER BY u.created_at DESC, u.message_id DESC
+                ORDER BY r.created_at DESC, r.run_id DESC
                 LIMIT :limit
                 """, Map.of("noteId", noteId, "limit", limit), (rs, i) -> new CompletedTurn(
                 rs.getObject("user_message_id", UUID.class), rs.getString("user_text"),
@@ -60,7 +66,8 @@ public class JdbcRunSnapshotSources implements RunSnapshotSources {
         }
         return jdbc.query("""
                 SELECT s.solution_id, s.public_solution_id, s.assistant_message_id, s.problem_statement,
-                       s.claims::text AS claims, p.public_solution_id AS revises_public_solution_id,
+                       s.claims::text AS claims, s.revises_solution_id,
+                       p.public_solution_id AS revises_public_solution_id,
                        s.status = 'SUPERSEDED' AS superseded
                 FROM verified_solutions s
                 LEFT JOIN verified_solutions p ON p.solution_id = s.revises_solution_id AND p.note_id = s.note_id
@@ -69,7 +76,8 @@ public class JdbcRunSnapshotSources implements RunSnapshotSources {
                 """, Map.of("noteId", noteId, "messageIds", assistantMessageIds), (rs, i) -> new SolutionRow(
                 rs.getObject("solution_id", UUID.class), rs.getString("public_solution_id"),
                 rs.getObject("assistant_message_id", UUID.class), rs.getString("problem_statement"),
-                json(rs, "claims"), rs.getString("revises_public_solution_id"), rs.getBoolean("superseded")));
+                claims(rs), rs.getObject("revises_solution_id", UUID.class),
+                rs.getString("revises_public_solution_id"), rs.getBoolean("superseded")));
     }
 
     @Override
@@ -98,14 +106,13 @@ public class JdbcRunSnapshotSources implements RunSnapshotSources {
                 (rs, i) -> new CorpusAsset(rs.getLong("id"), rs.getInt("content_version")));
     }
 
-    private static JsonNode json(ResultSet rs, String column) throws SQLException {
-        String text = rs.getString(column);
-        if (text == null) {
-            return NullNode.getInstance();
-        }
+    /** claims JSONB. 읽을 수 없으면 빈 값으로 두고 원인(solution ID만)을 남긴다 — 그 solution은 참조에서 빠진다. */
+    private static JsonNode claims(ResultSet rs) throws SQLException {
+        String text = rs.getString("claims");
         try {
-            return JSON.readTree(text);
+            return text == null ? NullNode.getInstance() : JSON.readTree(text);
         } catch (JsonProcessingException e) {
+            log.warn("verified solution {} claims are not readable JSON", rs.getObject("solution_id", UUID.class));
             return NullNode.getInstance();
         }
     }

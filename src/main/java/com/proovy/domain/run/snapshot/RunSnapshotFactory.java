@@ -37,19 +37,15 @@ import com.proovy.domain.run.snapshot.RunSnapshotSources.AttachmentRow;
 import com.proovy.domain.run.snapshot.RunSnapshotSources.CompletedTurn;
 import com.proovy.domain.run.snapshot.RunSnapshotSources.CorpusAsset;
 import com.proovy.domain.run.snapshot.RunSnapshotSources.SolutionRow;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import com.proovy.global.util.HashUtils;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -111,10 +107,8 @@ public class RunSnapshotFactory {
                 : assetFacts.viewerAsset(userId, noteId, request.viewerFocus());
 
         HistoryBound.Result history = history(noteId, request.text());
-        Set<String> keptMessageIds = history.messages().stream()
-                .map(message -> message.messageId()).collect(Collectors.toSet());
-        List<VerifiedSolutionRef> solutionRefs = solutionRefs(noteId, history, keptMessageIds);
-        List<TurnAttachmentRef> attachmentRefs = attachmentRefs(noteId, history, keptMessageIds);
+        List<VerifiedSolutionRef> solutionRefs = solutionRefs(noteId, history);
+        List<TurnAttachmentRef> attachmentRefs = attachmentRefs(noteId, history);
 
         List<CorpusAsset> corpus = sources.activeAssets(noteId);
         RunSnapshotProperties.Retrieval retrieval = properties.retrieval();
@@ -154,38 +148,58 @@ public class RunSnapshotFactory {
     }
 
     private HistoryBound.Result history(long noteId, String currentText) {
-        // 메시지 100개 상한이라 최신 100 turn이면 충분하다(같은 입력의 user 메시지를 빼도 assistant는 남는다).
+        // 메시지 100개 상한이라 최신 100 turn(후보 200개)이면 충분하다. 하나 더 읽어 그보다 오래된 turn이 남았는지만 본다.
+        List<CompletedTurn> turns = sources.completedTurnsNewestFirst(noteId, MAX_HISTORY_MESSAGES + 1);
         List<HistoryBound.Candidate> newestFirst = new ArrayList<>();
-        for (CompletedTurn turn : sources.completedTurnsNewestFirst(noteId, MAX_HISTORY_MESSAGES)) {
+        for (CompletedTurn turn : turns.subList(0, Math.min(turns.size(), MAX_HISTORY_MESSAGES))) {
             newestFirst.add(new HistoryBound.Candidate(turn.assistantMessageId(), HistoryRole.ASSISTANT,
                     turn.assistantText()));
             newestFirst.add(new HistoryBound.Candidate(turn.userMessageId(), HistoryRole.USER, turn.userText()));
         }
-        return HistoryBound.keepNewest(newestFirst, properties.historyMaxTokens(), currentText);
+        return HistoryBound.keepNewest(newestFirst, properties.historyMaxTokens(), currentText)
+                .truncatedIf(turns.size() > MAX_HISTORY_MESSAGES);
     }
 
-    private List<VerifiedSolutionRef> solutionRefs(long noteId, HistoryBound.Result history, Set<String> kept) {
+    private List<VerifiedSolutionRef> solutionRefs(long noteId, HistoryBound.Result history) {
         List<UUID> assistantIds = history.messages().stream()
                 .filter(message -> message.role() == HistoryRole.ASSISTANT)
                 .map(message -> UUID.fromString(message.messageId())).toList();
-        List<SolutionRow> rows = sources.solutionsForMessages(noteId, assistantIds).stream()
-                .filter(row -> kept.contains(row.assistantMessageId().toString()))
-                .toList();
-        Map<String, Long> idCounts = rows.stream()
-                .collect(Collectors.groupingBy(SolutionRow::publicSolutionId, Collectors.counting()));
+        // 조회는 남은 history의 assistant 메시지로 한정된다(잘린 범위의 solution은 오지 않는다).
+        List<SolutionRow> rows = sources.solutionsForMessages(noteId, assistantIds);
+        Map<String, List<UUID>> byPublicId = rows.stream().collect(Collectors.groupingBy(
+                SolutionRow::publicSolutionId, Collectors.mapping(SolutionRow::solutionId, Collectors.toList())));
         List<VerifiedSolutionRef> refs = new ArrayList<>();
         for (SolutionRow row : rows) {
-            if (idCounts.get(row.publicSolutionId()) > 1) {
+            if (byPublicId.get(row.publicSolutionId()).size() > 1) {
                 log.warn("verified solution {} omitted from references: public id is ambiguous in this note",
                         row.solutionId());
                 continue;
             }
-            solutionRef(row).ifPresent(refs::add);
+            solutionRef(row, revisesId(row, byPublicId)).ifPresent(refs::add);
         }
         return newest(refs, MAX_VERIFIED_SOLUTION_REFS);
     }
 
-    private static Optional<VerifiedSolutionRef> solutionRef(SolutionRow row) {
+    /**
+     * 정정 대상의 Brain ID. 범위 안의 다른 solution이 같은 ID를 쓰면(자기 자신 포함) Brain이 엉뚱한 풀이를 정정 대상으로
+     * 읽을 수 있으므로 정정 관계를 싣지 않는다(fingerprint 밖의 수명주기 정보다).
+     */
+    private static String revisesId(SolutionRow row, Map<String, List<UUID>> byPublicId) {
+        String revises = row.revisesPublicSolutionId();
+        if (revises == null) {
+            return null;
+        }
+        List<UUID> sameId = byPublicId.getOrDefault(revises, List.of());
+        if (revises.equals(row.publicSolutionId()) || sameId.stream().anyMatch(id -> !id.equals(
+                row.revisesSolutionId()))) {
+            log.warn("verified solution {} sent without its revision link: revised public id is ambiguous",
+                    row.solutionId());
+            return null;
+        }
+        return revises;
+    }
+
+    private static Optional<VerifiedSolutionRef> solutionRef(SolutionRow row, String revises) {
         try {
             List<VerifiedSolutionRefClaim> claims = new ArrayList<>();
             for (JsonNode claim : row.claims()) {
@@ -196,8 +210,6 @@ public class RunSnapshotFactory {
                         clip(claim.path("statement").asText(null), MAX_CLAIM_STATEMENT_CHARS),
                         coverage(claim.path("coverage").asText(null))));
             }
-            String revises = row.publicSolutionId().equals(row.revisesPublicSolutionId())
-                    ? null : row.revisesPublicSolutionId();
             return Optional.of(new VerifiedSolutionRef(row.publicSolutionId(), row.assistantMessageId().toString(),
                     row.superseded() ? SolutionReferenceStatus.SUPERSEDED : SolutionReferenceStatus.ACTIVE,
                     revises, clip(row.problemStatement(), MAX_PROBLEM_SUMMARY_CHARS), claims));
@@ -208,15 +220,12 @@ public class RunSnapshotFactory {
         }
     }
 
-    private List<TurnAttachmentRef> attachmentRefs(long noteId, HistoryBound.Result history, Set<String> kept) {
+    private List<TurnAttachmentRef> attachmentRefs(long noteId, HistoryBound.Result history) {
         List<UUID> userIds = history.messages().stream()
                 .filter(message -> message.role() == HistoryRole.USER)
                 .map(message -> UUID.fromString(message.messageId())).toList();
         List<TurnAttachmentRef> refs = new ArrayList<>();
         for (AttachmentRow row : sources.attachmentsForMessages(noteId, userIds)) {
-            if (!kept.contains(row.sourceMessageId().toString())) {
-                continue;
-            }
             Optional<AssetMime> mime = StoredRunAssetFacts.mime(row.mimeType());
             try {
                 refs.add(new TurnAttachmentRef(row.attachmentId().toString(), row.sourceMessageId().toString(),
@@ -270,7 +279,7 @@ public class RunSnapshotFactory {
                 .map(asset -> Map.<String, Object>of("asset_id", asset.assetId(),
                         "content_version", asset.contentVersion()))
                 .toList();
-        return "corpus-" + sha256Hex(CanonicalJson.write(members));
+        return "corpus-" + HashUtils.sha256(CanonicalJson.write(members));
     }
 
     private ObjectNode policySnapshot(ExecutionLimits limits, HistoryBound.Result history) {
@@ -351,12 +360,4 @@ public class RunSnapshotFactory {
                 values.size()));
     }
 
-    private static String sha256Hex(String canonical) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(canonical.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is required by the JDK", e);
-        }
-    }
 }

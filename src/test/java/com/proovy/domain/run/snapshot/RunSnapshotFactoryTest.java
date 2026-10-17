@@ -173,6 +173,37 @@ class RunSnapshotFactoryTest {
     }
 
     @Test
+    void aLongNewestAnswerKeepsItsHistoryAndSolutionReference() {
+        CompletedTurn older = sources.turn("이전 질문", "이전 답");
+        sources.solution(older, "solution-1", false, null);
+        CompletedTurn proof = sources.turn("증명해줘", "증".repeat(30_000));
+        sources.solution(proof, "solution-2", false, null);
+
+        RunSnapshot snapshot = factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("그 풀이 3단계 다시 설명해줘", null), NOW);
+        InternalRunRequest delivered = firstDelivery(snapshot, RunAssetAccess.NONE);
+
+        assertThat(delivered.history()).extracting(HistoryMessage::messageId)
+                .containsExactly(proof.assistantMessageId().toString());
+        assertThat(delivered.verifiedSolutionRefs()).extracting(VerifiedSolutionRef::solutionId)
+                .containsExactly("solution-2");
+        assertThat(snapshot.policySnapshot().at("/history/estimated_tokens").asInt()).isEqualTo(30_008);
+        assertThat(snapshot.policySnapshot().at("/history/truncated").asBoolean()).isTrue();
+    }
+
+    @Test
+    void turnsBeyondTheFetchedWindowMarkTheHistoryTruncated() {
+        for (int i = 0; i < 101; i++) {
+            sources.turn("같은 질문", " "); // 모두 건너뛰는 후보
+        }
+        RunSnapshot snapshot = factory(defaults()).create(UUID.randomUUID(), USER, NOTE, request("같은 질문", null),
+                NOW);
+        assertThat(firstDelivery(snapshot, RunAssetAccess.NONE).history()).isEmpty();
+        assertThat(snapshot.policySnapshot().at("/history/truncated").asBoolean()).isTrue();
+        assertThat(sources.lastLimit).isEqualTo(101);
+    }
+
+    @Test
     void historyCarriesOnlyThePublicPlainTextOfCompletedTurns() {
         CompletedTurn turn = sources.turn("정답은 숨기고 풀이 과정만 보여줘", "풀이 과정: 양변을 정리하면 ... (답은 숨김)");
         sources.solution(turn, "solution-1", false, null);
@@ -229,7 +260,7 @@ class RunSnapshotFactoryTest {
 
         sources.solutions.set(sources.solutions.indexOf(active), new SolutionRow(active.solutionId(),
                 active.publicSolutionId(), active.assistantMessageId(), active.problemStatement(), active.claims(),
-                null, true));
+                null, null, true));
         assertThat(factory(defaults()).create(runId, USER, NOTE, request, NOW).requestFingerprint())
                 .isEqualTo(before);
 
@@ -254,10 +285,42 @@ class RunSnapshotFactoryTest {
     }
 
     @Test
+    void aRevisionLinkToAnAmbiguousBrainIdIsDroppedButTheReferenceStays() {
+        // 정정 대상 X("solution-1")는 잘린 범위에 있고, 범위 안의 다른 run이 같은 순번형 ID "solution-1"을 쓴다
+        UUID truncatedX = UUID.randomUUID();
+        CompletedTurn correction = sources.turn("고쳐줘", "정정");
+        sources.solutions.add(new SolutionRow(UUID.randomUUID(), "solution-9", correction.assistantMessageId(), "문제",
+                claims("근"), truncatedX, "solution-1", false));
+        CompletedTurn other = sources.turn("2번", "답 2");
+        sources.solution(other, "solution-1", false, null);
+
+        List<VerifiedSolutionRef> refs = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("설명", null), NOW), RunAssetAccess.NONE).verifiedSolutionRefs();
+
+        // "solution-1"을 정정 대상으로 실으면 Brain은 범위 안의 다른 풀이로 읽는다 → 정정 관계만 뺀다
+        assertThat(refs).extracting(VerifiedSolutionRef::solutionId, VerifiedSolutionRef::revisesSolutionId)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("solution-9", null),
+                        org.assertj.core.groups.Tuple.tuple("solution-1", null));
+    }
+
+    @Test
+    void anUnambiguousRevisionLinkIsKept() {
+        CompletedTurn first = sources.turn("풀어줘", "풀이");
+        sources.solution(first, "solution-1", true, null);
+        CompletedTurn correction = sources.turn("고쳐줘", "정정");
+        sources.solution(correction, "solution-2", false, "solution-1");
+
+        List<VerifiedSolutionRef> refs = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("설명", null), NOW), RunAssetAccess.NONE).verifiedSolutionRefs();
+
+        assertThat(refs).extracting(VerifiedSolutionRef::revisesSolutionId).containsExactly(null, "solution-1");
+    }
+
+    @Test
     void longStoredSolutionTextIsBoundedNotRejected() {
         CompletedTurn turn = sources.turn("풀어줘", "풀이");
         sources.solutions.add(new SolutionRow(UUID.randomUUID(), "solution-1", turn.assistantMessageId(),
-                "문".repeat(5_000), claims("가".repeat(3_000)), null, false));
+                "문".repeat(5_000), claims("가".repeat(3_000)), null, null, false));
 
         VerifiedSolutionRef ref = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
                 request("설명", null), NOW), RunAssetAccess.NONE).verifiedSolutionRefs().get(0);
@@ -270,7 +333,7 @@ class RunSnapshotFactoryTest {
     void malformedStoredSolutionsAreOmittedInsteadOfBlockingTheNote() {
         CompletedTurn turn = sources.turn("풀어줘", "풀이");
         sources.solutions.add(new SolutionRow(UUID.randomUUID(), "solution-1", turn.assistantMessageId(),
-                "문제", JSON.createArrayNode(), null, false));
+                "문제", JSON.createArrayNode(), null, null, false));
 
         assertThat(firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE, request("설명", null),
                 NOW), RunAssetAccess.NONE).verifiedSolutionRefs()).isEmpty();
@@ -446,6 +509,7 @@ class RunSnapshotFactoryTest {
     static final class FakeSources implements RunSnapshotSources {
         boolean ownedNote = true;
         int turnReads;
+        int lastLimit;
         final List<CompletedTurn> turns = new ArrayList<>();
         final List<SolutionRow> solutions = new ArrayList<>();
         final List<AttachmentRow> attachments = new ArrayList<>();
@@ -458,9 +522,13 @@ class RunSnapshotFactoryTest {
             return turn;
         }
 
+        /** {@code revises}는 이미 추가한 solution의 Brain ID(가장 최근 것)다. */
         SolutionRow solution(CompletedTurn turn, String publicId, boolean superseded, String revises) {
+            UUID revisesId = revises == null ? null : solutions.stream()
+                    .filter(row -> row.publicSolutionId().equals(revises)).reduce((a, b) -> b).orElseThrow()
+                    .solutionId();
             SolutionRow row = new SolutionRow(UUID.randomUUID(), publicId, turn.assistantMessageId(), "문제 " + publicId,
-                    claims("근은 x = 2"), revises, superseded);
+                    claims("근은 x = 2"), revisesId, revises, superseded);
             solutions.add(row);
             return row;
         }
@@ -480,6 +548,7 @@ class RunSnapshotFactoryTest {
         @Override
         public List<CompletedTurn> completedTurnsNewestFirst(long noteId, int limit) {
             turnReads++;
+            lastLimit = limit;
             List<CompletedTurn> newestFirst = new ArrayList<>(turns);
             java.util.Collections.reverse(newestFirst);
             return newestFirst.stream().limit(limit).toList();

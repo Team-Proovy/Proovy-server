@@ -41,9 +41,17 @@ JWT·credit·grant·signed URL·fence는 어느 열에도 없다. V1 trigger가 
   실패·취소·진행 중 turn은 user 메시지까지 통째로 빠진다. 본문은 `chat_messages.plain_text`(공개 Result Block 파생)만 쓰고
   `response_pages`·Verified Solution 본문은 읽지 않으므로 숨긴 답·Candidate가 history로 들어갈 길이 없다.
 - 최신 메시지부터 담는다. 추정 = strip한 본문 code point + 메시지당 8 (Brain `estimate_history_turn_tokens`와 같음).
-  추정 합 ≤ 24,000, 메시지 ≤ 100, 메시지당 ≤ 50,000자. 넘치는 메시지를 만나면 거기서 멈춘다(중간 절단·건너뛰기 없음).
-- **Brain과 다른 점**: Brain은 최신 메시지 하나는 상한을 넘어도 담는다. Server는 그것도 담지 않는다(그때 history는 비고
-  `policy_snapshot.history.truncated = true`). 그래서 Server가 보낸 history는 Brain이 다시 잘라도 그대로다.
+  넘치는 메시지를 만나면 거기서 멈춘다(중간 절단·건너뛰기 없음).
+- **soft 상한 (사용자 결정, r178 결정 1)**: Brain `bound_history`와 같다. 가장 최근 메시지 하나는 추정이 24,000을 넘어도
+  통째로 담고, 그 뒤 메시지는 추정 합이 24,000 이하일 때만 담는다. 그래서 직전 긴 답(≥ 24k code point)에 대한 후속 질문도
+  그 답을 history로 갖고, 그 답에 묶인 `verified_solution_refs`도 유지된다. 이때 `policy_snapshot.history.estimated_tokens`는
+  24,000을 넘을 수 있다. Brain이 같은 추정으로 다시 잘라도 아무것도 버리지 않는다.
+- wire 상한은 hard다: 메시지 ≤ 100, 메시지당 ≤ 50,000자(최신 메시지도 넘으면 담지 않고 history가 빈다).
+  합계 480,000자는 "최신 1개 ≤ 50,000 + 나머지 ≤ 24,000 tokens"라 넘지 않는다.
+- 후보는 최신 100 turn(메시지 200개)이다. 101번째 turn이 있는데 상한에 닿기 전에 후보가 끝나면(건너뛴 후보가 많을 때)
+  그래도 `truncated = true`로 기록한다.
+- turn 순서는 run 생성 순서(`ai_runs.created_at, run_id`, `idx_ai_runs_note_created`)다. 접수가 user 메시지와 run을 한
+  transaction에서 만들고 Note당 Active Run이 하나라 user 메시지 순서와 같다(1.79가 이 생성 순서를 지킨다).
 - 공백만인 본문은 메시지로 치지 않는다. 현재 input과 strip 후 같은 user 본문은 넣지 않는다(Brain이 거부한다). 그 turn의 assistant 답은 남는다.
 
 **참조**
@@ -51,7 +59,12 @@ JWT·credit·grant·signed URL·fence는 어느 열에도 없다. V1 trigger가 
   `revises_solution_id`(정정 대상의 Brain ID)를 그대로 싣는다. 대상 생략 시 Active Solution 선택과 superseded 명시 비교는
   Brain이 이 값으로 구분한다(Server는 자연어 대상을 판정하지 않는다). 최신 50개.
 - Brain neutral ID(`public_solution_id`)는 run 안에서만 unique다. 범위 안에서 겹치면 그 ID의 참조를 **모두 뺀다**(경고 로그, ID만).
-  Brain 운영 경로는 run_id 기반 해시 ID라 겹치지 않는다. 겹치면 Brain은 참조 없이 clarification으로 끝난다.
+  겹치면 Brain은 참조 없이 clarification으로 끝난다.
+- `revises_solution_id`: 정정 대상의 Brain ID가 자기 ID와 같거나, 범위 안의 다른 solution이 같은 ID를 쓰면 정정 관계만 싣지 않는다
+  (참조 자체는 남는다, fingerprint 밖 값). Brain이 엉뚱한 풀이를 정정 대상으로 읽지 않게 한다.
+- **Brain 계약 전제 (확인 필요)**: 303a9e4 운영 경로는 `solution-<sha256(run_id, goal)[:20]>-001`(`text_run.py::_mint_id`)을 발급해
+  Note 안에서 겹치지 않는다. V1 CHECK·Brain 정규식은 순번형 `solution-N`도 받으므로, Brain이 순번형을 운영에서 발급하면
+  풀이가 둘 이상인 Note의 후속 참조가 빈다. Brain 쪽에서 "운영 발급은 hash형만"을 계약으로 고정할지 확인한다.
 - `problem_summary` = `problem_statement`를 strip 후 4,000 code point로, claim `statement`는 2,000으로 앞에서 자른다.
   저장 claims를 계약에 맞게 읽을 수 없는 solution은 빼고(경고 로그) 요청을 막지 않는다.
 - Turn Attachment Reference: 남은 history의 user 메시지 첨부만. 최신 50개.
@@ -80,6 +93,10 @@ JWT·credit·grant·signed URL·fence는 어느 열에도 없다. V1 trigger가 
 
 ## 인계 (다른 snapshot·history 정책을 만들지 않는다)
 
+- **1.79 접수 (읽기 경합, r178 R6)**: `create`는 Note 소유·Viewer asset·corpus를 잠금 없이 따로 읽는다. 1.79는 같은 tx에서
+  Note 행을 잠근 뒤(asset 삭제 fencing과 같은 lock 순서) `create`를 부른다. 의존성 insert와 asset 삭제 요청(S13)의 경합은
+  조건부 insert(asset이 아직 ACTIVE일 때만) 또는 insert 뒤 재검사로 막는다. VIEWER_FOCUS는 있는데 corpus에서는 빠진 snapshot을
+  저장하지 않게 한다.
 - **1.79 접수**: Note 권한(1.79 판정) 뒤, 같은 transaction에서 `create(...)` → `chat_messages` insert →
   `aiRunRepository.save(snapshot.toPendingRun(...))` → flush → `dependencyRepository.saveAll(snapshot.assetDependencies(now))`.
   `RunSnapshotRejectedException.getErrorCode()`가 browser-run-v1 오류(RUN4041·RUN4221)다. `create`는 Note 소유·ACTIVE를 다시 확인한다.
@@ -87,6 +104,12 @@ JWT·credit·grant·signed URL·fence는 어느 열에도 없다. V1 trigger가 
   admission 판정표의 `references` 단계(RUN4221)가 이 예외다.
 - **1.83 coordinator**: attempt·fence를 배정한 뒤 `RunSnapshotRestorer.delivery`로 요청을 만든다. usage 누적은 run 행 counter를
   올리는 것으로만 한다(감소는 DB가 거부). deadline은 `request_deadline_at`에서만 읽는다.
+- **1.83 자격증명 요구 (r178 R7)**: 복원은 현재 turn 첨부의 read URL이 없을 때만 실패한다. Viewer Focus `read_url`과 corpus
+  grant는 wire에서 optional이라 `RunAssetAccess.NONE`이어도 통과한다. 1.83은 `viewer_context`가 있으면 read URL을 넘길지
+  (Brain이 Page Understanding cache miss에서 필요), corpus 검색이 가능한 run에 grant를 넘길지를 S10 resolver 정책과 함께 정해
+  호출부에서 검사한다(지금 S10 전이라 grant 발급처가 없다).
+- **1.81·1.82 terminal (r178 결정 2)**: history는 COMPLETED run만 읽는다. clarification-only 응답 run은 반드시 COMPLETED
+  (`response_disposition = clarification_only`)로 확정해야 다음 turn history에 남는다(docs/plan/10). FAILED로 저장하면 사라진다.
 - **1.85 회수**: status 조회의 fingerprint 대조값은 `ai_runs.request_fingerprint`다(`RunStatusResponse.matches`). 회수 경로도
   snapshot을 다시 만들지 않는다.
 - rate limit은 snapshot을 만들지 않는다(1.79 판정 순서에서 snapshot 전에 끝난다).
@@ -96,6 +119,8 @@ JWT·credit·grant·signed URL·fence는 어느 열에도 없다. V1 trigger가 
 - **S09/S10**: 실제 업로드 staging·이미지 pixel metadata·asset별 적용 version·scoped resolver·grant/URL 발급은 없다.
   `StoredRunAssetFacts`를 교체하고, viewer의 적용 version을 정책 값에서 asset별 값으로 바꿀지 그때 정한다.
 - **Note 상세 페이지(#227 R11)**: 이 태스크의 history 조회는 projection + DB `LIMIT`이다. `NoteServiceImpl.getNoteDetail`의
-  전체 메시지 로딩은 대화 조회 API 구현 태스크에서 같은 run 기준 짝으로 바꾼다(이 PR은 건드리지 않았다).
+  전체 메시지 로딩은 이 PR에서 건드리지 않았다. 이관처: **미정, S07 이후**(대화 조회 API 태스크 — 번호는 문서 조율 담당이 정한다).
+  그 태스크가 같은 run 기준 짝과 DB paging으로 바꾼다.
+- **docs/plan/10 보강 제안(문서 조율 담당)**: "실패·취소 turn은 user 메시지도 history에서 제외"를 한 줄 추가한다.
 - **Brain fixture**: 이 태스크는 새 fixture를 pin하지 않았다. pin된 fingerprint fixture 27개로 저장·복원 왕복을 검사한다.
 - 같은 사용자가 이전과 똑같은 문장을 다시 보내면 이전 user 메시지는 history에서 빠지고 답만 남는다(Brain 중복 거부 규칙 때문).

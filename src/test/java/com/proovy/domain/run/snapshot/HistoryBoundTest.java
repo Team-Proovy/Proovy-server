@@ -79,13 +79,24 @@ class HistoryBoundTest {
     }
 
     @Test
-    void anOversizedNewestMessageIsNotCutAndEndsTheHistory() {
-        HistoryBound.Result result = HistoryBound.keepNewest(
-                List.of(assistant(sized(MAX + 1)), user("옛 질문")), MAX, "q");
+    void theNewestMessageIsKeptWholeEvenAboveTheBoundAndEverythingOlderIsDropped() {
+        Candidate longAnswer = assistant(sized(MAX + 1));
+        HistoryBound.Result result = HistoryBound.keepNewest(List.of(longAnswer, user("옛 질문")), MAX, "q");
 
-        assertThat(result.messages()).isEmpty();
-        assertThat(result.estimatedTokens()).isZero();
+        // Brain bound_history와 같은 soft 상한: 최신 하나는 통째로, 그 뒤는 상한 이하일 때만
+        assertThat(result.messages()).extracting(HistoryMessage::messageId)
+                .containsExactly(longAnswer.messageId().toString());
+        assertThat(result.messages().get(0).text()).isEqualTo(longAnswer.plainText());
+        assertThat(result.estimatedTokens()).isEqualTo(MAX + 1);
         assertThat(result.truncated()).isTrue();
+    }
+
+    @Test
+    void aSingleNewestMessageWithinTheBoundStillLeavesRoomOnlyUpToTheBound() {
+        Candidate newest = assistant(sized(MAX));
+        HistoryBound.Result result = HistoryBound.keepNewest(List.of(newest, user("q0")), MAX, "q");
+        assertThat(result.messages()).hasSize(1);
+        assertThat(result.estimatedTokens()).isEqualTo(MAX);
     }
 
     @Test
@@ -132,7 +143,12 @@ class HistoryBoundTest {
         assertThat(result.messages().get(0).text()).isEqualTo("m99");
         assertThat(result.truncated()).isTrue();
 
-        HistoryBound.Result huge = HistoryBound.keepNewest(List.of(assistant("가".repeat(50_001))), 60_000, "q");
+        // wire 메시지당 50,000자는 hard: soft 예외인 최신 메시지라도 넘으면 담지 않고 멈춘다
+        HistoryBound.Result huge = HistoryBound.keepNewest(
+                List.of(assistant("가".repeat(50_001)), user("옛 질문")), MAX, "q");
         assertThat(huge.messages()).isEmpty();
+        assertThat(huge.truncated()).isTrue();
+        HistoryBound.Result atWireLimit = HistoryBound.keepNewest(List.of(assistant("가".repeat(50_000))), MAX, "q");
+        assertThat(atWireLimit.messages()).hasSize(1);
     }
 }
