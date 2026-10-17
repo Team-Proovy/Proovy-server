@@ -54,6 +54,11 @@ class BrainContractMirrorTest {
         listed.add("browser-run-v1/manifest.json");
         listed.add("PIN.json");
         listed.add("README.md");
+        // internal-run-v1 사본은 별도 pin(task 1.76)이 소유하고 InternalRunContractMirrorTest가 검사한다.
+        JsonNode internalRunPin = read(MIRROR.resolve("PIN-internal-run-v1.json"));
+        internalRunPin.get("files").properties().forEach(entry -> listed.add(entry.getKey()));
+        listed.add(internalRunPin.get("manifest").asText());
+        listed.add("PIN-internal-run-v1.json");
         try (Stream<Path> files = Files.walk(MIRROR)) {
             Set<String> onDisk = new HashSet<>();
             files.filter(Files::isRegularFile)

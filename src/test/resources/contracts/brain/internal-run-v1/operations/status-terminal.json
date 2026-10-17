@@ -1,0 +1,55 @@
+{
+  "name": "status-terminal",
+  "kind": "status",
+  "rationale": "terminal 레코드 조회 — 저장된 run.completed 를 재전달한다.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "attempt": 2,
+    "fence_token": "fence-c3d4"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "state": "terminal",
+    "attempt": 1,
+    "fence_token": "fence-a1b2",
+    "request_fingerprint": "ffdab4450529177f156f533aec051dbaad13f164e2f65ee9648ce75ef3d68749",
+    "terminal": {
+      "contract_version": "brain-source-v1",
+      "run_id": "run-441",
+      "attempt": 1,
+      "fence_token": "fence-a1b2",
+      "source_event_id": "run-441:terminal:r0:9f8c4d2e",
+      "occurred_at": "2026-10-02T09:31:00Z",
+      "type": "run.completed",
+      "payload": {
+        "response_disposition": "clarification_only",
+        "clarification_reason": "ambiguous_target",
+        "assistant_response": {
+          "schema_version": "assistant-response-v1",
+          "response_pages": [
+            {
+              "response_page_id": "page-1",
+              "presentation": "main",
+              "result_blocks": [
+                {
+                  "block_id": "block-1",
+                  "body": "어떤 문제의 풀이를 원하는지 알려 주세요.",
+                  "kind": "rich_text"
+                }
+              ]
+            }
+          ],
+          "source_references": []
+        },
+        "verified_solutions": [],
+        "selected_page_provenance": [],
+        "model": "fake/main-model",
+        "tier": "main",
+        "verification_summary": [],
+        "source_labels": []
+      }
+    }
+  }
+}

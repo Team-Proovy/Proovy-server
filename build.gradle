@@ -53,6 +53,8 @@ dependencies {
     // Google Cloud Storage SDK
     implementation platform('com.google.cloud:libraries-bom:26.34.0')
     implementation 'com.google.cloud:google-cloud-storage'
+    // Brain 내부 API 서비스 인증: Cloud Run 서비스 계정 ID token (task 1.76, 버전은 libraries-bom)
+    implementation 'com.google.auth:google-auth-library-oauth2-http'
 
     // PDF/이미지 처리 (썸네일 생성용)
     implementation 'org.apache.pdfbox:pdfbox:3.0.6'

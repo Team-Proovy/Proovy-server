@@ -112,6 +112,14 @@ jwt:
 proovy:
   api:
     public-base-url: ${PROOVY_API_BASE_URL:}
+  # Brain 내부 실행 API client (task 1.76). base-url이 비어 있으면 client bean을 만들지 않는다.
+  # 인증은 한 모드만: production은 id-token(고정 audience), local/test는 shared-token.
+  brain:
+    base-url: ${BRAIN_BASE_URL:}
+    auth:
+      mode: ${BRAIN_AUTH_MODE:shared-token}
+      audience: ${BRAIN_ID_TOKEN_AUDIENCE:}
+      shared-token: ${BRAIN_SHARED_TOKEN:}
 
 internal:
   api:
@@ -170,3 +178,6 @@ spring:
 proovy:
   api:
     public-base-url: ${PROOVY_API_BASE_URL:https://api.proovy.ai.kr}
+  brain:
+    auth:
+      mode: id-token

@@ -1,0 +1,111 @@
+{
+  "version": "canonical-json-v1",
+  "rules": [
+    "UTF-8 출력, 공백 없음",
+    "객체 멤버는 키 코드포인트 순 정렬, null 멤버 생략",
+    "문자열은 \" \\ \b \f \n \r \t 와 U+0020 미만 제어문자만 \\uXXXX 로 이스케이프, 비ASCII는 리터럴",
+    "정수는 평문 base-10, 비정수 double 은 shortest round-trip 평문(지수 표기 없음)",
+    "fingerprint 입력은 파싱 정규화 후의 모델 값이다 — 문자열 필드는 양 끝의 Unicode whitespace(Python str.strip() 집합: U+0009–000D, U+001C–001F, U+0085, U+00A0, U+1680, U+2000–200A, U+2028, U+2029, U+202F, U+205F, U+3000)를 제거한 뒤 들어간다. Java String.strip()은 이 집합보다 좁으므로 소비자는 같은 집합을 그대로 구현해야 한다",
+    "shortest round-trip 자릿수는 비정규(subnormal) double 에서 언어별로 다를 수 있다 — v1 입력은 정상 범위 double 만 기대하며, 그 밖의 입력은 계약 갱신 사유다"
+  ],
+  "normalization_cases": [
+    {
+      "wire": "\u00a0padded\u3000",
+      "normalized": "padded"
+    },
+    {
+      "wire": "\u3000한국어\u00a0",
+      "normalized": "한국어"
+    },
+    {
+      "wire": "no-padding",
+      "normalized": "no-padding"
+    }
+  ],
+  "number_cases": [
+    {
+      "input": 0,
+      "canonical": "0"
+    },
+    {
+      "input": -3,
+      "canonical": "-3"
+    },
+    {
+      "input": 42,
+      "canonical": "42"
+    },
+    {
+      "input": 0.5,
+      "canonical": "0.5"
+    },
+    {
+      "input": -0.25,
+      "canonical": "-0.25"
+    },
+    {
+      "input": 1e-05,
+      "canonical": "0.00001"
+    },
+    {
+      "input": 0.30000000000000004,
+      "canonical": "0.30000000000000004"
+    },
+    {
+      "input": 1.0,
+      "canonical": "1"
+    },
+    {
+      "input": -0.0,
+      "canonical": "0"
+    }
+  ],
+  "string_cases": [
+    {
+      "input": "plain",
+      "canonical": "\"plain\""
+    },
+    {
+      "input": "a\nb\t\"q\"\\z",
+      "canonical": "\"a\\nb\\t\\\"q\\\"\\\\z\""
+    },
+    {
+      "input": "한국어 é ✓",
+      "canonical": "\"한국어 é ✓\""
+    },
+    {
+      "input": "\u0001\u001f",
+      "canonical": "\"\\u0001\\u001f\""
+    }
+  ],
+  "document_cases": [
+    {
+      "input": {
+        "b": 1,
+        "a": 2
+      },
+      "canonical": "{\"a\":2,\"b\":1}"
+    },
+    {
+      "input": {
+        "a": null,
+        "b": []
+      },
+      "canonical": "{\"b\":[]}"
+    },
+    {
+      "input": {
+        "list": [
+          true,
+          false,
+          null
+        ]
+      },
+      "canonical": "{\"list\":[true,false,null]}"
+    },
+    {
+      "input": {},
+      "canonical": "{}"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ commit에서 복사한 파일만 둔다(단계 2 합의 D9 — 복사본 + 해�
 |---|---|
 | `browser-run-v1/**` | `tests/fixtures/contracts/browser-run-v1/**` (manifest·CATALOG·builder 포함 전체) |
 | `terminal-v2/browser.schema.json` | `tests/fixtures/contracts/terminal-v2/browser.schema.json` (schema `$ref` 의존) |
+| `internal-run-v1/**` | `tests/fixtures/contracts/internal-run-v1/**` (Server↔Brain 내부 실행 wire, task 1.76, pin `PIN-internal-run-v1.json`) |
 
 - `BrainContractMirrorTest`가 다음을 검사한다.
   - `PIN.json`의 `manifest_sha256`·`consumer_version`이 사본 manifest와 같다.
@@ -37,3 +38,28 @@ commit에서 복사한 파일만 둔다(단계 2 합의 D9 — 복사본 + 해�
 4. Java 상수·DTO가 새 계약과 맞는지 `./gradlew test --tests 'com.proovy.domain.run.contract.*'`로 확인한다.
    consumer_version이 바뀌었는데 Java 쪽을 고치지 않았으면 `BrainContractMirrorTest`가 실패하도록
    `BrowserRunContractTestSupport.EXPECTED_CONSUMER_VERSION`도 함께 올린다.
+
+## internal-run-v1 (task 1.76)
+
+- pin: `PIN-internal-run-v1.json` (commit·`consumer_version` `internal-run-fixtures-v2`·manifest sha256).
+- 이 artifact의 manifest에는 파일별 sha256이 없다. 그래서 PIN의 `files`에 pin commit에서 복사한 직후 계산한 sha256을 적는다.
+  값은 사본에서 만들지 않고 Brain commit의 blob과 같은지 확인한 뒤 적는다.
+- `InternalRunContractMirrorTest`가 manifest sha256·파일 sha256·목록 밖 파일·manifest가 나열한 fixture의 존재를 검사한다.
+  `BrainContractMirrorTest`(browser-run-v1)는 이 pin이 소유한 경로를 목록 밖 파일에서 제외한다.
+
+갱신 절차:
+
+```bash
+SHA=<merge commit>
+DEST=src/test/resources/contracts/brain
+rm -rf "$DEST/internal-run-v1"
+git -C <proovy-brain checkout> fetch origin dev
+git -C <proovy-brain checkout> archive "$SHA" tests/fixtures/contracts/internal-run-v1 \
+  | tar -x --strip-components=3 -C "$DEST"
+# PIN-internal-run-v1.json: commit, consumer_version(manifest 값), manifest_sha256, files(경로 → sha256)를 다시 쓴다.
+(cd "$DEST" && find internal-run-v1 -type f ! -name manifest.json | sort | xargs sha256sum)
+# 위 값이 Brain commit blob과 같은지 확인한다: git -C <proovy-brain checkout> show "$SHA:tests/fixtures/contracts/<path>" | sha256sum
+```
+
+consumer_version이 바뀌면 `InternalRunContract.CONSUMER_VERSION`도 올리고
+`./gradlew test --tests 'com.proovy.domain.run.brain.*' --tests 'com.proovy.global.infra.brain.*'`로 확인한다.
