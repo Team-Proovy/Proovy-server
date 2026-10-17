@@ -6,6 +6,7 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import java.util.List;
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,18 +31,20 @@ public class BrowserRunContractOpenApi {
             RunCancelingPayload.class,
             RunCanceledPayload.class);
 
+    /** springdoc이 내보내는 OpenAPI 버전(기본 3.1)에 맞는 converter로 만든다 — 3.0 schema는 3.1 출력에서 type을 잃는다. */
     @Bean
-    public OpenApiCustomizer browserRunContractSchemas() {
-        return BrowserRunContractOpenApi::addSchemas;
+    public OpenApiCustomizer browserRunContractSchemas(SpringDocConfigProperties springDoc) {
+        boolean openapi31 = springDoc.isOpenapi31();
+        return openApi -> addSchemas(openApi, openapi31);
     }
 
-    static void addSchemas(OpenAPI openApi) {
+    static void addSchemas(OpenAPI openApi, boolean openapi31) {
         if (openApi.getComponents() == null) {
             openApi.setComponents(new Components());
         }
         Components components = openApi.getComponents();
         for (Class<?> type : SCHEMA_TYPES) {
-            ModelConverters.getInstance().readAll(new AnnotatedType(type)).forEach(components::addSchemas);
+            ModelConverters.getInstance(openapi31).readAll(new AnnotatedType(type)).forEach(components::addSchemas);
         }
     }
 }

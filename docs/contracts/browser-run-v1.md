@@ -38,6 +38,22 @@
 
 OpenAPI에는 component schema만 등록했고 경로는 없다.
 
+## 후속 메모 (PR #229 리뷰 r175-server)
+
+- **1.79 (접수·취소):** `admission/decisions.json`과 `cancel/cases.json` 판정표 fixture를 production admission·cancel
+  판정기로 다시 돌리는 테스트를 둔다. 지금 `BrowserRunDecisionTableContractTest`는 테스트 안의 참조 판정이어서
+  production 구현이 같은 순서로 판정하는지까지는 보장하지 않는다.
+- **schema와 Java 판정이 갈리는 경계 (fixture 밖):** `viewerFocus.page`가 `2.0`처럼 정수값 실수이거나 int 범위를 넘으면
+  schema는 통과하지만 Java 판정은 RUN4001이다. 브라우저(`JSON.stringify`)는 이런 값을 보내지 않는다.
+  다음 consumer_version에서 schema에 `maximum: 2147483647`과 정수값 실수 정책을 넣고 fixture로 고정한다.
+- **`RunStatus.cancelable`·`ActiveRunSummary.status`:** 상태에서 파생되는 값인데 생성자가 막지 않는다. 응답을 만드는
+  구현(1.79·1.81)이 `PublicRunStatus.isCancelable()`로 채우고, activeRun에는 terminal 상태를 넣지 않는다. 필요하면 factory로 강제한다.
+- **wire 값 원천 정리:** 아래는 같은 wire 값을 두 곳에서 정의한다. 계약 의미의 결함은 아니므로 후속 구현 태스크에서 enum 파생이나
+  대응 테스트로 묶는다.
+  - `ServerFrameType` ↔ `AiRunEventType`(serverOwned)
+  - `CancelCause` ↔ `RunCancelCause`(대응 테스트는 있음)
+  - 신규 계약 enum의 `WireValue` 미구현
+
 ## 계약을 바꿀 때
 
 1. Server 이슈에서 의미 변경을 합의한다. 계약 의미의 소유자는 Server다.

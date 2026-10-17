@@ -99,8 +99,11 @@ public final class BrowserRunContract {
         return value.codePointCount(0, value.length());
     }
 
-    /** wire 시각은 소수 6자리 이하({@code ...Z})다. 나노초 시각은 마이크로초로 절단해 쓴다. */
+    /**
+     * wire 시각은 소수 6자리 이하({@code ...Z})다. 나노초 시각은 마이크로초로 절단한다.
+     * 시각을 가진 계약 record는 생성자에서 이 함수를 거치므로 호출자가 따로 부를 필요가 없다. null은 그대로 둔다.
+     */
     public static Instant wireTime(Instant instant) {
-        return instant.truncatedTo(ChronoUnit.MICROS);
+        return instant == null ? null : instant.truncatedTo(ChronoUnit.MICROS);
     }
 }

@@ -20,4 +20,8 @@ public record BrowserRunFrame(
         String type,
         JsonNode payload
 ) {
+
+    public BrowserRunFrame {
+        occurredAt = BrowserRunContract.wireTime(occurredAt);
+    }
 }

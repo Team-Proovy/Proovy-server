@@ -14,4 +14,8 @@ public record ConversationMessage(
         @JsonInclude(JsonInclude.Include.NON_NULL) UserMessageContent user,
         @JsonInclude(JsonInclude.Include.NON_NULL) AssistantMessageContent assistant
 ) {
+
+    public ConversationMessage {
+        createdAt = BrowserRunContract.wireTime(createdAt);
+    }
 }

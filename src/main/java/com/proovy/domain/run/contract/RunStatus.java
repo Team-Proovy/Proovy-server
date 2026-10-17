@@ -24,4 +24,9 @@ public record RunStatus(
         @JsonFormat(shape = JsonFormat.Shape.STRING) Instant createdAt,
         @JsonFormat(shape = JsonFormat.Shape.STRING) Instant completedAt
 ) {
+
+    public RunStatus {
+        createdAt = BrowserRunContract.wireTime(createdAt);
+        completedAt = BrowserRunContract.wireTime(completedAt);
+    }
 }

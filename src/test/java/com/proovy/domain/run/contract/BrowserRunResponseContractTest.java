@@ -146,12 +146,27 @@ class BrowserRunResponseContractTest {
     }
 
     @Test
-    @DisplayName("Server가 만든 시각은 마이크로초로 절단하면 schema의 OccurredAt 형식을 지킨다")
+    @DisplayName("시각을 가진 계약 record는 나노초 시각을 마이크로초로 절단해 schema의 OccurredAt 형식을 지킨다")
     void wireTimeFitsSchema() {
         Instant nanos = Instant.parse("2026-10-17T09:00:00.123456789Z");
-        assertThat(schemaOk("OccurredAt", occurredAt(nanos))).isFalse();
-        assertThat(occurredAt(BrowserRunContract.wireTime(nanos)).asText()).isEqualTo("2026-10-17T09:00:00.123456Z");
-        assertThat(schemaOk("OccurredAt", occurredAt(BrowserRunContract.wireTime(nanos)))).isTrue();
+        assertThat(occurredAt(nanos).asText()).isEqualTo("2026-10-17T09:00:00.123456Z");
+        assertThat(schemaOk("OccurredAt", occurredAt(nanos))).isTrue();
+        RunStatus status = new RunStatus("r", "q", "1", "u", "a", PublicRunStatus.COMPLETED, false, 1,
+                "substantive", null, nanos, nanos);
+        assertThat(status.createdAt()).isEqualTo(BrowserRunContract.wireTime(nanos));
+        assertThat(status.completedAt()).isEqualTo(BrowserRunContract.wireTime(nanos));
+        ConversationMessage message = new ConversationMessage("m", MessageRole.ASSISTANT,
+                ConversationMessageStatus.STREAMING, "r", nanos, null, AssistantMessageContent.placeholder());
+        assertThat(toTree(message).get("createdAt").asText()).isEqualTo("2026-10-17T09:00:00.123456Z");
+        assertThat(BrowserRunContract.wireTime(null)).isNull();
+    }
+
+    @Test
+    @DisplayName("STREAMING placeholder는 fixture와 같은 빈 assistant 본문이다")
+    void placeholderMatchesFixture() {
+        JsonNode fixture = BrowserRunContractTestSupport.load("responses/valid/conversation-active-run.json")
+                .at("/body/result/messages/3/assistant");
+        assertThat(toTree(AssistantMessageContent.placeholder())).isEqualTo(fixture);
     }
 
     /** DTO가 시각을 mapper 설정과 무관하게 ISO 문자열로 쓰는지까지 함께 본다. */

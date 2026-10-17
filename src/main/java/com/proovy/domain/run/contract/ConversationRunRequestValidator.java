@@ -2,11 +2,13 @@ package com.proovy.domain.run.contract;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.proovy.global.response.ErrorCode;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * POST /api/conversations body의 wire 판정(browser-run-v1 schema + 계약 검사).
@@ -22,8 +24,10 @@ public final class ConversationRunRequestValidator {
             "requestedTasks", "requestedOutputs", "turnAttachmentIds", "viewerFocus");
     private static final Set<String> VIEWER_FOCUS_FIELDS = Set.of("noteAssetId", "page", "selection");
     private static final Set<String> SELECTION_FIELDS = Set.of("left", "top", "right", "bottom");
-    private static final Set<String> TASKS = Set.of("solve", "check", "explain");
-    private static final Set<String> OUTPUTS = Set.of("text", "video");
+    private static final Set<String> TASKS = Arrays.stream(RequestedTask.values())
+            .map(RequestedTask::wireValue).collect(Collectors.toUnmodifiableSet());
+    private static final Set<String> OUTPUTS = Arrays.stream(RequestedOutput.values())
+            .map(RequestedOutput::wireValue).collect(Collectors.toUnmodifiableSet());
 
     private ConversationRunRequestValidator() {
     }
