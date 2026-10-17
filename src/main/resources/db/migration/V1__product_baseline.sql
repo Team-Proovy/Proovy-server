@@ -24,6 +24,18 @@ BEGIN
 END;
 $$;
 
+-- append-only/ledger row는 상위 row 삭제 cascade(FK 내부 trigger 아래, depth > 1)로만 지운다.
+CREATE FUNCTION proovy_reject_direct_delete() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF pg_trigger_depth() <= 1 THEN
+        RAISE EXCEPTION '% rows are removed only by parent cascade: direct DELETE is not allowed', TG_TABLE_NAME
+            USING ERRCODE = 'integrity_constraint_violation';
+    END IF;
+    RETURN OLD;
+END;
+$$;
+
 -- =====================================================================
 -- 사용자·플랜·잔액 (기존 인증/잔액 코드 재사용)
 -- =====================================================================
@@ -206,7 +218,8 @@ CREATE TABLE chat_messages (
     CONSTRAINT ck_chat_messages_user CHECK (
         role <> 'USER' OR (
             status = 'COMPLETED'
-            AND jsonb_typeof(user_input) = 'object'
+            AND user_input IS NOT NULL AND jsonb_typeof(user_input) = 'object'
+            AND user_input -> 'text' IS NOT NULL
             AND jsonb_typeof(user_input -> 'text') = 'string'
             AND plain_text IS NOT NULL
             AND response_pages IS NULL AND source_references IS NULL AND completed_at IS NULL
@@ -220,7 +233,8 @@ CREATE TABLE chat_messages (
     ),
     CONSTRAINT ck_chat_messages_assistant_completed CHECK (
         role <> 'ASSISTANT' OR status <> 'COMPLETED' OR (
-            jsonb_typeof(response_pages) = 'array' AND jsonb_array_length(response_pages) >= 1
+            response_pages IS NOT NULL AND source_references IS NOT NULL
+            AND jsonb_typeof(response_pages) = 'array' AND jsonb_array_length(response_pages) >= 1
             AND jsonb_typeof(source_references) = 'array'
             AND plain_text IS NOT NULL
             AND content_sha256 IS NOT NULL
@@ -289,12 +303,14 @@ CREATE TABLE turn_attachments (
         REFERENCES chat_messages (note_id, message_id, role) ON DELETE CASCADE,
     CONSTRAINT uq_turn_attachments_message_index UNIQUE (source_message_id, attachment_index),
     -- internal-run-v1 _ScopedAsset media 규칙과 동일
-    CONSTRAINT ck_turn_attachments_media CHECK (
+    CONSTRAINT ck_turn_attachments_media CHECK (COALESCE(
         CASE WHEN mime_type = 'application/pdf'
-            THEN page_count >= 1 AND pixel_width IS NULL AND pixel_height IS NULL AND pixel_count IS NULL
-            ELSE page_count IS NULL AND pixel_width >= 1 AND pixel_height >= 1
+            THEN page_count IS NOT NULL AND page_count >= 1
+                 AND pixel_width IS NULL AND pixel_height IS NULL AND pixel_count IS NULL
+            ELSE page_count IS NULL AND pixel_width IS NOT NULL AND pixel_height IS NOT NULL AND pixel_count IS NOT NULL
+                 AND pixel_width >= 1 AND pixel_height >= 1
                  AND pixel_count = pixel_width::BIGINT * pixel_height
-        END
+        END, FALSE)
     )
 );
 
@@ -380,6 +396,8 @@ CREATE TABLE ai_runs (
     CONSTRAINT uq_ai_runs_user_message UNIQUE (user_message_id),
     CONSTRAINT uq_ai_runs_assistant_message UNIQUE (assistant_message_id),
     CONSTRAINT uq_ai_runs_note_run UNIQUE (note_id, run_id),
+    -- 차감 row가 같은 request·사용자의 run만 가리키도록 composite FK 대상으로 쓴다.
+    CONSTRAINT uq_ai_runs_run_request_user UNIQUE (run_id, request_id, user_id),
     CONSTRAINT fk_ai_runs_note_owner FOREIGN KEY (note_id, user_id)
         REFERENCES notes (note_id, user_id) ON DELETE CASCADE,
     CONSTRAINT fk_ai_runs_user_message FOREIGN KEY (note_id, user_message_id, user_message_role)
@@ -404,19 +422,20 @@ CREATE TABLE ai_runs (
     ),
     CONSTRAINT ck_ai_runs_completed_disposition CHECK ((status = 'COMPLETED') = (response_disposition IS NOT NULL)),
     CONSTRAINT ck_ai_runs_clarification_reason_pair CHECK (
-        (response_disposition = 'clarification_only') = (clarification_reason IS NOT NULL)
+        COALESCE(response_disposition = 'clarification_only', FALSE) = (clarification_reason IS NOT NULL)
     ),
     CONSTRAINT ck_ai_runs_failed_code CHECK (
         (status = 'FAILED') = (failure_code IS NOT NULL AND failure_class IS NOT NULL)
     ),
     -- terminal-v2 expected_failure_class 표와 동일
+    CONSTRAINT ck_ai_runs_failure_pair CHECK ((failure_code IS NULL) = (failure_class IS NULL)),
     CONSTRAINT ck_ai_runs_failure_code_class CHECK (
-        failure_code IS NULL OR failure_class = CASE failure_code
+        failure_code IS NULL OR COALESCE(failure_class = CASE failure_code
             WHEN 'verification_failed' THEN 'verification'
             WHEN 'budget_exceeded' THEN 'budget'
             WHEN 'invalid_attachment' THEN 'attachment'
             ELSE 'infrastructure'
-        END
+        END, FALSE)
     ),
     CONSTRAINT ck_ai_runs_cancel_fields CHECK (
         (status IN ('CANCELING', 'CANCELED'))
@@ -588,6 +607,38 @@ CREATE TRIGGER trg_ai_run_events_append_only
     BEFORE UPDATE ON ai_run_events
     FOR EACH ROW EXECUTE FUNCTION proovy_reject_update();
 
+-- seq는 ai_runs.last_event_seq 증가(UPDATE ... RETURNING)로 먼저 배정한 값만 쓸 수 있고,
+-- Brain Activity attempt는 run이 이미 시작한 attempt를 넘을 수 없다.
+CREATE FUNCTION ai_run_events_guard_insert() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+    run_last_seq BIGINT;
+    run_attempt  INTEGER;
+BEGIN
+    SELECT r.last_event_seq, r.attempt INTO run_last_seq, run_attempt FROM ai_runs r WHERE r.run_id = NEW.run_id;
+    IF NOT FOUND THEN
+        RETURN NEW; -- FK가 거부한다
+    END IF;
+    IF NEW.seq > run_last_seq THEN
+        RAISE EXCEPTION 'event seq % is not allocated for run % (last_event_seq %)', NEW.seq, NEW.run_id, run_last_seq
+            USING ERRCODE = 'integrity_constraint_violation';
+    END IF;
+    IF NEW.attempt > run_attempt THEN
+        RAISE EXCEPTION 'event attempt % exceeds run % attempt %', NEW.attempt, NEW.run_id, run_attempt
+            USING ERRCODE = 'integrity_constraint_violation';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_ai_run_events_guard_insert
+    BEFORE INSERT ON ai_run_events
+    FOR EACH ROW EXECUTE FUNCTION ai_run_events_guard_insert();
+
+CREATE TRIGGER trg_ai_run_events_no_direct_delete
+    BEFORE DELETE ON ai_run_events
+    FOR EACH ROW EXECUTE FUNCTION proovy_reject_direct_delete();
+
 -- =====================================================================
 -- Verified Solution (insert-only 정정 체인)
 -- =====================================================================
@@ -612,7 +663,8 @@ CREATE TABLE verified_solutions (
     claims                    JSONB        NOT NULL
         CONSTRAINT ck_verified_solutions_claims CHECK (
             jsonb_typeof(claims) = 'array' AND jsonb_array_length(claims) >= 1
-            AND NOT jsonb_path_exists(claims, '$[*] ? (!(@.coverage == "direct" || @.coverage == "supporting"))')
+            AND NOT jsonb_path_exists(claims,
+                '$[*] ? (!(@.coverage.type() == "string" && (@.coverage == "direct" || @.coverage == "supporting")))')
         ),
     step_marks                JSONB        NOT NULL DEFAULT '[]'::JSONB
         CONSTRAINT ck_verified_solutions_step_marks CHECK (jsonb_typeof(step_marks) = 'array'),
@@ -700,8 +752,7 @@ CREATE TABLE request_usage_charges (
         CONSTRAINT ck_request_usage_charges_request_id CHECK (request_id ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'),
     user_id       BIGINT       NOT NULL REFERENCES users (user_id) ON DELETE CASCADE,
     -- Note 삭제로 run이 사라져도 차감 이력·request 멱등 키는 남는다.
-    run_id        UUID         CONSTRAINT uq_request_usage_charges_run UNIQUE
-        REFERENCES ai_runs (run_id) ON DELETE SET NULL,
+    run_id        UUID         CONSTRAINT uq_request_usage_charges_run UNIQUE,
     usage_units   INTEGER      NOT NULL CONSTRAINT ck_request_usage_charges_units CHECK (usage_units > 0),
     credit_amount INTEGER      NOT NULL CONSTRAINT ck_request_usage_charges_amount CHECK (credit_amount > 0),
     charged_daily INTEGER      NOT NULL DEFAULT 0 CONSTRAINT ck_request_usage_charges_daily CHECK (charged_daily >= 0),
@@ -709,6 +760,9 @@ CREATE TABLE request_usage_charges (
     charged_paid  INTEGER      NOT NULL DEFAULT 0 CONSTRAINT ck_request_usage_charges_paid CHECK (charged_paid >= 0),
     charged_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
     CONSTRAINT uq_request_usage_charges_amount UNIQUE (request_id, credit_amount),
+    -- run은 같은 request_id·user_id여야 한다. run 삭제 시 run_id만 끊는다(PG15+ column list).
+    CONSTRAINT fk_request_usage_charges_run FOREIGN KEY (run_id, request_id, user_id)
+        REFERENCES ai_runs (run_id, request_id, user_id) ON DELETE SET NULL (run_id),
     CONSTRAINT ck_request_usage_charges_breakdown CHECK (charged_daily + charged_free + charged_paid = credit_amount)
 );
 
@@ -751,3 +805,12 @@ CREATE TRIGGER trg_request_usage_charges_guard_update
 CREATE TRIGGER trg_request_usage_compensations_immutable
     BEFORE UPDATE ON request_usage_compensations
     FOR EACH ROW EXECUTE FUNCTION proovy_reject_update();
+
+-- ledger row를 지워 차감·보상을 다시 하는 것을 막는다. users 삭제 cascade만 허용한다.
+CREATE TRIGGER trg_request_usage_charges_no_direct_delete
+    BEFORE DELETE ON request_usage_charges
+    FOR EACH ROW EXECUTE FUNCTION proovy_reject_direct_delete();
+
+CREATE TRIGGER trg_request_usage_compensations_no_direct_delete
+    BEFORE DELETE ON request_usage_compensations
+    FOR EACH ROW EXECUTE FUNCTION proovy_reject_direct_delete();

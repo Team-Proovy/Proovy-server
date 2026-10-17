@@ -2,6 +2,7 @@ package com.proovy.domain.solution.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import com.proovy.global.entity.AssignedIdEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -24,7 +25,7 @@ import java.util.UUID;
 @Table(name = "verified_solutions")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class VerifiedSolution {
+public class VerifiedSolution extends AssignedIdEntity<UUID> {
 
     @Id
     @Column(name = "solution_id")

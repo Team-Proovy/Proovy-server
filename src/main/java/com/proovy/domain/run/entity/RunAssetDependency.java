@@ -1,5 +1,6 @@
 package com.proovy.domain.run.entity;
 
+import com.proovy.global.entity.AssignedIdEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
@@ -20,7 +21,7 @@ import java.util.UUID;
 @IdClass(RunAssetDependency.Key.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RunAssetDependency {
+public class RunAssetDependency extends AssignedIdEntity<RunAssetDependency.Key> {
 
     @Id
     @Column(name = "run_id")
@@ -52,6 +53,11 @@ public class RunAssetDependency {
         this.dependencyKind = Objects.requireNonNull(dependencyKind);
         this.contentVersion = contentVersion;
         this.createdAt = Objects.requireNonNull(createdAt);
+    }
+
+    @Override
+    public Key getId() {
+        return new Key(runId, assetId, dependencyKind);
     }
 
     @EqualsAndHashCode

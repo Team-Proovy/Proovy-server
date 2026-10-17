@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -100,6 +101,7 @@ class ProductSchemaContextPostgresTest {
     @Autowired RequestUsageChargeRepository chargeRepository;
     @Autowired RequestUsageCompensationRepository compensationRepository;
     @Autowired TransactionTemplate tx;
+    @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper objectMapper;
 
     @Test
@@ -127,6 +129,11 @@ class ProductSchemaContextPostgresTest {
                     .budgetPolicyVersion("budget-v1")
                     .requestDeadlineAt(now.plusSeconds(600)).createdAt(now)
                     .build());
+            aiRunRepository.flush();
+            // event seq는 1.80 규약대로 last_event_seq 증가로 먼저 배정한다
+            assertThat(jdbc.queryForObject(
+                    "UPDATE ai_runs SET last_event_seq = last_event_seq + 1 WHERE run_id = ? RETURNING last_event_seq",
+                    Long.class, runId)).isEqualTo(1L);
             aiRunEventRepository.save(AiRunEvent.builder()
                     .runId(runId).noteId(note.getId()).seq(1).eventType(AiRunEventType.RUN_CREATED)
                     .payload(objectMapper.createObjectNode().put("status", "PENDING")).createdAt(now)
@@ -178,6 +185,74 @@ class ProductSchemaContextPostgresTest {
                 .requestId(requestId).reason(UsageCompensationReason.PENDING_CANCELED)
                 .restoredDaily(1).restoredFree(0).restoredPaid(0).compensatedAt(now).build());
         assertThat(compensationRepository.findById(requestId).orElseThrow().getCreditAmount()).isEqualTo(1);
+    }
+
+    @Test
+    void assignedIdSaveInsertsAndRejectsDuplicatesInsteadOfMerging() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        UUID userMessageId = UUID.randomUUID();
+        UUID assistantMessageId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        String requestId = UUID.randomUUID().toString();
+        ObjectNode input = objectMapper.createObjectNode().put("text", "중복 저장");
+
+        Long noteId = tx.execute(status -> {
+            User user = userRepository.save(User.builder().nickname("assigned").build());
+            Note note = noteRepository.save(Note.builder().user(user).title("assigned note").build());
+            chatMessageRepository.save(ChatMessage.user(userMessageId, note, input, now));
+            chatMessageRepository.save(ChatMessage.assistantPlaceholder(assistantMessageId, note, now.plusMillis(1)));
+            aiRunRepository.save(pendingRun(runId, requestId, user.getId(), note.getId(), userMessageId, assistantMessageId, now));
+            chargeRepository.save(charge(requestId, user.getId(), runId, now));
+            return note.getId();
+        });
+        Long userId = noteRepository.findById(noteId).orElseThrow().getUser().getId();
+
+        // 같은 할당형 ID로 새 인스턴스를 save하면 merge로 흡수되지 않고 PK 위반이 드러난다
+        assertThatThrownBy(() -> chargeRepository.saveAndFlush(charge(requestId, userId, null, now)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        compensationRepository.saveAndFlush(compensation(requestId, UsageCompensationReason.PENDING_CANCELED, now));
+        assertThatThrownBy(() -> compensationRepository.saveAndFlush(
+                compensation(requestId, UsageCompensationReason.INFRASTRUCTURE_FAILURE, now)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(compensationRepository.findById(requestId).orElseThrow().getReason())
+                .isEqualTo(UsageCompensationReason.PENDING_CANCELED);
+        assertThatThrownBy(() -> tx.executeWithoutResult(status -> chatMessageRepository.saveAndFlush(
+                ChatMessage.user(userMessageId, noteRepository.findById(noteId).orElseThrow(), input, now))))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> aiRunRepository.saveAndFlush(
+                pendingRun(runId, UUID.randomUUID().toString(), userId, noteId, userMessageId, assistantMessageId, now)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        // 조회한 엔티티는 기존 row로 취급되어 다시 save해도 INSERT하지 않는다
+        tx.executeWithoutResult(status -> {
+            ChatMessage loaded = chatMessageRepository.findById(assistantMessageId).orElseThrow();
+            assertThat(loaded.isNew()).isFalse();
+            chatMessageRepository.saveAndFlush(loaded);
+        });
+        assertThat(chatMessageRepository.countByNoteId(noteId)).isEqualTo(2);
+        assertThat(chargeRepository.findById(requestId).orElseThrow().getRunId()).isEqualTo(runId);
+    }
+
+    private AiRun pendingRun(UUID runId, String requestId, Long userId, Long noteId,
+                             UUID userMessageId, UUID assistantMessageId, Instant now) {
+        return AiRun.pending()
+                .id(runId).requestId(requestId).userId(userId).noteId(noteId)
+                .userMessageId(userMessageId).assistantMessageId(assistantMessageId)
+                .requestFingerprint("4".repeat(64)).requestSnapshot(objectMapper.createObjectNode())
+                .policySnapshot(objectMapper.createObjectNode()).budgetPolicyVersion("budget-v1")
+                .requestDeadlineAt(now.plusSeconds(600)).createdAt(now).build();
+    }
+
+    private static RequestUsageCharge charge(String requestId, Long userId, UUID runId, Instant now) {
+        return RequestUsageCharge.builder()
+                .requestId(requestId).userId(userId).runId(runId).usageUnits(1)
+                .chargedDaily(1).chargedFree(0).chargedPaid(0).chargedAt(now).build();
+    }
+
+    private static RequestUsageCompensation compensation(String requestId, UsageCompensationReason reason, Instant now) {
+        return RequestUsageCompensation.builder()
+                .requestId(requestId).reason(reason)
+                .restoredDaily(1).restoredFree(0).restoredPaid(0).compensatedAt(now).build();
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.proovy.domain.conversation.entity;
 
+import com.proovy.global.entity.AssignedIdEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -21,7 +22,7 @@ import java.util.UUID;
 @Table(name = "turn_attachments")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class TurnAttachment {
+public class TurnAttachment extends AssignedIdEntity<UUID> {
 
     @Id
     @Column(name = "attachment_id")

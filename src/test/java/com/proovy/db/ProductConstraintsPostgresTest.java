@@ -313,6 +313,23 @@ class ProductConstraintsPostgresTest {
                 "UPDATE chat_messages SET status = 'COMPLETED', completed_at = now() WHERE message_id = ?",
                 turn.assistantMessageId()));
 
+        // response_pages·source_references 중 하나라도 NULL이면 COMPLETED가 될 수 없다
+        expectViolation(CHECK_VIOLATION, "ck_chat_messages_assistant_completed", () -> update(c, """
+                UPDATE chat_messages SET status = 'COMPLETED', completed_at = now(), source_references = '[]',
+                       plain_text = 'x', content_sha256 = ? WHERE message_id = ?""", "e".repeat(64), turn.assistantMessageId()));
+        expectViolation(CHECK_VIOLATION, "ck_chat_messages_assistant_completed", () -> update(c, """
+                UPDATE chat_messages SET status = 'COMPLETED', completed_at = now(),
+                       response_pages = '[{"response_page_id":"page-1","presentation":"main","result_blocks":[]}]',
+                       plain_text = 'x', content_sha256 = ? WHERE message_id = ?""", "e".repeat(64), turn.assistantMessageId()));
+        // USER 메시지는 입력 원문 없이 저장할 수 없다
+        expectViolation(CHECK_VIOLATION, "ck_chat_messages_user", () -> update(c, """
+                INSERT INTO chat_messages (message_id, note_id, role, status, plain_text) VALUES (?, ?, 'USER', 'COMPLETED', 'x')
+                """, UUID.randomUUID(), ALICE_NOTE));
+        expectViolation(CHECK_VIOLATION, "ck_chat_messages_user", () -> update(c, """
+                INSERT INTO chat_messages (message_id, note_id, role, status, user_input, plain_text)
+                VALUES (?, ?, 'USER', 'COMPLETED', '{"latex":"x"}', 'x')
+                """, UUID.randomUUID(), ALICE_NOTE));
+
         completeAssistant(c, turn.assistantMessageId(), "[]");
         expectViolation(TRIGGER_VIOLATION, "immutable", () -> update(c,
                 "UPDATE chat_messages SET plain_text = 'edited' WHERE message_id = ?", turn.assistantMessageId()));
@@ -376,6 +393,14 @@ class ProductConstraintsPostgresTest {
                 "UPDATE ai_runs SET status = 'COMPLETED', response_disposition = 'unsupported_only', clarification_reason = 'missing_input'" + release + "WHERE run_id = ?", runId));
         expectViolation(CHECK_VIOLATION, "ck_ai_runs_failure_code_class", () -> update(c,
                 "UPDATE ai_runs SET status = 'FAILED', failure_code = 'timeout', failure_class = 'verification'" + release + "WHERE run_id = ?", runId));
+        // disposition·class가 NULL인 진행 중 run에도 분류 짝 규칙이 적용된다
+        expectViolation(CHECK_VIOLATION, "ck_ai_runs_clarification_reason_pair", () -> update(c,
+                "UPDATE ai_runs SET clarification_reason = 'missing_input' WHERE run_id = ?", runId));
+        // class 없는 code는 code-class 대응 검사(COALESCE)와 짝 검사 중 먼저 평가되는 쪽이 거부한다
+        expectViolation(CHECK_VIOLATION, "ck_ai_runs_failure_", () -> update(c,
+                "UPDATE ai_runs SET failure_code = 'timeout' WHERE run_id = ?", runId));
+        expectViolation(CHECK_VIOLATION, "ck_ai_runs_failure_pair", () -> update(c,
+                "UPDATE ai_runs SET failure_class = 'budget' WHERE run_id = ?", runId));
         // PENDING 취소가 아닌 CANCELING은 실행 상태에서만 시작한다
         UUID pending = insertRunWithTurn(c, "req-class-2", ALICE, ALICE_SECOND_NOTE);
         expectViolation(TRIGGER_VIOLATION, "invalid run status transition", () -> update(c, """
@@ -399,6 +424,9 @@ class ProductConstraintsPostgresTest {
         expectViolation(UNIQUE_VIOLATION, "uq_ai_run_events_seq",
                 () -> insertServerEvent(c, runId, ALICE_NOTE, 1, "run.canceling"));
 
+        // Brain Activity는 run이 시작한 attempt 안에서만 온다
+        expectViolation(TRIGGER_VIOLATION, "exceeds run", () -> insertActivity(c, runId, 2, "src-evt-1"));
+        claim(c, runId);
         assertThat(insertActivity(c, runId, 2, "src-evt-1")).isEqualTo(1);
         // 같은 source event 재수신은 row도 seq도 늘리지 않는다
         assertThat(insertActivity(c, runId, 3, "src-evt-1")).isZero();
@@ -411,6 +439,14 @@ class ProductConstraintsPostgresTest {
 
         expectViolation(TRIGGER_VIOLATION, "immutable",
                 () -> update(c, "UPDATE ai_run_events SET payload = '{}' WHERE run_id = ?", runId));
+        // append-only: 직접 DELETE는 거부한다 (run/Note 삭제 cascade만 허용)
+        expectViolation(TRIGGER_VIOLATION, "direct DELETE",
+                () -> update(c, "DELETE FROM ai_run_events WHERE run_id = ?", runId));
+        // last_event_seq로 배정하지 않은 seq는 쓸 수 없다
+        expectViolation(TRIGGER_VIOLATION, "not allocated", () -> update(c,
+                "INSERT INTO ai_run_events (run_id, note_id, seq, event_type) VALUES (?, ?, 99, 'run.canceling')",
+                runId, ALICE_NOTE));
+        allocateSeq(c, runId, 10);
         // Activity는 dedup 키·attempt가 필요하고 server 소유 event는 source id를 가질 수 없다
         expectViolation(CHECK_VIOLATION, "ck_ai_run_events_activity", () -> update(c, """
                 INSERT INTO ai_run_events (run_id, note_id, seq, event_type, activity_id) VALUES (?, ?, 9, 'activity.updated', 'activity-1')
@@ -433,6 +469,12 @@ class ProductConstraintsPostgresTest {
         insertCharge(c, "req-usage-1", ALICE, runId, 1, 0, 0);
         expectViolation(UNIQUE_VIOLATION, "request_usage_charges_pkey",
                 () -> insertCharge(c, "req-usage-1", ALICE, null, 1, 0, 0));
+        // 차감은 같은 request_id·user의 run만 가리킨다
+        UUID otherRun = insertRunWithTurn(c, "req-usage-2", ALICE, ALICE_SECOND_NOTE);
+        expectViolation(FK_VIOLATION, "fk_request_usage_charges_run",
+                () -> insertCharge(c, "req-usage-other", ALICE, otherRun, 1, 0, 0));
+        expectViolation(FK_VIOLATION, "fk_request_usage_charges_run",
+                () -> insertCharge(c, "req-usage-2", BOB, otherRun, 1, 0, 0));
 
         // 차감 없는 보상·차감량과 다른 보상은 거부된다
         expectViolation(FK_VIOLATION, "fk_request_usage_compensations_charge",
@@ -453,6 +495,25 @@ class ProductConstraintsPostgresTest {
                 () -> update(c, "UPDATE request_usage_charges SET charged_daily = 0, charged_free = 1 WHERE request_id = 'req-usage-1'"));
         expectViolation(TRIGGER_VIOLATION, "immutable",
                 () -> update(c, "UPDATE request_usage_compensations SET reason = 'BUDGET_EXCEEDED' WHERE request_id = 'req-usage-1'"));
+        // ledger row를 지워 다시 보상·차감할 수 없다
+        expectViolation(TRIGGER_VIOLATION, "direct DELETE",
+                () -> update(c, "DELETE FROM request_usage_compensations WHERE request_id = 'req-usage-1'"));
+        expectViolation(TRIGGER_VIOLATION, "direct DELETE",
+                () -> update(c, "DELETE FROM request_usage_charges WHERE request_id = 'req-usage-1'"));
+    }
+
+    @Test
+    void userDeletionCascadesLedgerAndRunEvents() throws SQLException {
+        UUID runId = insertRunWithTurn(c, "req-user-delete", BOB, BOB_NOTE);
+        insertServerEvent(c, runId, BOB_NOTE, 1, "run.created");
+        insertCharge(c, "req-user-delete", BOB, runId, 1, 0, 0);
+        insertCompensation(c, "req-user-delete", "PENDING_CANCELED", 1);
+
+        update(c, "DELETE FROM users WHERE user_id = ?", BOB);
+
+        assertThat(count(c, "SELECT count(*) FROM ai_run_events WHERE run_id = ?", runId)).isZero();
+        assertThat(count(c, "SELECT count(*) FROM request_usage_charges WHERE user_id = ?", BOB)).isZero();
+        assertThat(count(c, "SELECT count(*) FROM request_usage_compensations WHERE request_id = 'req-user-delete'")).isZero();
     }
 
     @Test
@@ -484,7 +545,6 @@ class ProductConstraintsPostgresTest {
         assertThat(applied).isEqualTo(1);
         try (Connection check = db.connect()) {
             assertThat(count(check, "SELECT count(*) FROM request_usage_compensations WHERE request_id = ?", requestId)).isEqualTo(1);
-            update(check, "DELETE FROM request_usage_charges WHERE request_id = ?", requestId);
         }
     }
 
@@ -504,6 +564,11 @@ class ProductConstraintsPostgresTest {
                 turn.assistantMessageId(), "solution-2", "[{\"claim_id\":\"claim-1\",\"coverage\":\"inconclusive\"}]", "direct", null));
         expectViolation(CHECK_VIOLATION, "ck_verified_solutions_claims", () -> insertSolution(c, runId,
                 turn.assistantMessageId(), "solution-2", "[]", "direct", null));
+        // coverage는 문자열 direct|supporting이어야 한다 (숫자·누락·비객체 claim 거부)
+        for (String claims : List.of("[{\"claim_id\":\"claim-1\",\"coverage\":1}]", "[{\"claim_id\":\"claim-1\"}]", "[1]")) {
+            expectViolation(CHECK_VIOLATION, "ck_verified_solutions_claims", () -> insertSolution(c, runId,
+                    turn.assistantMessageId(), "solution-2", claims, "direct", null));
+        }
         expectViolation(CHECK_VIOLATION, "ck_verified_solutions_overall_matches", () -> insertSolution(c, runId,
                 turn.assistantMessageId(), "solution-2", supporting, "direct", null));
 
@@ -540,6 +605,13 @@ class ProductConstraintsPostgresTest {
         insertAttachment(c, turn.userMessageId(), 1, "image/png", null, 20, 10, 200L);
         expectViolation(CHECK_VIOLATION, "ck_turn_attachments_media",
                 () -> insertAttachment(c, turn.userMessageId(), 2, "image/png", null, 20, 10, 999L));
+        // NULL metadata로 media 규칙을 우회할 수 없다
+        expectViolation(CHECK_VIOLATION, "ck_turn_attachments_media",
+                () -> insertAttachment(c, turn.userMessageId(), 2, "application/pdf", null, null, null, null));
+        expectViolation(CHECK_VIOLATION, "ck_turn_attachments_media",
+                () -> insertAttachment(c, turn.userMessageId(), 2, "image/png", null, 20, 10, null));
+        expectViolation(CHECK_VIOLATION, "ck_turn_attachments_media",
+                () -> insertAttachment(c, turn.userMessageId(), 2, "image/png", null, null, 10, 200L));
         expectViolation(CHECK_VIOLATION, "ck_turn_attachments_mime",
                 () -> insertAttachment(c, turn.userMessageId(), 2, "image/heic", null, 20, 10, 200L));
         expectViolation(UNIQUE_VIOLATION, "uq_turn_attachments_message_index",
@@ -631,13 +703,20 @@ class ProductConstraintsPostgresTest {
                 """, runId, noteId, assetId, kind);
     }
 
+    /** 1.80 규약대로 event seq를 ai_runs.last_event_seq에서 먼저 배정한다. */
+    private static void allocateSeq(Connection conn, UUID runId, long seq) throws SQLException {
+        update(conn, "UPDATE ai_runs SET last_event_seq = GREATEST(last_event_seq, ?) WHERE run_id = ?", seq, runId);
+    }
+
     private static void insertServerEvent(Connection conn, UUID runId, long noteId, long seq, String type)
             throws SQLException {
+        allocateSeq(conn, runId, seq);
         update(conn, "INSERT INTO ai_run_events (run_id, note_id, seq, event_type) VALUES (?, ?, ?, ?)",
                 runId, noteId, seq, type);
     }
 
     private static int insertActivity(Connection conn, UUID runId, long seq, String sourceEventId) throws SQLException {
+        allocateSeq(conn, runId, seq);
         return update(conn, """
                 INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
                 SELECT ?, note_id, ?, 'activity.started', ?, 1, 'activity-1', '{"kind":"input_analysis"}'

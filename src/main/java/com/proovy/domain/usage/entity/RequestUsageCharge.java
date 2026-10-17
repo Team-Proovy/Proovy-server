@@ -1,5 +1,6 @@
 package com.proovy.domain.usage.entity;
 
+import com.proovy.global.entity.AssignedIdEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -18,7 +19,7 @@ import java.util.UUID;
 @Table(name = "request_usage_charges")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RequestUsageCharge {
+public class RequestUsageCharge extends AssignedIdEntity<String> {
 
     @Id
     @Column(name = "request_id", length = 128)
@@ -60,5 +61,10 @@ public class RequestUsageCharge {
         this.chargedPaid = chargedPaid;
         this.creditAmount = chargedDaily + chargedFree + chargedPaid;
         this.chargedAt = Objects.requireNonNull(chargedAt);
+    }
+
+    @Override
+    public String getId() {
+        return requestId;
     }
 }

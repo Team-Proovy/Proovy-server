@@ -187,6 +187,9 @@ PROOVY_REQUIRE_DB_TESTS=true ./gradlew test
 
 환경변수가 없으면 DB 테스트는 skip(미실행)되고, `PROOVY_REQUIRE_DB_TESTS=true`(CI)이면 실패한다.
 
+**전용 일회용 Postgres 클러스터에서만 실행한다.** role 경계 테스트는 cluster 단위 role(`proovy_server`, `brain_*`)을
+만들고 비밀번호를 덮어쓰며, database를 지워도 role은 남는다. 공유·운영 클러스터를 `PROOVY_TEST_PG_URL`로 지정하지 않는다.
+
 ## API 문서
 
 - **Swagger UI**: https://api.proovy.ai.kr/swagger-ui/index.html#/

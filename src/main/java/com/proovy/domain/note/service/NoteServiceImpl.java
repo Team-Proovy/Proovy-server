@@ -353,6 +353,7 @@ public class NoteServiceImpl implements NoteService {
         long conversationCount = messageCount / 2;
 
         // 3. GCS 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
+        // TODO(S09/S13): turn_attachments object_key·thumbnail_object_key도 삭제 대상에 포함한다 (업로드 경로 도입 시).
         List<Asset> assets = assetRepository.findAllByNoteId(noteId);
         int assetCount = assets.size();
 

@@ -3,6 +3,7 @@ package com.proovy.domain.conversation.entity;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.proovy.domain.note.entity.Note;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import com.proovy.global.entity.AssignedIdEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -24,7 +25,7 @@ import java.util.UUID;
 @Table(name = "chat_messages")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class ChatMessage {
+public class ChatMessage extends AssignedIdEntity<UUID> {
 
     @Id
     @Column(name = "message_id")

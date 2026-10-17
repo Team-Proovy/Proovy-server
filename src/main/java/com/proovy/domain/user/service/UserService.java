@@ -201,6 +201,7 @@ public class UserService {
 
     private void deleteUserData(Long userId) {
         // GCS 키를 먼저 수집 (원본 + 썸네일, 중복 제거)
+        // TODO(S09/S13): turn_attachments object_key·thumbnail_object_key도 수집한다 (업로드 경로 도입 시).
         Set<String> objectKeys = new java.util.HashSet<>();
         assetRepository.findAllByUserId(userId).forEach(asset -> {
             if (asset.getObjectKey() != null) {

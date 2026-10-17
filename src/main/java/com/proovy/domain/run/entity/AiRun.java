@@ -2,6 +2,7 @@ package com.proovy.domain.run.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import com.proovy.global.entity.AssignedIdEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -25,7 +26,7 @@ import java.util.UUID;
 @Table(name = "ai_runs")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class AiRun {
+public class AiRun extends AssignedIdEntity<UUID> {
 
     @Id
     @Column(name = "run_id")
