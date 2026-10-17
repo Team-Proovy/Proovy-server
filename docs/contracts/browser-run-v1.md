@@ -48,6 +48,8 @@ OpenAPI에는 component schema만 등록했고 경로는 없다.
   다음 consumer_version에서 schema에 `maximum: 2147483647`과 정수값 실수 정책을 넣고 fixture로 고정한다.
 - **`RunStatus.cancelable`·`ActiveRunSummary.status`:** 상태에서 파생되는 값인데 생성자가 막지 않는다. 응답을 만드는
   구현(1.79·1.81)이 `PublicRunStatus.isCancelable()`로 채우고, activeRun에는 terminal 상태를 넣지 않는다. 필요하면 factory로 강제한다.
+- **OpenAPI 등록과 springdoc 비활성:** `BrowserRunContractOpenApi`는 `SpringDocConfigProperties` bean을 주입받는다. springdoc을 끄는 profile에서는
+  bean이 없어 기동이 실패할 수 있다. 그런 설정을 도입할 때 `ObjectProvider` 또는 `@ConditionalOnBean`으로 바꾼다.
 - **wire 값 원천 정리:** 아래는 같은 wire 값을 두 곳에서 정의한다. 계약 의미의 결함은 아니므로 후속 구현 태스크에서 enum 파생이나
   대응 테스트로 묶는다.
   - `ServerFrameType` ↔ `AiRunEventType`(serverOwned)
