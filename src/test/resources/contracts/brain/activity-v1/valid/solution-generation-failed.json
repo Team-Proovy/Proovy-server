@@ -1,0 +1,15 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-9f8c",
+  "source_event_id": "run-7:activity-2:r3:failed",
+  "occurred_at": "2026-10-01T09:00:09Z",
+  "type": "activity.failed",
+  "payload": {
+    "kind": "solution_generation",
+    "activity_id": "activity-2",
+    "code": "provider_error",
+    "message": "풀이 작성을 완료하지 못했다"
+  }
+}

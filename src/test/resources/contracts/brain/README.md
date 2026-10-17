@@ -63,3 +63,24 @@ git -C <proovy-brain checkout> archive "$SHA" tests/fixtures/contracts/internal-
 
 consumer_version이 바뀌면 `InternalRunContract.CONSUMER_VERSION`도 올리고
 `./gradlew test --tests 'com.proovy.domain.run.brain.*' --tests 'com.proovy.global.infra.brain.*'`로 확인한다.
+
+## activity-v1 (task 1.80)
+
+- pin: `PIN-activity-v1.json` (commit·`consumer_version` `activity-fixtures-v1`). 이 artifact에는 manifest가 없고 version은
+  `CATALOG.md`에 적혀 있다. 그래서 PIN의 `manifest`는 `null`이고 `files`에 pin commit에서 복사한 직후 계산한 sha256을 적는다.
+- `ActivityContractMirrorTest`가 파일 sha256·목록 밖 파일·CATALOG version과 `SourceActivities.CONSUMER_VERSION` 일치를 검사한다.
+  `BrainContractMirrorTest`는 모든 `PIN-*.json`이 소유한 경로를 목록 밖 파일에서 제외한다.
+
+갱신 절차:
+
+```bash
+SHA=<merge commit>
+DEST=src/test/resources/contracts/brain
+rm -rf "$DEST/activity-v1"
+git -C <proovy-brain checkout> archive "$SHA" tests/fixtures/contracts/activity-v1 | tar -x --strip-components=3 -C "$DEST"
+(cd "$DEST" && find activity-v1 -type f | sort | xargs sha256sum)
+# 위 값이 Brain commit blob과 같은지 확인한 뒤 PIN-activity-v1.json의 commit·consumer_version·files를 다시 쓴다.
+```
+
+consumer_version이 바뀌면 `SourceActivities.CONSUMER_VERSION`과 Brain `contracts/activity.py` 대응 규칙을 함께 올리고
+`./gradlew test --tests 'com.proovy.domain.run.event.*'`로 확인한다.

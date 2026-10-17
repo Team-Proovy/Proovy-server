@@ -1,0 +1,15 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-9f8c",
+  "source_event_id": "run-7:activity-1:r1:updated",
+  "occurred_at": "2026-10-01T09:00:01Z",
+  "type": "activity.updated",
+  "payload": {
+    "kind": "input_analysis",
+    "activity_id": "activity-1",
+    "status": "in_progress",
+    "message": "입력을 읽고 있다"
+  }
+}
