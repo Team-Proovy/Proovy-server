@@ -3,10 +3,10 @@ package com.proovy.domain.user.service;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.auth.repository.RefreshTokenRepository;
 import com.proovy.domain.auth.service.AccessTokenBlacklistService;
-import com.proovy.domain.credit.entity.CreditBalance;
 import com.proovy.domain.credit.repository.CreditBalanceRepository;
 import com.proovy.domain.credit.repository.CreditHistoryRepository;
 import com.proovy.domain.credit.service.CreditBalanceService;
+import com.proovy.domain.credit.service.CreditBalanceSnapshot;
 import com.proovy.domain.note.repository.NoteRepository;
 import com.proovy.domain.user.dto.response.DeleteUserResponse;
 import com.proovy.domain.user.dto.response.MyProfileResponse;
@@ -90,36 +90,36 @@ public class UserService {
 
     private CreditDto getCreditInfo(Long userId) {
         // 실제 크레딧 잔액 조회
-        CreditBalance balance = creditBalanceService.getOrCreateBalance(userId);
+        CreditBalanceSnapshot balance = creditBalanceService.getBalanceSnapshot(userId);
         PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
                 .orElse(PlanType.FREE);
 
         // 일일 크레딧: 매일 00:00에 100으로 리셋
         DailyCreditDto dailyCredit = DailyCreditDto.builder()
-                .balance(balance.getDailyFreeCredit())
-                .limit(balance.getDailyFreeLimit())
-                .resetsAt(balance.getDailyExpiresAt() != null
-                        ? balance.getDailyExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .balance(balance.dailyFreeCredit())
+                .limit(balance.dailyFreeLimit())
+                .resetsAt(balance.dailyExpiresAt() != null
+                        ? balance.dailyExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                         : LocalDate.now(BILLING_ZONE).plusDays(1).atStartOfDay().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                 .build();
 
         // 월간 크레딧: 유료 플랜 구독 시 부여되는 크레딧
         // FREE: 0, STANDARD: 2000, PRO: 5000
-        int monthlyBalance = balance.getPaidCredit();  // paidCredit만 월간 크레딧
+        int monthlyBalance = balance.paidCredit();  // paidCredit만 월간 크레딧
         int monthlyLimit = planType.getMonthlyCreditLimit();
 
         MonthlyCreditDto monthlyCredit = MonthlyCreditDto.builder()
                 .balance(monthlyBalance)
                 .limit(monthlyLimit)
-                .expiresAt(balance.getPaidExpiresAt() != null
-                        ? balance.getPaidExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                .expiresAt(balance.paidExpiresAt() != null
+                        ? balance.paidExpiresAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                         : null)
                 .build();
 
         return CreditDto.builder()
                 .dailyCredit(dailyCredit)
                 .monthlyCredit(monthlyCredit)
-                .totalAvailable(balance.getTotalAvailable())
+                .totalAvailable(balance.totalAvailable())
                 .build();
     }
 
