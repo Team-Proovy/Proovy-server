@@ -1,0 +1,40 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [
+        {
+          "kind": "solution",
+          "block_id": "block-1",
+          "body": "경우를 나누면 $x>0$일 때 성립한다. 남은 연결은 확인되지 않았다.",
+          "verification": "unverified",
+          "step_marks": [
+            {
+              "step_id": "step-1",
+              "status": "verified",
+              "anchor": {
+                "start": 0,
+                "end": 21
+              }
+            },
+            {
+              "step_id": "step-2",
+              "status": "unconfirmed",
+              "reason": "논리 연결이 도구로 확인되지 않았다",
+              "anchor": {
+                "start": 23,
+                "end": 38
+              }
+            },
+            {
+              "step_id": "step-3",
+              "status": "unconfirmed",
+              "reason": "검사가 생성되지 않았다"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

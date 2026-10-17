@@ -1,0 +1,31 @@
+{
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:activity-1:r0:started",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "activity.started",
+    "payload": {
+      "activity_id": "activity-1",
+      "label": "analyzing_input",
+      "response_page_id": "page-1"
+    }
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "activity.started",
+    "payload": {
+      "activityId": "activity-1",
+      "responsePageId": "page-1",
+      "label": "analyzing_input"
+    },
+    "seq": 1
+  },
+  "source_outcome": "reject",
+  "browser_outcome": "reject",
+  "schema_outcome": "reject"
+}

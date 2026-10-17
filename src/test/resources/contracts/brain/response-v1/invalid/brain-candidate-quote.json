@@ -1,0 +1,24 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [
+        {
+          "kind": "check",
+          "block_id": "block-1",
+          "body": "틀린 후보 인용",
+          "quoted_spans": [
+            {
+              "anchor": {
+                "start": 0,
+                "end": 4
+              },
+              "origin": "brain_candidate"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

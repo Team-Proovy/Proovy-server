@@ -1,0 +1,23 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "어떤 문제의 풀이를 원하는지 알려 주세요.",
+            "kind": "rich_text"
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "clarification_only",
+  "verification_summary": [],
+  "source_labels": {},
+  "clarification_reason": "ambiguous_target"
+}

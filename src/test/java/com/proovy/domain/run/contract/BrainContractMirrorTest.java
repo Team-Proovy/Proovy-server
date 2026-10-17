@@ -54,11 +54,20 @@ class BrainContractMirrorTest {
         listed.add("browser-run-v1/manifest.json");
         listed.add("PIN.json");
         listed.add("README.md");
-        // internal-run-v1 사본은 별도 pin(task 1.76)이 소유하고 InternalRunContractMirrorTest가 검사한다.
-        JsonNode internalRunPin = read(MIRROR.resolve("PIN-internal-run-v1.json"));
-        internalRunPin.get("files").properties().forEach(entry -> listed.add(entry.getKey()));
-        listed.add(internalRunPin.get("manifest").asText());
-        listed.add("PIN-internal-run-v1.json");
+        // 별도 pin(PIN-<artifact>.json: internal-run-v1은 task 1.76, terminal-v2·response-v1·publication-v1은 1.81)이
+        // 소유한 사본은 각 mirror test(InternalRunContractMirrorTest·TerminalContractMirrorTest)가 검사한다.
+        try (Stream<Path> pins = Files.list(MIRROR)) {
+            for (Path pinPath : pins.filter(path -> path.getFileName().toString().matches("PIN-.+\\.json")).toList()) {
+                JsonNode pin = read(pinPath);
+                pin.get("files").properties().forEach(entry -> listed.add(entry.getKey()));
+                for (String index : new String[]{"manifest", "catalog"}) {
+                    if (pin.hasNonNull(index)) {
+                        listed.add(pin.get(index).asText());
+                    }
+                }
+                listed.add(pinPath.getFileName().toString());
+            }
+        }
         try (Stream<Path> files = Files.walk(MIRROR)) {
             Set<String> onDisk = new HashSet<>();
             files.filter(Files::isRegularFile)

@@ -1,0 +1,16 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "clarification_only",
+  "disclosure": {
+    "scope": "full",
+    "judgment_completed": true
+  },
+  "pages": [],
+  "clarification": {
+    "reason": "ambiguous_target",
+    "draft": {
+      "text": "어떤 문제의 풀이를 원하는지 알려 주세요.",
+      "withheld": []
+    }
+  }
+}

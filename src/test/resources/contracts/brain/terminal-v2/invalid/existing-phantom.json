@@ -1,0 +1,123 @@
+{
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "response_disposition": "substantive",
+      "assistant_response": {
+        "schema_version": "assistant-response-v1",
+        "response_pages": [
+          {
+            "response_page_id": "page-1",
+            "presentation": "main",
+            "result_blocks": [
+              {
+                "block_id": "block-1",
+                "body": "양변에 같은 연산을 적용하는 이유를 설명합니다.",
+                "kind": "explanation",
+                "solution_id": "solution-99",
+                "claim_ids": [
+                  "claim-1"
+                ]
+              }
+            ]
+          }
+        ],
+        "source_references": []
+      },
+      "verified_solutions": [],
+      "existing_solution_references": [
+        {
+          "solution_id": "solution-1",
+          "version": 1,
+          "verification": {
+            "solution_id": "solution-1",
+            "overall_coverage": "direct",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "coverage": "direct",
+                "method_label": "모든 단계를 실행 검사로 확인",
+                "unconfirmed_steps": []
+              }
+            ]
+          },
+          "claim_match_checked": true
+        }
+      ],
+      "selected_page_provenance": [],
+      "model": "fake/main-model",
+      "tier": "main",
+      "verification_summary": [
+        {
+          "solution_id": "solution-1",
+          "overall_coverage": "direct",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "coverage": "direct",
+              "method_label": "모든 단계를 실행 검사로 확인",
+              "unconfirmed_steps": []
+            }
+          ]
+        }
+      ],
+      "source_labels": []
+    }
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "responseDisposition": "substantive",
+      "assistantResponse": {
+        "responsePages": [
+          {
+            "responsePageId": "page-1",
+            "presentation": "main",
+            "resultBlocks": [
+              {
+                "blockId": "block-1",
+                "body": "양변에 같은 연산을 적용하는 이유를 설명합니다.",
+                "kind": "explanation",
+                "solutionId": "solution-99",
+                "claimIds": [
+                  "claim-1"
+                ]
+              }
+            ]
+          }
+        ],
+        "sourceReferences": [],
+        "plainText": "양변에 같은 연산을 적용하는 이유를 설명합니다."
+      },
+      "model": "fake/main-model",
+      "tier": "main",
+      "verificationSummary": [
+        {
+          "solutionId": "solution-1",
+          "overallCoverage": "direct",
+          "claims": [
+            {
+              "claimId": "claim-1",
+              "coverage": "direct",
+              "methodLabel": "모든 단계를 실행 검사로 확인",
+              "unconfirmedSteps": []
+            }
+          ]
+        }
+      ],
+      "assistantMessageId": "message-7"
+    }
+  },
+  "source_outcome": "reject",
+  "browser_outcome": "reject"
+}

@@ -1,0 +1,218 @@
+{
+  "publication_request": {
+    "disposition": "substantive",
+    "disclosure": {
+      "scope": "full",
+      "judgment_completed": true
+    },
+    "pages": [
+      {
+        "presentation": "main",
+        "blocks": [
+          {
+            "kind": "rich_text",
+            "draft": {
+              "text": "첫 자료와 두 번째 자료의 조건이 다릅니다.[[source:sref-1]][[source:sref-2]]"
+            }
+          }
+        ]
+      }
+    ],
+    "source_references": [
+      {
+        "source_ref_id": "sref-1",
+        "asset_id": "asset-a",
+        "page_start": 1,
+        "page_end": 1
+      },
+      {
+        "source_ref_id": "sref-2",
+        "asset_id": "asset-b",
+        "page_start": 1,
+        "page_end": 1
+      }
+    ],
+    "source_labels": [
+      {
+        "source_ref_id": "sref-1",
+        "label": "자료 1"
+      },
+      {
+        "source_ref_id": "sref-2",
+        "label": "자료 2"
+      }
+    ]
+  },
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "response_disposition": "substantive",
+      "assistant_response": {
+        "schema_version": "assistant-response-v1",
+        "response_pages": [
+          {
+            "response_page_id": "page-1",
+            "presentation": "main",
+            "result_blocks": [
+              {
+                "block_id": "block-1",
+                "body": "첫 자료와 두 번째 자료의 조건이 다릅니다.[[source:sref-1]][[source:sref-2]]",
+                "kind": "rich_text"
+              }
+            ]
+          }
+        ],
+        "source_references": [
+          {
+            "source_ref_id": "sref-1",
+            "asset_id": "asset-a",
+            "page_start": 1,
+            "page_end": 1
+          },
+          {
+            "source_ref_id": "sref-2",
+            "asset_id": "asset-b",
+            "page_start": 1,
+            "page_end": 1
+          }
+        ]
+      },
+      "verified_solutions": [],
+      "selected_page_provenance": [
+        {
+          "asset_id": "asset-a",
+          "content_version": "content-v1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "page": 1,
+          "understanding_version": "page-understanding-v1"
+        },
+        {
+          "asset_id": "asset-b",
+          "content_version": "content-v1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "page": 1,
+          "understanding_version": "page-understanding-v1"
+        }
+      ],
+      "model": "fake/main-model",
+      "tier": "main",
+      "verification_summary": [],
+      "source_labels": [
+        {
+          "source_ref_id": "sref-1",
+          "label": "자료 1"
+        },
+        {
+          "source_ref_id": "sref-2",
+          "label": "자료 2"
+        }
+      ]
+    }
+  },
+  "server": {
+    "assistant_message_id": "message-7",
+    "seq": 9,
+    "display_labels": {
+      "sref-1": "자료 1",
+      "sref-2": "자료 2"
+    },
+    "availability": {
+      "sref-1": true,
+      "sref-2": true
+    }
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "responseDisposition": "substantive",
+      "assistantResponse": {
+        "responsePages": [
+          {
+            "responsePageId": "page-1",
+            "presentation": "main",
+            "resultBlocks": [
+              {
+                "blockId": "block-1",
+                "body": "첫 자료와 두 번째 자료의 조건이 다릅니다.[[source:sref-1]][[source:sref-2]]",
+                "kind": "rich_text"
+              }
+            ]
+          }
+        ],
+        "sourceReferences": [
+          {
+            "sourceRefId": "sref-1",
+            "assetId": "asset-a",
+            "pageStart": 1,
+            "pageEnd": 1,
+            "displayLabelSnapshot": "자료 1",
+            "available": true
+          },
+          {
+            "sourceRefId": "sref-2",
+            "assetId": "asset-b",
+            "pageStart": 1,
+            "pageEnd": 1,
+            "displayLabelSnapshot": "자료 2",
+            "available": true
+          }
+        ],
+        "plainText": "첫 자료와 두 번째 자료의 조건이 다릅니다."
+      },
+      "model": "fake/main-model",
+      "tier": "main",
+      "verificationSummary": [],
+      "assistantMessageId": "message-7"
+    }
+  },
+  "progress_sources": [
+    {
+      "contract_version": "brain-source-v1",
+      "run_id": "run-7",
+      "attempt": 1,
+      "fence_token": "fence-9f8c",
+      "source_event_id": "run-7:activity-1:r0:started",
+      "occurred_at": "2026-10-01T09:00:00Z",
+      "type": "activity.started",
+      "payload": {
+        "activity_id": "activity-1",
+        "kind": "note_retrieval",
+        "label": "searching_notes"
+      }
+    },
+    {
+      "contract_version": "brain-source-v1",
+      "run_id": "run-7",
+      "attempt": 1,
+      "fence_token": "fence-9f8c",
+      "source_event_id": "run-7:activity-1:r1:completed",
+      "occurred_at": "2026-10-01T09:00:00Z",
+      "type": "activity.completed",
+      "payload": {
+        "activity_id": "activity-1",
+        "kind": "note_retrieval",
+        "match_status": "conflicting_content",
+        "pages": [
+          {
+            "asset_id": "asset-a",
+            "page": 1
+          },
+          {
+            "asset_id": "asset-b",
+            "page": 1
+          }
+        ]
+      }
+    }
+  ]
+}

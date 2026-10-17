@@ -1,0 +1,35 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [
+        {
+          "kind": "solution",
+          "block_id": "block-1",
+          "body": "단계 하나 $x=1$이다 [[source:sref-1]]",
+          "verification": "verified",
+          "solution_id": "solution-1",
+          "step_marks": [
+            {
+              "step_id": "step-1",
+              "status": "verified",
+              "anchor": {
+                "start": 0,
+                "end": 9999
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "source_references": [
+    {
+      "source_ref_id": "sref-1",
+      "asset_id": "asset-1",
+      "page_start": 1,
+      "page_end": 2
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "독립 계산으로 얻은 결과는 $5$이다.",
+            "kind": "solution",
+            "verification": "partially_verified",
+            "solution_id": "solution-5",
+            "claim_ids": [
+              "claim-1"
+            ],
+            "step_marks": []
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [
+    {
+      "solution_id": "solution-5",
+      "overall_coverage": "supporting",
+      "claims": [
+        {
+          "claim_id": "claim-1",
+          "coverage": "supporting",
+          "method_label": "독립 계산으로 답을 비교(과정 미검증)",
+          "unconfirmed_steps": []
+        }
+      ]
+    }
+  ],
+  "source_labels": {}
+}

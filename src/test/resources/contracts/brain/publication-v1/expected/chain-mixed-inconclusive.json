@@ -1,0 +1,21 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [{
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [{
+        "block_id": "block-1",
+        "body": "중간 사실과 답을 검토했다.\n\n확인되지 않은 범위: 이 결과의 일부 주장(중간 사실)은 확인되지 않았다. 답의 확인은 모든 주장의 확인을 뜻하지 않는다.",
+        "kind": "solution",
+        "verification": "unverified",
+        "claim_ids": [],
+        "step_marks": [{"step_id": "step-1", "status": "verified"}]
+      }]
+    }],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [],
+  "source_labels": {}
+}

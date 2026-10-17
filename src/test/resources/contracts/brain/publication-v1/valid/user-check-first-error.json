@@ -1,0 +1,69 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "substantive",
+  "disclosure": {
+    "scope": "full",
+    "judgment_completed": true
+  },
+  "pages": [
+    {
+      "presentation": "main",
+      "blocks": [
+        {
+          "kind": "check",
+          "draft": {
+            "text": "제출한 풀이의 첫 오류입니다.\n\n> 양변을 $x$로 나누었다\n\n$x=0$이면 나눌 수 없어 성립하지 않습니다.",
+            "withheld": []
+          },
+          "report": {
+            "status": "reject",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "verdict": "reject",
+                "basis": "chain"
+              }
+            ],
+            "requested_claim_count": 1,
+            "steps": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "level": "direct"
+              },
+              {
+                "step_id": "step-2",
+                "status": "failed",
+                "reason": "step_refuted"
+              }
+            ],
+            "first_error_step_id": "step-2"
+          },
+          "step_anchors": [
+            {
+              "step_id": "step-1",
+              "span": {
+                "start": 0,
+                "end": 16
+              }
+            },
+            {
+              "step_id": "step-2",
+              "span": {
+                "start": 20,
+                "end": 33
+              }
+            }
+          ],
+          "quoted_spans": [
+            {
+              "start": 20,
+              "end": 33
+            }
+          ]
+        }
+      ],
+      "title": "제출 풀이 검토"
+    }
+  ]
+}

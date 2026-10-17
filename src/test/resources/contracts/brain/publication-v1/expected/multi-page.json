@@ -1,0 +1,60 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "title": "본문",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "본문 풀이가 여기 있다.",
+            "kind": "solution",
+            "verification": "verified",
+            "solution_id": "solution-7",
+            "claim_ids": [
+              "claim-1"
+            ],
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "response_page_id": "page-2",
+        "presentation": "thread_like",
+        "title": "보조",
+        "result_blocks": [
+          {
+            "block_id": "block-2",
+            "body": "스레드에 붙는 보조 설명이다.",
+            "kind": "explanation",
+            "claim_ids": []
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [
+    {
+      "solution_id": "solution-7",
+      "overall_coverage": "direct",
+      "claims": [
+        {
+          "claim_id": "claim-1",
+          "coverage": "direct",
+          "method_label": "모든 단계를 실행 검사로 확인",
+          "unconfirmed_steps": []
+        }
+      ]
+    }
+  ],
+  "source_labels": {}
+}

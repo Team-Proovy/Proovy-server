@@ -1,0 +1,25 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "title": "제출 답안 검토",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "첫 번째 답은 비교가 맞았지만 두 번째 답은 다르다.",
+            "kind": "check",
+            "step_marks": [],
+            "quoted_spans": []
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [],
+  "source_labels": {}
+}

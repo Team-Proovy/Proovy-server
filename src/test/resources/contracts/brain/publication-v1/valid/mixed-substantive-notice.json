@@ -1,0 +1,23 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "substantive",
+  "disclosure": {
+    "scope": "full",
+    "judgment_completed": true
+  },
+  "pages": [
+    {
+      "presentation": "main",
+      "blocks": [
+        {
+          "kind": "rich_text",
+          "draft": {
+            "text": "지원하는 부분의 풀이 결과다.",
+            "withheld": []
+          }
+        }
+      ]
+    }
+  ],
+  "unsupported_notice": true
+}

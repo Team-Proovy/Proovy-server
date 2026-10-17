@@ -1,0 +1,20 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [
+        {
+          "kind": "rich_text",
+          "block_id": "block-1",
+          "body": "a"
+        },
+        {
+          "kind": "rich_text",
+          "block_id": "block-1",
+          "body": "b"
+        }
+      ]
+    }
+  ]
+}

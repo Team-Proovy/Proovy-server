@@ -1,0 +1,99 @@
+{
+  "consumer_version": "terminal-fixtures-v2",
+  "source_contract_version": "brain-source-v1",
+  "assistant_response_version": "assistant-response-v1",
+  "artifact_version": "verified-solution-v1",
+  "original_path": "tests/fixtures/contracts/terminal-v2",
+  "change_reason": "Task 1.58: run.failed gains code invalid_attachment{reason} — attachment-inspection refusals (corrupt/forged/encrypted/oversized inputs) stop reporting budget_exceeded; failure_class=attachment, recoverable=false, reason is a fixed sub-code with a fixed safe message; Server consumes it for compensation and re-upload guidance.",
+  "consumption_policy": "Pin terminal-fixtures-v2 at original_path; changes require a new fixture version and reason.",
+  "ownership": {
+    "brain": [
+      "snake_case source",
+      "verified_solutions",
+      "selected_page_provenance",
+      "checked source_labels"
+    ],
+    "server": [
+      "assistantMessageId",
+      "seq",
+      "page boundary events",
+      "commit",
+      "availability",
+      "plainText storage"
+    ],
+    "browser": [
+      "camelCase public response only",
+      "ignore unknown additive fields; validate known fields"
+    ]
+  },
+  "boundaries": "Fake consumer only; no product commit, replay, permissions or content grounding guarantee.",
+  "pairs": [
+    "direct-verified",
+    "supporting-logical-move",
+    "zero-step-fallback",
+    "inconclusive-unverified",
+    "check-with-correction",
+    "hide-answer",
+    "clarification",
+    "unsupported-only",
+    "mixed-substantive-notice",
+    "multi-page",
+    "failure",
+    "failure-invalid-attachment",
+    "explain-existing",
+    "explain-existing-hide-answer",
+    "conflict-clarification",
+    "conflict-substantive"
+  ],
+  "change_history": [
+    {
+      "date": "2026-10-01",
+      "revision": "218d2de",
+      "reason": "Initial task 1.28 source/browser freeze."
+    },
+    {
+      "date": "2026-10-01",
+      "reason": "PR #58 independent review: pre-release v1 correction distinguishes conflict clarification, adds bounded checked existing-solution re-expression references, and makes every discriminated union tag required in both schemas. Existing positive pairs remain unchanged."
+    },
+    {
+      "date": "2026-10-10",
+      "reason": "Task 1.58 terminal-fixtures-v2: run.failed adds FailureCode invalid_attachment, FailureClass attachment, and the reason sub-code (AttachmentFailureReason mirrors the file-inspection refusal reasons); invalid_attachment carries a per-reason fixed message and recoverable=false. Prior codes keep v1 meaning; completed/failure pairs are byte-identical."
+    }
+  ],
+  "existing_reference_policy": "Caller supplies checked ID/version/claim coverage only, never the existing full answer. Public summaries select referenced claims inside assemble_response and retain disclosure checks. Storage/authentication/semantic claim matching are caller responsibilities, not implemented here.",
+  "negative_pairs": [
+    "attachment-message-mismatch",
+    "attachment-missing-reason",
+    "attachment-recoverable",
+    "attachment-unknown-reason",
+    "attachment-wrong-class",
+    "code",
+    "duplicate-page",
+    "existing-coverage-mismatch",
+    "existing-full-answer-extra",
+    "existing-mismatched-claim",
+    "existing-phantom",
+    "existing-unchecked",
+    "failure-with-answer",
+    "guidance-with-sources",
+    "kind-type-mismatch",
+    "metadata",
+    "missing-activity-kind",
+    "missing-block-kind",
+    "missing-selected-page",
+    "overclaimed-coverage",
+    "phantom-claim",
+    "phantom-solution",
+    "phantom-source",
+    "raw-discriminator",
+    "raw-extra",
+    "reason-on-non-attachment-code",
+    "source-version-conflict",
+    "stdout",
+    "unsafe-failure-message",
+    "unverified-as-verified",
+    "video_target"
+  ],
+  "validation_scope": "JSON Schema validates wire structure; Python validators enforce reference/disposition/coverage integrity and the invalid_attachment reason↔message↔class agreement. Browser cannot validate omitted internal artifacts or selected provenance; unknown additions are ignored.",
+  "fixture_inputs": "Copied publication-v1 requests are embedded and frozen in each pair; no evals oracle or answer metadata is used."
+}

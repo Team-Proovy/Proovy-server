@@ -1,0 +1,25 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [
+        {
+          "kind": "solution",
+          "block_id": "block-1",
+          "body": "근거 [[source:]] 끝",
+          "verification": "verified",
+          "solution_id": "solution-1"
+        }
+      ]
+    }
+  ],
+  "source_references": [
+    {
+      "source_ref_id": "sref-1",
+      "asset_id": "asset-1",
+      "page_start": 1,
+      "page_end": 2
+    }
+  ]
+}

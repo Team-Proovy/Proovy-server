@@ -1,0 +1,22 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "변형·연습문제 생성은 아직 지원하지 않는다. 기존 문제의 풀이·검산·설명을 요청해 주세요.",
+            "kind": "rich_text"
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "unsupported_only",
+  "verification_summary": [],
+  "source_labels": {}
+}

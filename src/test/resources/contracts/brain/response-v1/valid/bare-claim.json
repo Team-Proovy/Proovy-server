@@ -1,0 +1,21 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "title": "답",
+      "result_blocks": [
+        {
+          "kind": "solution",
+          "block_id": "block-1",
+          "body": "답은 $-\\frac{1}{6}$이다.",
+          "verification": "partially_verified",
+          "solution_id": "solution-2",
+          "claim_ids": [
+            "claim-1"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3208 @@
+{
+  "$defs": {
+    "ActivityCanceledEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "fence_token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Fence Token",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "activity.canceled",
+          "default": "activity.canceled",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "discriminator": {
+            "mapping": {
+              "asset_understanding": "#/$defs/AssetUnderstandingCanceled",
+              "code_execution": "#/$defs/CodeExecutionCanceled",
+              "input_analysis": "#/$defs/InputAnalysisCanceled",
+              "note_retrieval": "#/$defs/NoteRetrievalCanceled",
+              "solution_generation": "#/$defs/SolutionGenerationCanceled",
+              "verification": "#/$defs/VerificationCanceled"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/InputAnalysisCanceled"
+            },
+            {
+              "$ref": "#/$defs/SolutionGenerationCanceled"
+            },
+            {
+              "$ref": "#/$defs/AssetUnderstandingCanceled"
+            },
+            {
+              "$ref": "#/$defs/NoteRetrievalCanceled"
+            },
+            {
+              "$ref": "#/$defs/CodeExecutionCanceled"
+            },
+            {
+              "$ref": "#/$defs/VerificationCanceled"
+            }
+          ],
+          "title": "Payload"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "fence_token",
+        "source_event_id",
+        "occurred_at",
+        "payload",
+        "type"
+      ],
+      "title": "ActivityCanceledEvent",
+      "type": "object"
+    },
+    "ActivityCompletedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "fence_token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Fence Token",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "activity.completed",
+          "default": "activity.completed",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "discriminator": {
+            "mapping": {
+              "asset_understanding": "#/$defs/AssetUnderstandingCompleted",
+              "code_execution": "#/$defs/CodeExecutionCompleted",
+              "input_analysis": "#/$defs/InputAnalysisCompleted",
+              "note_retrieval": "#/$defs/NoteRetrievalCompleted",
+              "solution_generation": "#/$defs/SolutionGenerationCompleted",
+              "verification": "#/$defs/VerificationCompleted"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/InputAnalysisCompleted"
+            },
+            {
+              "$ref": "#/$defs/SolutionGenerationCompleted"
+            },
+            {
+              "$ref": "#/$defs/AssetUnderstandingCompleted"
+            },
+            {
+              "$ref": "#/$defs/NoteRetrievalCompleted"
+            },
+            {
+              "$ref": "#/$defs/CodeExecutionCompleted"
+            },
+            {
+              "$ref": "#/$defs/VerificationCompleted"
+            }
+          ],
+          "title": "Payload"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "fence_token",
+        "source_event_id",
+        "occurred_at",
+        "payload",
+        "type"
+      ],
+      "title": "ActivityCompletedEvent",
+      "type": "object"
+    },
+    "ActivityFailedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "fence_token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Fence Token",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "activity.failed",
+          "default": "activity.failed",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "discriminator": {
+            "mapping": {
+              "asset_understanding": "#/$defs/AssetUnderstandingFailed",
+              "code_execution": "#/$defs/CodeExecutionFailed",
+              "input_analysis": "#/$defs/InputAnalysisFailed",
+              "note_retrieval": "#/$defs/NoteRetrievalFailed",
+              "solution_generation": "#/$defs/SolutionGenerationFailed",
+              "verification": "#/$defs/VerificationFailed"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/InputAnalysisFailed"
+            },
+            {
+              "$ref": "#/$defs/SolutionGenerationFailed"
+            },
+            {
+              "$ref": "#/$defs/AssetUnderstandingFailed"
+            },
+            {
+              "$ref": "#/$defs/NoteRetrievalFailed"
+            },
+            {
+              "$ref": "#/$defs/CodeExecutionFailed"
+            },
+            {
+              "$ref": "#/$defs/VerificationFailed"
+            }
+          ],
+          "title": "Payload"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "fence_token",
+        "source_event_id",
+        "occurred_at",
+        "payload",
+        "type"
+      ],
+      "title": "ActivityFailedEvent",
+      "type": "object"
+    },
+    "ActivityFailureCode": {
+      "description": "The allowlisted technical failure codes an ``activity.failed`` may\nreport.  Normal judgments (no match, unreadable pages, missing scope)\nare completions, never failures.",
+      "enum": [
+        "provider_error",
+        "timeout",
+        "storage_error",
+        "internal_error"
+      ],
+      "title": "ActivityFailureCode",
+      "type": "string"
+    },
+    "ActivityStartedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "fence_token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Fence Token",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "activity.started",
+          "default": "activity.started",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "discriminator": {
+            "mapping": {
+              "asset_understanding": "#/$defs/AssetUnderstandingStarted",
+              "code_execution": "#/$defs/CodeExecutionStarted",
+              "input_analysis": "#/$defs/InputAnalysisStarted",
+              "note_retrieval": "#/$defs/NoteRetrievalStarted",
+              "solution_generation": "#/$defs/SolutionGenerationStarted",
+              "verification": "#/$defs/VerificationStarted"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/InputAnalysisStarted"
+            },
+            {
+              "$ref": "#/$defs/SolutionGenerationStarted"
+            },
+            {
+              "$ref": "#/$defs/AssetUnderstandingStarted"
+            },
+            {
+              "$ref": "#/$defs/NoteRetrievalStarted"
+            },
+            {
+              "$ref": "#/$defs/CodeExecutionStarted"
+            },
+            {
+              "$ref": "#/$defs/VerificationStarted"
+            }
+          ],
+          "title": "Payload"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "fence_token",
+        "source_event_id",
+        "occurred_at",
+        "payload",
+        "type"
+      ],
+      "title": "ActivityStartedEvent",
+      "type": "object"
+    },
+    "ActivityStatus": {
+      "description": "The allowlisted sub-state of a still-running Activity.\n\nDistinct from the terminal outcome: an ``updated`` event may report the\nwork is ``in_progress``, ``waiting`` on a resource, or visibly\n``retrying`` after a semantic (non-transport) retry.  Transient transport\nredelivery is not a status — it reuses the same event ID instead.",
+      "enum": [
+        "in_progress",
+        "waiting",
+        "retrying"
+      ],
+      "title": "ActivityStatus",
+      "type": "string"
+    },
+    "ActivityUpdatedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "fence_token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Fence Token",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "activity.updated",
+          "default": "activity.updated",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "discriminator": {
+            "mapping": {
+              "asset_understanding": "#/$defs/AssetUnderstandingUpdated",
+              "code_execution": "#/$defs/CodeExecutionUpdated",
+              "input_analysis": "#/$defs/InputAnalysisUpdated",
+              "note_retrieval": "#/$defs/NoteRetrievalUpdated",
+              "solution_generation": "#/$defs/SolutionGenerationUpdated",
+              "verification": "#/$defs/VerificationUpdated"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/InputAnalysisUpdated"
+            },
+            {
+              "$ref": "#/$defs/SolutionGenerationUpdated"
+            },
+            {
+              "$ref": "#/$defs/AssetUnderstandingUpdated"
+            },
+            {
+              "$ref": "#/$defs/NoteRetrievalUpdated"
+            },
+            {
+              "$ref": "#/$defs/CodeExecutionUpdated"
+            },
+            {
+              "$ref": "#/$defs/VerificationUpdated"
+            }
+          ],
+          "title": "Payload"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "fence_token",
+        "source_event_id",
+        "occurred_at",
+        "payload",
+        "type"
+      ],
+      "title": "ActivityUpdatedEvent",
+      "type": "object"
+    },
+    "AssetUnderstandingCanceled": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "asset_understanding",
+          "default": "asset_understanding",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "AssetUnderstandingCanceled",
+      "type": "object"
+    },
+    "AssetUnderstandingCompleted": {
+      "additionalProperties": false,
+      "description": "Completes with the final measured counts and an optional normal\njudgment.  ``scope_required``/``unreadable_pages`` are completions —\ntechnical failures are ``failed`` events instead.",
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "asset_understanding",
+          "default": "asset_understanding",
+          "title": "Kind",
+          "type": "string"
+        },
+        "processed_pages": {
+          "minimum": 0,
+          "title": "Processed Pages",
+          "type": "integer"
+        },
+        "total_pages": {
+          "minimum": 1,
+          "title": "Total Pages",
+          "type": "integer"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetUnderstandingOutcome"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "activity_id",
+        "processed_pages",
+        "total_pages",
+        "kind"
+      ],
+      "title": "AssetUnderstandingCompleted",
+      "type": "object"
+    },
+    "AssetUnderstandingFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/ActivityFailureCode"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "asset_understanding",
+          "default": "asset_understanding",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "code",
+        "kind"
+      ],
+      "title": "AssetUnderstandingFailed",
+      "type": "object"
+    },
+    "AssetUnderstandingLabel": {
+      "enum": [
+        "reading_pages",
+        "summarizing_pages"
+      ],
+      "title": "AssetUnderstandingLabel",
+      "type": "string"
+    },
+    "AssetUnderstandingOutcome": {
+      "description": "Normal (non-failure) completion judgments of asset understanding.",
+      "enum": [
+        "scope_required",
+        "unreadable_pages"
+      ],
+      "title": "AssetUnderstandingOutcome",
+      "type": "string"
+    },
+    "AssetUnderstandingReason": {
+      "description": "Why an asset_understanding Activity runs (plan/20-21 allowlist).",
+      "enum": [
+        "viewer_focus",
+        "turn_attachment",
+        "retrieval_candidates",
+        "page_range_summary"
+      ],
+      "title": "AssetUnderstandingReason",
+      "type": "string"
+    },
+    "AssetUnderstandingStarted": {
+      "additionalProperties": false,
+      "description": "Starts one measured pass over declared targets.  ``reason`` and\n``targets`` define the attempt: a different reason or page set is a\ndifferent Activity, not an update of this one.",
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "response_page_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Page Id"
+        },
+        "kind": {
+          "const": "asset_understanding",
+          "default": "asset_understanding",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/AssetUnderstandingLabel"
+        },
+        "reason": {
+          "$ref": "#/$defs/AssetUnderstandingReason"
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/PageTarget"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Targets",
+          "type": "array"
+        }
+      },
+      "required": [
+        "activity_id",
+        "label",
+        "reason",
+        "targets",
+        "kind"
+      ],
+      "title": "AssetUnderstandingStarted",
+      "type": "object"
+    },
+    "AssetUnderstandingUpdated": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActivityStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "asset_understanding",
+          "default": "asset_understanding",
+          "title": "Kind",
+          "type": "string"
+        },
+        "processed_pages": {
+          "minimum": 0,
+          "title": "Processed Pages",
+          "type": "integer"
+        },
+        "total_pages": {
+          "minimum": 1,
+          "title": "Total Pages",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "activity_id",
+        "processed_pages",
+        "total_pages",
+        "kind"
+      ],
+      "title": "AssetUnderstandingUpdated",
+      "type": "object"
+    },
+    "AssistantResponseV1": {
+      "additionalProperties": false,
+      "description": "A completed public answer: ordered 1-depth pages plus a source catalog.\n\nThe catalog lists every source reference inline markers may cite;\na marker naming a missing entry is a dangling reference and rejected,\nand page ranges of the same asset may not overlap.  ``Candidate``\ncontent, verification internals, and Server-derived fields\n(``display_label_snapshot``, ``available``, ``plain_text``) are not\nrepresentable here.",
+      "properties": {
+        "schema_version": {
+          "const": "assistant-response-v1",
+          "default": "assistant-response-v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "response_pages": {
+          "items": {
+            "$ref": "#/$defs/ResponsePage"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Response Pages",
+          "type": "array"
+        },
+        "source_references": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "maxItems": 200,
+          "title": "Source References",
+          "type": "array"
+        }
+      },
+      "required": [
+        "response_pages"
+      ],
+      "title": "AssistantResponseV1",
+      "type": "object"
+    },
+    "AttachmentFailureReason": {
+      "description": "The public sub-code an ``invalid_attachment`` failure carries.\n\nThe literal set mirrors\n:class:`~proovy_brain.features.multimodal_input.validation.AttachmentRejectionReason`\nexactly — the same relationship ``RunCanceledPayload.cause`` keeps\nwith ``CancelCause`` — so every safe file-inspection refusal owns one\nwire spelling and one fixed message.  The wire enum is its own\ndeclaration, not an import: an internal rename or a new rejection\nreason can never silently change the published vocabulary; extending\nit is a deliberate, fixture-versioned contract change.",
+      "enum": [
+        "unsupported_media_type",
+        "signature_mismatch",
+        "file_too_large",
+        "image_decode_failed",
+        "abnormal_dimensions",
+        "pixel_limit_exceeded",
+        "pdf_encrypted",
+        "pdf_corrupt",
+        "too_many_pages",
+        "page_out_of_range",
+        "bundle_count_exceeded",
+        "bundle_bytes_exceeded",
+        "bundle_empty"
+      ],
+      "title": "AttachmentFailureReason",
+      "type": "string"
+    },
+    "CheckBlock": {
+      "additionalProperties": false,
+      "description": "The check of a user-submitted solution.\n\n``step_marks`` carry the per-step verdict on the user's work —\n``failed`` marks are legitimate here — and ``first_error_step_id``\nhighlights the earliest failed step.  ``quoted_spans`` mark which body\nregions quote the user's submission; Brain-generated candidate text may\nnever be quoted.",
+      "properties": {
+        "block_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "kind": {
+          "const": "check",
+          "default": "check",
+          "title": "Kind",
+          "type": "string"
+        },
+        "step_marks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StepMark"
+          },
+          "maxItems": 200,
+          "title": "Step Marks",
+          "type": "array"
+        },
+        "first_error_step_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Error Step Id"
+        },
+        "quoted_spans": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/QuotedSpan"
+          },
+          "maxItems": 100,
+          "title": "Quoted Spans",
+          "type": "array"
+        }
+      },
+      "required": [
+        "block_id",
+        "body",
+        "kind"
+      ],
+      "title": "CheckBlock",
+      "type": "object"
+    },
+    "ClaimVerificationSummary": {
+      "additionalProperties": false,
+      "description": "One claim's public coverage; never the internal report itself.",
+      "properties": {
+        "claim_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "coverage": {
+          "$ref": "#/$defs/SummaryCoverage"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        },
+        "unconfirmed_steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/UnconfirmedStepSummary"
+          },
+          "maxItems": 200,
+          "title": "Unconfirmed Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id",
+        "coverage",
+        "method_label"
+      ],
+      "title": "ClaimVerificationSummary",
+      "type": "object"
+    },
+    "ClarificationReason": {
+      "description": "The allowlisted reasons a clarification-only response may carry.",
+      "enum": [
+        "missing_input",
+        "ambiguous_target",
+        "limited_pages",
+        "corpus_not_ready",
+        "page_range_required",
+        "page_range_unreadable"
+      ],
+      "title": "ClarificationReason",
+      "type": "string"
+    },
+    "CodeExecutionCanceled": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "code_execution",
+          "default": "code_execution",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "method_label",
+        "kind"
+      ],
+      "title": "CodeExecutionCanceled",
+      "type": "object"
+    },
+    "CodeExecutionCompleted": {
+      "additionalProperties": false,
+      "description": "A clean exit is an execution result only — never a claim that any\nmathematics was verified.",
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "code_execution",
+          "default": "code_execution",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        }
+      },
+      "required": [
+        "activity_id",
+        "method_label",
+        "kind"
+      ],
+      "title": "CodeExecutionCompleted",
+      "type": "object"
+    },
+    "CodeExecutionFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/ActivityFailureCode"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "code_execution",
+          "default": "code_execution",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "code",
+        "method_label",
+        "kind"
+      ],
+      "title": "CodeExecutionFailed",
+      "type": "object"
+    },
+    "CodeExecutionLabel": {
+      "enum": [
+        "running_calculation",
+        "running_check_code"
+      ],
+      "title": "CodeExecutionLabel",
+      "type": "string"
+    },
+    "CodeExecutionStarted": {
+      "additionalProperties": false,
+      "description": "A code execution outside a verification round.  Inside verification,\nexecutions are reported as the verification Activity's status instead —\na separate code_execution Activity is never emitted there.",
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "response_page_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Page Id"
+        },
+        "kind": {
+          "const": "code_execution",
+          "default": "code_execution",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/CodeExecutionLabel"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "label",
+        "method_label",
+        "kind"
+      ],
+      "title": "CodeExecutionStarted",
+      "type": "object"
+    },
+    "CodeExecutionUpdated": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActivityStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "code_execution",
+          "default": "code_execution",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "method_label",
+        "kind"
+      ],
+      "title": "CodeExecutionUpdated",
+      "type": "object"
+    },
+    "ExistingVerifiedSolutionReference": {
+      "additionalProperties": false,
+      "properties": {
+        "solution_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Solution Id",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "verification": {
+          "$ref": "#/$defs/SolutionVerificationSummary"
+        },
+        "claim_match_checked": {
+          "const": true,
+          "title": "Claim Match Checked",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "solution_id",
+        "version",
+        "verification",
+        "claim_match_checked"
+      ],
+      "title": "ExistingVerifiedSolutionReference",
+      "type": "object"
+    },
+    "ExplanationBlock": {
+      "additionalProperties": false,
+      "description": "An explanation; optionally a re-expression of a Verified Solution.",
+      "properties": {
+        "block_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "kind": {
+          "const": "explanation",
+          "default": "explanation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "solution_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Solution Id"
+        },
+        "claim_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Claim Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "block_id",
+        "body",
+        "kind"
+      ],
+      "title": "ExplanationBlock",
+      "type": "object"
+    },
+    "FailureClass": {
+      "enum": [
+        "verification",
+        "budget",
+        "infrastructure",
+        "attachment"
+      ],
+      "title": "FailureClass",
+      "type": "string"
+    },
+    "FailureCode": {
+      "enum": [
+        "verification_failed",
+        "budget_exceeded",
+        "provider_error",
+        "timeout",
+        "storage_error",
+        "internal_error",
+        "invalid_attachment"
+      ],
+      "title": "FailureCode",
+      "type": "string"
+    },
+    "InputAnalysisCanceled": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "input_analysis",
+          "default": "input_analysis",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "InputAnalysisCanceled",
+      "type": "object"
+    },
+    "InputAnalysisCompleted": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "input_analysis",
+          "default": "input_analysis",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "InputAnalysisCompleted",
+      "type": "object"
+    },
+    "InputAnalysisFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/ActivityFailureCode"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "input_analysis",
+          "default": "input_analysis",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "code",
+        "kind"
+      ],
+      "title": "InputAnalysisFailed",
+      "type": "object"
+    },
+    "InputAnalysisLabel": {
+      "enum": [
+        "analyzing_input",
+        "reading_input"
+      ],
+      "title": "InputAnalysisLabel",
+      "type": "string"
+    },
+    "InputAnalysisStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "response_page_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Page Id"
+        },
+        "kind": {
+          "const": "input_analysis",
+          "default": "input_analysis",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/InputAnalysisLabel"
+        }
+      },
+      "required": [
+        "activity_id",
+        "label",
+        "kind"
+      ],
+      "title": "InputAnalysisStarted",
+      "type": "object"
+    },
+    "InputAnalysisUpdated": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActivityStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "input_analysis",
+          "default": "input_analysis",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "InputAnalysisUpdated",
+      "type": "object"
+    },
+    "LimitedPage": {
+      "additionalProperties": false,
+      "description": "One named page in a bounded ``note_retrieval`` result list.",
+      "properties": {
+        "asset_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "asset_id",
+        "page"
+      ],
+      "title": "LimitedPage",
+      "type": "object"
+    },
+    "ModelTier": {
+      "description": "Logical model tier selected by the caller.",
+      "enum": [
+        "main",
+        "strong"
+      ],
+      "title": "ModelTier",
+      "type": "string"
+    },
+    "NoteRetrievalCanceled": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "note_retrieval",
+          "default": "note_retrieval",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "NoteRetrievalCanceled",
+      "type": "object"
+    },
+    "NoteRetrievalCompleted": {
+      "additionalProperties": false,
+      "description": "Completes with the allowlisted match status and a bounded page list.\n``limited_pages_unresolved`` must name the pages it could not resolve,\n``no_relevant_content`` must name none, and ``conflicting_content`` may\nname the conflicting pages (plan/21).  A no-match or unresolved result\ncarries empty answer provenance on the terminal contract (owned by the\nresponse side, not this payload).",
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "note_retrieval",
+          "default": "note_retrieval",
+          "title": "Kind",
+          "type": "string"
+        },
+        "match_status": {
+          "$ref": "#/$defs/NoteRetrievalMatchStatus"
+        },
+        "pages": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LimitedPage"
+          },
+          "maxItems": 200,
+          "title": "Pages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "activity_id",
+        "match_status",
+        "kind"
+      ],
+      "title": "NoteRetrievalCompleted",
+      "type": "object"
+    },
+    "NoteRetrievalFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/ActivityFailureCode"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "note_retrieval",
+          "default": "note_retrieval",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "code",
+        "kind"
+      ],
+      "title": "NoteRetrievalFailed",
+      "type": "object"
+    },
+    "NoteRetrievalLabel": {
+      "enum": [
+        "searching_notes"
+      ],
+      "title": "NoteRetrievalLabel",
+      "type": "string"
+    },
+    "NoteRetrievalMatchStatus": {
+      "description": "Normal (non-failure) retrieval outcomes; absence of a match or a\nconflict is a completed retrieval, not an error.",
+      "enum": [
+        "matched",
+        "no_relevant_content",
+        "conflicting_content",
+        "limited_pages_unresolved"
+      ],
+      "title": "NoteRetrievalMatchStatus",
+      "type": "string"
+    },
+    "NoteRetrievalStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "response_page_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Page Id"
+        },
+        "kind": {
+          "const": "note_retrieval",
+          "default": "note_retrieval",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/NoteRetrievalLabel"
+        }
+      },
+      "required": [
+        "activity_id",
+        "label",
+        "kind"
+      ],
+      "title": "NoteRetrievalStarted",
+      "type": "object"
+    },
+    "NoteRetrievalUpdated": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActivityStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "note_retrieval",
+          "default": "note_retrieval",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "NoteRetrievalUpdated",
+      "type": "object"
+    },
+    "NoticeBlock": {
+      "additionalProperties": false,
+      "description": "A notice about a mixed or partially unsupported request.",
+      "properties": {
+        "block_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "kind": {
+          "const": "notice",
+          "default": "notice",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "block_id",
+        "body",
+        "kind"
+      ],
+      "title": "NoticeBlock",
+      "type": "object"
+    },
+    "PagePresentation": {
+      "description": "How a response page attaches to the message; pages never nest.",
+      "enum": [
+        "main",
+        "thread_like"
+      ],
+      "title": "PagePresentation",
+      "type": "string"
+    },
+    "PageTarget": {
+      "additionalProperties": false,
+      "description": "One asset page range an ``asset_understanding`` Activity works on.\nPages are 1-based and inclusive.",
+      "properties": {
+        "asset_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "page_start": {
+          "minimum": 1,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 1,
+          "title": "Page End",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "asset_id",
+        "page_start",
+        "page_end"
+      ],
+      "title": "PageTarget",
+      "type": "object"
+    },
+    "QuoteOrigin": {
+      "description": "Where a quoted span comes from.\n\n``BRAIN_CANDIDATE`` exists so the publication assembly can classify its\ninternal spans; public blocks reject it — a rejected or uncommitted\nBrain candidate is never quotable content.",
+      "enum": [
+        "user_submission",
+        "brain_candidate"
+      ],
+      "title": "QuoteOrigin",
+      "type": "string"
+    },
+    "QuotedSpan": {
+      "additionalProperties": false,
+      "description": "A region of the block body quoted from an external origin.\n\nOnly ``user_submission`` may appear in a public response: a check block\nmay quote the user's own erroneous work, while Brain-generated candidate\ntext is never quotable.",
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/TextAnchor"
+        },
+        "origin": {
+          "$ref": "#/$defs/QuoteOrigin"
+        }
+      },
+      "required": [
+        "anchor",
+        "origin"
+      ],
+      "title": "QuotedSpan",
+      "type": "object"
+    },
+    "ResponseDisposition": {
+      "description": "Terminal response classification; the typed input 1.26 validates.",
+      "enum": [
+        "substantive",
+        "clarification_only",
+        "unsupported_only"
+      ],
+      "title": "ResponseDisposition",
+      "type": "string"
+    },
+    "ResponsePage": {
+      "additionalProperties": false,
+      "description": "One ``main`` or ``thread_like`` section — 1-depth, never nested.",
+      "properties": {
+        "response_page_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Response Page Id",
+          "type": "string"
+        },
+        "presentation": {
+          "$ref": "#/$defs/PagePresentation"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "result_blocks": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "check": "#/$defs/CheckBlock",
+                "explanation": "#/$defs/ExplanationBlock",
+                "notice": "#/$defs/NoticeBlock",
+                "rich_text": "#/$defs/RichTextBlock",
+                "solution": "#/$defs/SolutionBlock"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SolutionBlock"
+              },
+              {
+                "$ref": "#/$defs/CheckBlock"
+              },
+              {
+                "$ref": "#/$defs/ExplanationBlock"
+              },
+              {
+                "$ref": "#/$defs/RichTextBlock"
+              },
+              {
+                "$ref": "#/$defs/NoticeBlock"
+              }
+            ]
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Result Blocks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "response_page_id",
+        "presentation",
+        "result_blocks"
+      ],
+      "title": "ResponsePage",
+      "type": "object"
+    },
+    "RichTextBlock": {
+      "additionalProperties": false,
+      "description": "Bounded free text: notices, clarifications, unsupported guidance.",
+      "properties": {
+        "block_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rich_text",
+          "default": "rich_text",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "block_id",
+        "body",
+        "kind"
+      ],
+      "title": "RichTextBlock",
+      "type": "object"
+    },
+    "RunCompletedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "fence_token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Fence Token",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.completed",
+          "default": "run.completed",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunCompletedPayload"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "fence_token",
+        "source_event_id",
+        "occurred_at",
+        "payload",
+        "type"
+      ],
+      "title": "RunCompletedEvent",
+      "type": "object"
+    },
+    "RunCompletedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "response_disposition": {
+          "$ref": "#/$defs/ResponseDisposition"
+        },
+        "clarification_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClarificationReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "assistant_response": {
+          "$ref": "#/$defs/AssistantResponseV1"
+        },
+        "verified_solutions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/VerifiedSolution"
+          },
+          "maxItems": 50,
+          "title": "Verified Solutions",
+          "type": "array"
+        },
+        "existing_solution_references": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExistingVerifiedSolutionReference"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Existing Solution References"
+        },
+        "selected_page_provenance": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SelectedPageProvenance"
+          },
+          "maxItems": 200,
+          "title": "Selected Page Provenance",
+          "type": "array"
+        },
+        "model": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_./:-]*$",
+          "title": "Model",
+          "type": "string"
+        },
+        "tier": {
+          "$ref": "#/$defs/ModelTier"
+        },
+        "verification_summary": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SolutionVerificationSummary"
+          },
+          "maxItems": 50,
+          "title": "Verification Summary",
+          "type": "array"
+        },
+        "source_labels": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceLabelPublication"
+          },
+          "maxItems": 200,
+          "title": "Source Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "response_disposition",
+        "assistant_response",
+        "model",
+        "tier"
+      ],
+      "title": "RunCompletedPayload",
+      "type": "object"
+    },
+    "RunFailedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "fence_token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Fence Token",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.failed",
+          "default": "run.failed",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunFailedPayload"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "fence_token",
+        "source_event_id",
+        "occurred_at",
+        "payload",
+        "type"
+      ],
+      "title": "RunFailedEvent",
+      "type": "object"
+    },
+    "RunFailedPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/FailureCode"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AttachmentFailureReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "failure_class": {
+          "$ref": "#/$defs/FailureClass"
+        },
+        "recoverable": {
+          "title": "Recoverable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "failure_class",
+        "recoverable"
+      ],
+      "title": "RunFailedPayload",
+      "type": "object"
+    },
+    "SelectedPageProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "content_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Content Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "page": {
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "understanding_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Understanding Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "content_version",
+        "sha256",
+        "page",
+        "understanding_version"
+      ],
+      "title": "SelectedPageProvenance",
+      "type": "object"
+    },
+    "SolutionBlock": {
+      "additionalProperties": false,
+      "description": "A Brain-authored solution with an explicit verification display.\n\n``solution_id`` references the immutable Verified Solution this block\npublishes.  A ``verified``/``partially_verified`` block requires it; an\n``unverified`` (inconclusive) block forbids it — an unverified solution\nis never a Verified Solution.  A published solution can never carry a\n``failed`` mark: a confirmed step failure means the candidate was\nrejected, and rejected candidates are not public.",
+      "properties": {
+        "block_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "kind": {
+          "const": "solution",
+          "default": "solution",
+          "title": "Kind",
+          "type": "string"
+        },
+        "verification": {
+          "$ref": "#/$defs/VerificationBadge"
+        },
+        "solution_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Solution Id"
+        },
+        "claim_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "step_marks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StepMark"
+          },
+          "maxItems": 200,
+          "title": "Step Marks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "block_id",
+        "body",
+        "verification",
+        "kind"
+      ],
+      "title": "SolutionBlock",
+      "type": "object"
+    },
+    "SolutionGenerationCanceled": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "solution_generation",
+          "default": "solution_generation",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "SolutionGenerationCanceled",
+      "type": "object"
+    },
+    "SolutionGenerationCompleted": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "solution_generation",
+          "default": "solution_generation",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "SolutionGenerationCompleted",
+      "type": "object"
+    },
+    "SolutionGenerationFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/ActivityFailureCode"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "solution_generation",
+          "default": "solution_generation",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "code",
+        "kind"
+      ],
+      "title": "SolutionGenerationFailed",
+      "type": "object"
+    },
+    "SolutionGenerationLabel": {
+      "enum": [
+        "drafting_solution",
+        "revising_solution"
+      ],
+      "title": "SolutionGenerationLabel",
+      "type": "string"
+    },
+    "SolutionGenerationStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "response_page_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Page Id"
+        },
+        "kind": {
+          "const": "solution_generation",
+          "default": "solution_generation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/SolutionGenerationLabel"
+        }
+      },
+      "required": [
+        "activity_id",
+        "label",
+        "kind"
+      ],
+      "title": "SolutionGenerationStarted",
+      "type": "object"
+    },
+    "SolutionGenerationUpdated": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActivityStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "solution_generation",
+          "default": "solution_generation",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "kind"
+      ],
+      "title": "SolutionGenerationUpdated",
+      "type": "object"
+    },
+    "SolutionVerificationSummary": {
+      "additionalProperties": false,
+      "description": "One solution's public verification summary on the terminal payload.\n\n``overall_coverage`` is ``supporting`` whenever any claim is supporting —\nthe summary may never present partial confirmation as complete\nverification.",
+      "properties": {
+        "solution_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Solution Id",
+          "type": "string"
+        },
+        "overall_coverage": {
+          "$ref": "#/$defs/SummaryCoverage"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/ClaimVerificationSummary"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Claims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "solution_id",
+        "overall_coverage",
+        "claims"
+      ],
+      "title": "SolutionVerificationSummary",
+      "type": "object"
+    },
+    "SourceLabelPublication": {
+      "additionalProperties": false,
+      "description": "The public display label a catalog entry will carry — leak-checked.\n\nLabels themselves are Server-derived presentation values; the caller\ndeclares the labels it expects shown so the assembly can check them for\nwithheld-text leaks before they reach the browser wire.",
+      "properties": {
+        "source_ref_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Source Ref Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_ref_id",
+        "label"
+      ],
+      "title": "SourceLabelPublication",
+      "type": "object"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "description": "The Brain-owned half of a source catalog entry.\n\n``display_label_snapshot`` and ``available`` are Server-derived\npresentation values and deliberately absent here; the browser serializer\ninjects them explicitly.  Pages are 1-based and inclusive.",
+      "properties": {
+        "source_ref_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Source Ref Id",
+          "type": "string"
+        },
+        "asset_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "page_start": {
+          "minimum": 1,
+          "title": "Page Start",
+          "type": "integer"
+        },
+        "page_end": {
+          "minimum": 1,
+          "title": "Page End",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_ref_id",
+        "asset_id",
+        "page_start",
+        "page_end"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    },
+    "StepMark": {
+      "additionalProperties": false,
+      "description": "One Solution Step's public status mark on a block.\n\n``anchor`` locates the step inside this block's public body; it is absent\nwhen the step's span is not publicly shown, so a mark can never point at\nhidden content.  ``reason`` is a safe, bounded explanation — required for\n``unconfirmed`` so an unchecked step always says why.",
+      "properties": {
+        "step_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/StepMarkStatus"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "step_id",
+        "status"
+      ],
+      "title": "StepMark",
+      "type": "object"
+    },
+    "StepMarkStatus": {
+      "description": "The public per-step verification mark (wire values).",
+      "enum": [
+        "verified",
+        "failed",
+        "unconfirmed"
+      ],
+      "title": "StepMarkStatus",
+      "type": "string"
+    },
+    "StepProgress": {
+      "additionalProperties": false,
+      "description": "Measured progress of one verification round: ``checked`` of ``total``\nSolution Steps.  Counts are caller-measured; this model never fabricates\na percentage and never carries step content or verdicts.",
+      "properties": {
+        "checked": {
+          "minimum": 0,
+          "title": "Checked",
+          "type": "integer"
+        },
+        "total": {
+          "minimum": 1,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "checked",
+        "total"
+      ],
+      "title": "StepProgress",
+      "type": "object"
+    },
+    "SummaryCoverage": {
+      "description": "Coverage levels the public verification summary may report.",
+      "enum": [
+        "direct",
+        "supporting"
+      ],
+      "title": "SummaryCoverage",
+      "type": "string"
+    },
+    "TextAnchor": {
+      "additionalProperties": false,
+      "description": "A ``[start, end)`` code-point range into a block's stored public body.\n\nOffsets are deterministic over repeated text, math, and Unicode because\nthey index the stored string rather than searching for a substring.\nConsumers on UTF-16 platforms (Java/JavaScript) convert units\nthemselves.  An anchor can only ever point at public body text — it\ncannot reference a hidden or internal span by construction.",
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "TextAnchor",
+      "type": "object"
+    },
+    "UnconfirmedStepSummary": {
+      "additionalProperties": false,
+      "description": "A step the verifier could not confirm, with a safe reason.",
+      "properties": {
+        "step_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "reason"
+      ],
+      "title": "UnconfirmedStepSummary",
+      "type": "object"
+    },
+    "VerificationBadge": {
+      "description": "The response's honest verification display (ADR 0011).\n\n``VERIFIED`` — every Answer-bearing Claim reached direct coverage.\n``PARTIALLY_VERIFIED`` — accepted with supporting coverage; some steps\nwere confirmed by numeric check or review instead of an exact check.\n``UNVERIFIED`` — inconclusive: published with the unverified display and\nunconfirmed marks, and never carries a Verified Solution reference.",
+      "enum": [
+        "verified",
+        "partially_verified",
+        "unverified"
+      ],
+      "title": "VerificationBadge",
+      "type": "string"
+    },
+    "VerificationCanceled": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "verification",
+          "default": "verification",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "method_label",
+        "kind"
+      ],
+      "title": "VerificationCanceled",
+      "type": "object"
+    },
+    "VerificationCompleted": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "verification",
+          "default": "verification",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        },
+        "progress": {
+          "$ref": "#/$defs/StepProgress"
+        }
+      },
+      "required": [
+        "activity_id",
+        "method_label",
+        "progress",
+        "kind"
+      ],
+      "title": "VerificationCompleted",
+      "type": "object"
+    },
+    "VerificationFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/ActivityFailureCode"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "verification",
+          "default": "verification",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "code",
+        "method_label",
+        "kind"
+      ],
+      "title": "VerificationFailed",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "enum": [
+        "verifying_steps"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    },
+    "VerificationStarted": {
+      "additionalProperties": false,
+      "description": "One verifier round.  Per-step verdicts and step content are not\nrepresentable — they surface only as terminal Result Block marks.",
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "response_page_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Page Id"
+        },
+        "kind": {
+          "const": "verification",
+          "default": "verification",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/VerificationLabel"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activity_id",
+        "label",
+        "method_label",
+        "kind"
+      ],
+      "title": "VerificationStarted",
+      "type": "object"
+    },
+    "VerificationUpdated": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActivityStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "verification",
+          "default": "verification",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method_label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method Label",
+          "type": "string"
+        },
+        "progress": {
+          "$ref": "#/$defs/StepProgress"
+        }
+      },
+      "required": [
+        "activity_id",
+        "method_label",
+        "progress",
+        "kind"
+      ],
+      "title": "VerificationUpdated",
+      "type": "object"
+    },
+    "VerifiedClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "maxLength": 128,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "statement"
+      ],
+      "title": "VerifiedClaim",
+      "type": "object"
+    },
+    "VerifiedProblemCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "condition_id": {
+          "maxLength": 128,
+          "pattern": "^condition-[1-9][0-9]*$",
+          "title": "Condition Id",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "condition_id",
+        "text"
+      ],
+      "title": "VerifiedProblemCondition",
+      "type": "object"
+    },
+    "VerifiedSolution": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "verified-solution-v1",
+          "default": "verified-solution-v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "solution_id": {
+          "maxLength": 128,
+          "title": "Solution Id",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "problem_statement": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Problem Statement",
+          "type": "string"
+        },
+        "problem_conditions": {
+          "items": {
+            "$ref": "#/$defs/VerifiedProblemCondition"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Problem Conditions",
+          "type": "array"
+        },
+        "solution_text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Solution Text",
+          "type": "string"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/VerifiedClaim"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Claims",
+          "type": "array"
+        },
+        "step_marks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StepMark"
+          },
+          "maxItems": 200,
+          "title": "Step Marks",
+          "type": "array"
+        },
+        "verification": {
+          "$ref": "#/$defs/SolutionVerificationSummary"
+        },
+        "verification_version": {
+          "const": "chain-verification-report-v3",
+          "default": "chain-verification-report-v3",
+          "title": "Verification Version",
+          "type": "string"
+        },
+        "source_ref_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Source Ref Ids",
+          "type": "array"
+        },
+        "revises_solution_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revises Solution Id"
+        }
+      },
+      "required": [
+        "solution_id",
+        "problem_statement",
+        "problem_conditions",
+        "solution_text",
+        "claims",
+        "verification"
+      ],
+      "title": "VerifiedSolution",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "activity.canceled": "#/$defs/ActivityCanceledEvent",
+      "activity.completed": "#/$defs/ActivityCompletedEvent",
+      "activity.failed": "#/$defs/ActivityFailedEvent",
+      "activity.started": "#/$defs/ActivityStartedEvent",
+      "activity.updated": "#/$defs/ActivityUpdatedEvent",
+      "run.completed": "#/$defs/RunCompletedEvent",
+      "run.failed": "#/$defs/RunFailedEvent"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ActivityStartedEvent"
+    },
+    {
+      "$ref": "#/$defs/ActivityUpdatedEvent"
+    },
+    {
+      "$ref": "#/$defs/ActivityCompletedEvent"
+    },
+    {
+      "$ref": "#/$defs/ActivityFailedEvent"
+    },
+    {
+      "$ref": "#/$defs/ActivityCanceledEvent"
+    },
+    {
+      "$ref": "#/$defs/RunCompletedEvent"
+    },
+    {
+      "$ref": "#/$defs/RunFailedEvent"
+    }
+  ]
+}

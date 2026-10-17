@@ -1,0 +1,184 @@
+{
+  "publication_request": {
+    "schema_version": "publication-v1",
+    "disposition": "substantive",
+    "disclosure": {
+      "scope": "full",
+      "judgment_completed": true
+    },
+    "pages": [
+      {
+        "presentation": "main",
+        "blocks": [
+          {
+            "kind": "solution",
+            "draft": {
+              "text": "독립 계산으로 얻은 결과는 $5$이다.",
+              "withheld": []
+            },
+            "report": {
+              "status": "accepted",
+              "claims": [
+                {
+                  "claim_id": "claim-1",
+                  "verdict": "accepted",
+                  "basis": "answer_fallback",
+                  "coverage": "supporting"
+                }
+              ],
+              "requested_claim_count": 1,
+              "steps": [],
+              "fallback": true
+            },
+            "solution_id": "solution-5"
+          }
+        ]
+      }
+    ]
+  },
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "response_disposition": "substantive",
+      "assistant_response": {
+        "schema_version": "assistant-response-v1",
+        "response_pages": [
+          {
+            "response_page_id": "page-1",
+            "presentation": "main",
+            "result_blocks": [
+              {
+                "block_id": "block-1",
+                "body": "독립 계산으로 얻은 결과는 $5$이다.",
+                "kind": "solution",
+                "verification": "partially_verified",
+                "solution_id": "solution-5",
+                "claim_ids": [
+                  "claim-1"
+                ],
+                "step_marks": []
+              }
+            ]
+          }
+        ],
+        "source_references": []
+      },
+      "verified_solutions": [
+        {
+          "schema_version": "verified-solution-v1",
+          "solution_id": "solution-5",
+          "version": 1,
+          "problem_statement": "주어진 명시 조건을 만족하는 결론을 구한다.",
+          "problem_conditions": [
+            {
+              "condition_id": "condition-1",
+              "text": "문제의 명시 조건을 사용한다."
+            }
+          ],
+          "solution_text": "독립 계산으로 얻은 결과는 $5$이다.",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "statement": "명시 조건에서 제시한 결론이 성립한다."
+            }
+          ],
+          "step_marks": [],
+          "verification": {
+            "solution_id": "solution-5",
+            "overall_coverage": "supporting",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "coverage": "supporting",
+                "method_label": "독립 계산으로 답을 비교(과정 미검증)",
+                "unconfirmed_steps": []
+              }
+            ]
+          },
+          "verification_version": "chain-verification-report-v3",
+          "source_ref_ids": []
+        }
+      ],
+      "selected_page_provenance": [],
+      "model": "fake/main-model",
+      "tier": "main",
+      "verification_summary": [
+        {
+          "solution_id": "solution-5",
+          "overall_coverage": "supporting",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "coverage": "supporting",
+              "method_label": "독립 계산으로 답을 비교(과정 미검증)",
+              "unconfirmed_steps": []
+            }
+          ]
+        }
+      ],
+      "source_labels": []
+    }
+  },
+  "server": {
+    "assistant_message_id": "message-7",
+    "seq": 9,
+    "display_labels": {},
+    "availability": {}
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "responseDisposition": "substantive",
+      "assistantResponse": {
+        "responsePages": [
+          {
+            "responsePageId": "page-1",
+            "presentation": "main",
+            "resultBlocks": [
+              {
+                "blockId": "block-1",
+                "body": "독립 계산으로 얻은 결과는 $5$이다.",
+                "kind": "solution",
+                "verification": "partially_verified",
+                "solutionId": "solution-5",
+                "claimIds": [
+                  "claim-1"
+                ],
+                "stepMarks": []
+              }
+            ]
+          }
+        ],
+        "sourceReferences": [],
+        "plainText": "독립 계산으로 얻은 결과는 5이다."
+      },
+      "model": "fake/main-model",
+      "tier": "main",
+      "verificationSummary": [
+        {
+          "solutionId": "solution-5",
+          "overallCoverage": "supporting",
+          "claims": [
+            {
+              "claimId": "claim-1",
+              "coverage": "supporting",
+              "methodLabel": "독립 계산으로 답을 비교(과정 미검증)",
+              "unconfirmedSteps": []
+            }
+          ]
+        }
+      ],
+      "assistantMessageId": "message-7"
+    }
+  }
+}
