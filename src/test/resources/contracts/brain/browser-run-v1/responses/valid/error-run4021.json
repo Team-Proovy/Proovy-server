@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 402,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4021",
+    "message": "사용 가능한 잔여 사용량이 부족합니다."
+  }
+}

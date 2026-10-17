@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 409,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4092",
+    "message": "이미 사용된 요청 ID입니다."
+  }
+}

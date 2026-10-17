@@ -1,0 +1,43 @@
+{
+  "rationale": "invalid_attachment — reason sub-code만 추가.",
+  "finalStatus": "FAILED",
+  "runId": "f07dd0f9-7f55-5a71-ab9e-3fbd76c76b43",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "f07dd0f9-7f55-5a71-ab9e-3fbd76c76b43",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "bd11ae21-62dd-500e-a78f-470a561c758b",
+        "noteId": "123",
+        "userMessageId": "5da1fcb0-2d5f-51b4-89ed-2dcfa85d37a8",
+        "assistantMessageId": "718010cc-f456-57b4-a937-e520a2cc4c6d",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "f07dd0f9-7f55-5a71-ab9e-3fbd76c76b43",
+      "seq": 2,
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "run.failed",
+      "payload": {
+        "code": "invalid_attachment",
+        "reason": "pdf_encrypted",
+        "message": "암호로 보호된 PDF는 처리할 수 없습니다. 암호를 해제한 PDF를 다시 올려주세요.",
+        "recoverable": false,
+        "assistantMessageId": "718010cc-f456-57b4-a937-e520a2cc4c6d"
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: f07dd0f9-7f55-5a71-ab9e-3fbd76c76b43:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"f07dd0f9-7f55-5a71-ab9e-3fbd76c76b43\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"bd11ae21-62dd-500e-a78f-470a561c758b\",\"noteId\":\"123\",\"userMessageId\":\"5da1fcb0-2d5f-51b4-89ed-2dcfa85d37a8\",\"assistantMessageId\":\"718010cc-f456-57b4-a937-e520a2cc4c6d\",\"status\":\"PENDING\",\"requestedTasks\":[\"solve\"],\"requestedOutputs\":[\"text\"]}}\n\nevent: run.failed\nid: f07dd0f9-7f55-5a71-ab9e-3fbd76c76b43:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"f07dd0f9-7f55-5a71-ab9e-3fbd76c76b43\",\"seq\":2,\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"run.failed\",\"payload\":{\"code\":\"invalid_attachment\",\"reason\":\"pdf_encrypted\",\"message\":\"암호로 보호된 PDF는 처리할 수 없습니다. 암호를 해제한 PDF를 다시 올려주세요.\",\"recoverable\":false,\"assistantMessageId\":\"718010cc-f456-57b4-a937-e520a2cc4c6d\"}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

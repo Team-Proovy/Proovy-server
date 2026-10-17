@@ -1,0 +1,84 @@
+{
+  "schema": "ConversationPageResponse",
+  "rationale": "STREAMING placeholder는 본문이 없다(Candidate 비공개).",
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "noteId": "123",
+      "activeRun": {
+        "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+        "status": "RUNNING",
+        "lastSeq": 4
+      },
+      "messages": [
+        {
+          "messageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+          "role": "assistant",
+          "status": "STREAMING",
+          "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+          "createdAt": "2026-10-17T09:00:01Z",
+          "assistant": {
+            "responseDisposition": null,
+            "clarificationReason": null,
+            "assistantResponse": {
+              "responsePages": [
+                {
+                  "responsePageId": "page-1",
+                  "presentation": "main",
+                  "title": "검증된 풀이",
+                  "resultBlocks": [
+                    {
+                      "blockId": "block-1",
+                      "body": "인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]",
+                      "kind": "solution",
+                      "verification": "verified",
+                      "solutionId": "solution-1",
+                      "claimIds": [
+                        "claim-1"
+                      ],
+                      "stepMarks": [
+                        {
+                          "stepId": "step-1",
+                          "status": "verified",
+                          "anchor": {
+                            "start": 0,
+                            "end": 24
+                          }
+                        },
+                        {
+                          "stepId": "step-2",
+                          "status": "verified",
+                          "anchor": {
+                            "start": 25,
+                            "end": 46
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "sourceReferences": [
+                {
+                  "sourceRefId": "sref-1",
+                  "assetId": "note-alpha",
+                  "pageStart": 3,
+                  "pageEnd": 4,
+                  "displayLabelSnapshot": "개념 노트 3–4쪽",
+                  "available": true
+                }
+              ],
+              "plainText": "검증된 풀이\n\n인수분해하면 (x-2)(x-3)=0이다. 따라서 x=2 또는 x=3이다."
+            },
+            "verificationSummary": [],
+            "failure": null,
+            "cancel": null
+          }
+        }
+      ],
+      "nextBefore": null
+    }
+  }
+}

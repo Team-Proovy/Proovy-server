@@ -73,6 +73,8 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+    // browser-run-v1 계약 schema(JSON Schema 2020-12) 소비 검사 — Brain fixture 사본으로만 쓴다
+    testImplementation 'com.networknt:json-schema-validator:1.5.8'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

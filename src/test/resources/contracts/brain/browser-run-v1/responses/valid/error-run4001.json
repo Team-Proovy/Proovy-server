@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 400,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4001",
+    "message": "요청 형식이 올바르지 않습니다."
+  }
+}

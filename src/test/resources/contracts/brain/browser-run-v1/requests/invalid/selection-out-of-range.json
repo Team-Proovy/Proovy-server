@@ -1,0 +1,22 @@
+{
+  "rationale": "selection 좌표는 [0,1].",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "viewerFocus": {
+      "noteAssetId": "asset-9f8c",
+      "page": 3,
+      "selection": {
+        "left": 0.1,
+        "top": 0.2,
+        "right": 1.2,
+        "bottom": 0.5
+      }
+    }
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

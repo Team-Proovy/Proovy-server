@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 400,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4002",
+    "message": "지원하지 않는 요청 항목이 포함되어 있습니다."
+  }
+}

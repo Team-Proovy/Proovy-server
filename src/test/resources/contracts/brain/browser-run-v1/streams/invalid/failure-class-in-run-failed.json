@@ -1,0 +1,115 @@
+{
+  "rationale": "run.failed에 failureClass.",
+  "violates": "S7",
+  "schema_rejects": true,
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "55b4391b-641b-5215-a623-08de00aa6e2a",
+        "noteId": "123",
+        "userMessageId": "8379c874-d4a1-5e0b-bdd9-fdf454af4b2a",
+        "assistantMessageId": "226bd09a-cabc-5931-b606-886969510979",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-2",
+        "status": "retrying",
+        "kind": "solution_generation"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.failed",
+      "payload": {
+        "activityId": "activity-2",
+        "code": "provider_error",
+        "message": "풀이 작성을 완료하지 못했다",
+        "kind": "solution_generation"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "seq": 8,
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "run.failed",
+      "payload": {
+        "code": "verification_failed",
+        "message": "풀이의 오류를 수정하지 못했습니다. 새 요청으로 다시 시도할 수 있습니다.",
+        "recoverable": true,
+        "assistantMessageId": "226bd09a-cabc-5931-b606-886969510979",
+        "failureClass": "verification"
+      }
+    }
+  ]
+}

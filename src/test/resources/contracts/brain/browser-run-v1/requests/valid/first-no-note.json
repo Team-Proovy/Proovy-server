@@ -1,0 +1,9 @@
+{
+  "rationale": "noteId 없는 홈 첫 질문 — Server가 Note를 자동 생성한다.",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘"
+  },
+  "expected_canonical": "{\"text\":\"이 문제를 풀어줘\"}",
+  "expected_fingerprint": "8f8f695c8620b653d591c5098edc3ca99899d8cd7818ef5e7a1ca6866d2f8a7f"
+}

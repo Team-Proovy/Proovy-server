@@ -1,0 +1,12 @@
+{
+  "rationale": "requestId 끝 줄바꿈 — 패턴은 입력 끝까지 고정한다($의 줄바꿈 허용 금지).",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627\n",
+    "text": "이 문제를 풀어줘"
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

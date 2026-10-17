@@ -1,0 +1,12 @@
+{
+  "rationale": "strip 집합 공백만 있는 text.",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": " \t 　 "
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

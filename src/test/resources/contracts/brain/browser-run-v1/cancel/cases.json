@@ -1,0 +1,105 @@
+{
+  "path": "POST /api/ai-runs/{runId}/cancel",
+  "precedence": [
+    "authenticated",
+    "body absent (RUN4001)",
+    "run access (RUN4041)",
+    "outcome"
+  ],
+  "cases": [
+    {
+      "name": "no-body",
+      "rationale": "body 없음 — 정상 취소.",
+      "rawBody": null,
+      "run": "running",
+      "expected": {
+        "http": 200,
+        "fixture": "responses/valid/cancel-accepted-running",
+        "status": "CANCELING"
+      }
+    },
+    {
+      "name": "empty-object-body",
+      "rationale": "cancel은 body가 없다 — `{}`도 closed 위반.",
+      "rawBody": "{}",
+      "run": "running",
+      "expected": {
+        "http": 400,
+        "code": "RUN4001"
+      }
+    },
+    {
+      "name": "reason-body",
+      "rationale": "취소 사유 등 어떤 필드도 받지 않는다(무시하지 않는다).",
+      "rawBody": "{\"reason\":\"user\"}",
+      "run": "running",
+      "expected": {
+        "http": 400,
+        "code": "RUN4001"
+      }
+    },
+    {
+      "name": "repeat",
+      "rationale": "멱등 — 이미 CANCELING이면 already_canceling.",
+      "rawBody": null,
+      "run": "canceling",
+      "expected": {
+        "http": 200,
+        "fixture": "responses/valid/cancel-already-canceling",
+        "status": "CANCELING"
+      }
+    },
+    {
+      "name": "terminal",
+      "rationale": "terminal run은 already_terminal.",
+      "rawBody": null,
+      "run": "completed",
+      "expected": {
+        "http": 200,
+        "fixture": "responses/valid/cancel-already-terminal",
+        "status": "COMPLETED"
+      }
+    },
+    {
+      "name": "pending",
+      "rationale": "PENDING은 즉시 CANCELED(run.canceling 없이 run.canceled).",
+      "rawBody": null,
+      "run": "pending",
+      "expected": {
+        "http": 200,
+        "fixture": "responses/valid/cancel-accepted-pending",
+        "status": "CANCELED"
+      }
+    },
+    {
+      "name": "run-missing",
+      "rationale": "없는 run.",
+      "rawBody": null,
+      "run": "missing",
+      "expected": {
+        "http": 404,
+        "code": "RUN4041"
+      }
+    },
+    {
+      "name": "run-other-user",
+      "rationale": "타인 run — 없는 run과 같은 404 body(존재 비노출).",
+      "rawBody": null,
+      "run": "other_user",
+      "expected": {
+        "http": 404,
+        "code": "RUN4041"
+      }
+    },
+    {
+      "name": "body-before-run-lookup",
+      "rationale": "body 구조 검사가 run 조회보다 먼저(admission과 같은 원칙).",
+      "rawBody": "{}",
+      "run": "missing",
+      "expected": {
+        "http": 400,
+        "code": "RUN4001"
+      }
+    }
+  ]
+}

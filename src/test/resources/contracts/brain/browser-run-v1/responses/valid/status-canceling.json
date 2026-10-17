@@ -1,0 +1,23 @@
+{
+  "schema": "RunStatusResponse",
+  "http": 200,
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "runId": "fec98468-41e4-52fd-a3fd-898957b64300",
+      "requestId": "5fca86dc-484b-54b8-807e-2d1ed3f1bfa2",
+      "noteId": "123",
+      "userMessageId": "c4be31fa-b545-5cd8-8721-247e3afa3da4",
+      "assistantMessageId": "8ad38904-c45a-587d-b63d-518686a0a9a1",
+      "status": "CANCELING",
+      "cancelable": false,
+      "lastSeq": 9,
+      "responseDisposition": null,
+      "failure": null,
+      "createdAt": "2026-10-17T09:00:00Z",
+      "completedAt": null
+    }
+  }
+}

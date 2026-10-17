@@ -1,0 +1,238 @@
+{
+  "rationale": "source chip이 있는 substantive(terminal-v2 direct-verified, available=true).",
+  "finalStatus": "COMPLETED",
+  "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "d77be673-0c03-5b34-84a7-316723db3bb9",
+        "noteId": "123",
+        "userMessageId": "3c6d8af6-22e6-5c9a-a72f-f469cab54082",
+        "assistantMessageId": "e456a788-9e9e-5a90-8cff-156ae37c83f7",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "label": "verifying_steps",
+        "methodLabel": "단계별 함의 검사"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-7",
+        "status": "in_progress",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 2,
+          "total": 5
+        }
+      },
+      "seq": 8
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 5,
+          "total": 5
+        }
+      },
+      "seq": 9
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "seq": 10,
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "e456a788-9e9e-5a90-8cff-156ae37c83f7",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0,
+        "title": "검증된 풀이"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "seq": 11,
+      "occurredAt": "2026-10-17T09:00:10Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "e456a788-9e9e-5a90-8cff-156ae37c83f7",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "03306236-d260-54a9-a927-b8df93ccda81",
+      "seq": 12,
+      "occurredAt": "2026-10-17T09:00:11Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "title": "검증된 풀이",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]",
+                  "kind": "solution",
+                  "verification": "verified",
+                  "solutionId": "solution-1",
+                  "claimIds": [
+                    "claim-1"
+                  ],
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "verified",
+                      "anchor": {
+                        "start": 0,
+                        "end": 24
+                      }
+                    },
+                    {
+                      "stepId": "step-2",
+                      "status": "verified",
+                      "anchor": {
+                        "start": 25,
+                        "end": 46
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [
+            {
+              "sourceRefId": "sref-1",
+              "assetId": "note-alpha",
+              "pageStart": 3,
+              "pageEnd": 4,
+              "displayLabelSnapshot": "개념 노트 3–4쪽",
+              "available": true
+            }
+          ],
+          "plainText": "검증된 풀이\n\n인수분해하면 (x-2)(x-3)=0이다. 따라서 x=2 또는 x=3이다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [
+          {
+            "solutionId": "solution-1",
+            "overallCoverage": "direct",
+            "claims": [
+              {
+                "claimId": "claim-1",
+                "coverage": "direct",
+                "methodLabel": "모든 단계를 실행 검사로 확인",
+                "unconfirmedSteps": []
+              }
+            ]
+          }
+        ],
+        "assistantMessageId": "e456a788-9e9e-5a90-8cff-156ae37c83f7"
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: 03306236-d260-54a9-a927-b8df93ccda81:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"d77be673-0c03-5b34-84a7-316723db3bb9\",\"noteId\":\"123\",\"userMessageId\":\"3c6d8af6-22e6-5c9a-a72f-f469cab54082\",\"assistantMessageId\":\"e456a788-9e9e-5a90-8cff-156ae37c83f7\",\"status\":\"PENDING\",\"requestedTasks\":[\"solve\"],\"requestedOutputs\":[\"text\"]}}\n\nevent: activity.started\nid: 03306236-d260-54a9-a927-b8df93ccda81:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-1\",\"responsePageId\":\"page-1\",\"kind\":\"input_analysis\",\"label\":\"analyzing_input\"},\"seq\":2}\n\nevent: activity.updated\nid: 03306236-d260-54a9-a927-b8df93ccda81:3\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"occurredAt\":\"2026-10-17T09:00:02Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-1\",\"status\":\"in_progress\",\"message\":\"입력을 읽고 있다\",\"kind\":\"input_analysis\"},\"seq\":3}\n\nevent: activity.completed\nid: 03306236-d260-54a9-a927-b8df93ccda81:4\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"occurredAt\":\"2026-10-17T09:00:03Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-1\",\"kind\":\"input_analysis\"},\"seq\":4}\n\nevent: activity.started\nid: 03306236-d260-54a9-a927-b8df93ccda81:5\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"occurredAt\":\"2026-10-17T09:00:04Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-2\",\"kind\":\"solution_generation\",\"label\":\"drafting_solution\"},\"seq\":5}\n\nevent: activity.completed\nid: 03306236-d260-54a9-a927-b8df93ccda81:6\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"occurredAt\":\"2026-10-17T09:00:05Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-2\",\"kind\":\"solution_generation\"},\"seq\":6}\n\nevent: activity.started\nid: 03306236-d260-54a9-a927-b8df93ccda81:7\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"occurredAt\":\"2026-10-17T09:00:06Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-7\",\"kind\":\"verification\",\"label\":\"verifying_steps\",\"methodLabel\":\"단계별 함의 검사\"},\"seq\":7}\n\nevent: activity.updated\nid: 03306236-d260-54a9-a927-b8df93ccda81:8\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"occurredAt\":\"2026-10-17T09:00:07Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-7\",\"status\":\"in_progress\",\"kind\":\"verification\",\"methodLabel\":\"단계별 함의 검사\",\"progress\":{\"checked\":2,\"total\":5}},\"seq\":8}\n\nevent: activity.completed\nid: 03306236-d260-54a9-a927-b8df93ccda81:9\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"occurredAt\":\"2026-10-17T09:00:08Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-7\",\"kind\":\"verification\",\"methodLabel\":\"단계별 함의 검사\",\"progress\":{\"checked\":5,\"total\":5}},\"seq\":9}\n\nevent: response.page.started\nid: 03306236-d260-54a9-a927-b8df93ccda81:10\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"seq\":10,\"occurredAt\":\"2026-10-17T09:00:09Z\",\"type\":\"response.page.started\",\"payload\":{\"assistantMessageId\":\"e456a788-9e9e-5a90-8cff-156ae37c83f7\",\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"pageIndex\":0,\"title\":\"검증된 풀이\"}}\n\nevent: response.page.completed\nid: 03306236-d260-54a9-a927-b8df93ccda81:11\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"seq\":11,\"occurredAt\":\"2026-10-17T09:00:10Z\",\"type\":\"response.page.completed\",\"payload\":{\"assistantMessageId\":\"e456a788-9e9e-5a90-8cff-156ae37c83f7\",\"responsePageId\":\"page-1\",\"pageIndex\":0}}\n\nevent: run.completed\nid: 03306236-d260-54a9-a927-b8df93ccda81:12\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"03306236-d260-54a9-a927-b8df93ccda81\",\"seq\":12,\"occurredAt\":\"2026-10-17T09:00:11Z\",\"type\":\"run.completed\",\"payload\":{\"responseDisposition\":\"substantive\",\"assistantResponse\":{\"responsePages\":[{\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"title\":\"검증된 풀이\",\"resultBlocks\":[{\"blockId\":\"block-1\",\"body\":\"인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]\",\"kind\":\"solution\",\"verification\":\"verified\",\"solutionId\":\"solution-1\",\"claimIds\":[\"claim-1\"],\"stepMarks\":[{\"stepId\":\"step-1\",\"status\":\"verified\",\"anchor\":{\"start\":0,\"end\":24}},{\"stepId\":\"step-2\",\"status\":\"verified\",\"anchor\":{\"start\":25,\"end\":46}}]}]}],\"sourceReferences\":[{\"sourceRefId\":\"sref-1\",\"assetId\":\"note-alpha\",\"pageStart\":3,\"pageEnd\":4,\"displayLabelSnapshot\":\"개념 노트 3–4쪽\",\"available\":true}],\"plainText\":\"검증된 풀이\\n\\n인수분해하면 (x-2)(x-3)=0이다. 따라서 x=2 또는 x=3이다.\"},\"model\":\"fake/main-model\",\"tier\":\"main\",\"verificationSummary\":[{\"solutionId\":\"solution-1\",\"overallCoverage\":\"direct\",\"claims\":[{\"claimId\":\"claim-1\",\"coverage\":\"direct\",\"methodLabel\":\"모든 단계를 실행 검사로 확인\",\"unconfirmedSteps\":[]}]}],\"assistantMessageId\":\"e456a788-9e9e-5a90-8cff-156ae37c83f7\"}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

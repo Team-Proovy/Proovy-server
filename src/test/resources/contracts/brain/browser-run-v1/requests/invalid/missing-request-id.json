@@ -1,0 +1,11 @@
+{
+  "rationale": "requestId는 body 필수.",
+  "request": {
+    "text": "이 문제를 풀어줘"
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

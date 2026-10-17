@@ -1,0 +1,12 @@
+{
+  "rationale": "UUID가 아닌 requestId.",
+  "request": {
+    "requestId": "req-1",
+    "text": "이 문제를 풀어줘"
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

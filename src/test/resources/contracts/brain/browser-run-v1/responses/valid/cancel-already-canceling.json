@@ -1,0 +1,14 @@
+{
+  "schema": "RunCancelResponse",
+  "http": 200,
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "runId": "fec98468-41e4-52fd-a3fd-898957b64300",
+      "status": "CANCELING",
+      "outcome": "already_canceling"
+    }
+  }
+}

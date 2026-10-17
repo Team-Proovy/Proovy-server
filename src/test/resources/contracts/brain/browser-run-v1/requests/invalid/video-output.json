@@ -1,0 +1,16 @@
+{
+  "rationale": "video는 알려진 값이지만 Phase 1 미지원 — schema는 통과, RUN4002.",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "requestedOutputs": [
+      "text",
+      "video"
+    ]
+  },
+  "schema_rejects": false,
+  "expected": {
+    "http": 400,
+    "code": "RUN4002"
+  }
+}

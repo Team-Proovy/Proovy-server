@@ -1,0 +1,23 @@
+{
+  "schema": "RunStatusResponse",
+  "rationale": "FAILED는 failure 필수.",
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+      "noteId": "123",
+      "userMessageId": "f0df72b5-b974-5cc7-b7e8-7e85173ba4df",
+      "assistantMessageId": "50b290f6-29e5-597c-b5d7-0f34a5a0e06f",
+      "status": "FAILED",
+      "cancelable": false,
+      "lastSeq": 8,
+      "responseDisposition": null,
+      "failure": null,
+      "createdAt": "2026-10-17T09:00:00Z",
+      "completedAt": "2026-10-17T09:00:30Z"
+    }
+  }
+}

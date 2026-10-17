@@ -1,0 +1,13 @@
+{
+  "rationale": "latex는 있으면 비어 있을 수 없다(null은 부재와 같음).",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "latex": ""
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

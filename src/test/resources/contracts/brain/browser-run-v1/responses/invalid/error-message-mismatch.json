@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "rationale": "code별 고정 message와 다름.",
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4041",
+    "message": "노트 123은 다른 사용자의 노트입니다."
+  }
+}

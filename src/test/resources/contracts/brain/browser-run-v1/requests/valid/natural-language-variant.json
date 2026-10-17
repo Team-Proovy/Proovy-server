@@ -1,0 +1,9 @@
+{
+  "rationale": "자연어 미지원 의도(변형 문제 생성)는 wire 오류가 아니다 — 접수되어 unsupported_only로 COMPLETED 된다(streams/unsupported-only-completed).",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제와 비슷한 변형 문제를 만들어줘"
+  },
+  "expected_canonical": "{\"text\":\"이 문제와 비슷한 변형 문제를 만들어줘\"}",
+  "expected_fingerprint": "e0cb9274d694f9c2b5e60ecbe31caaa7e23c6aa15abd8c5cbca0fb614d723b90"
+}

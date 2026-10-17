@@ -1,0 +1,307 @@
+{
+  "runs": {
+    "terminal": {
+      "runId": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "status": "COMPLETED",
+      "lastDurableSeq": 14,
+      "stream": "substantive-completed"
+    },
+    "active": {
+      "runId": "eeff258f-0aa4-5728-a27a-3c05ac927a57",
+      "status": "RUNNING",
+      "lastDurableSeq": 4
+    }
+  },
+  "thenLiveRule": "thenLive is true exactly when runs.<run>.status is not terminal (COMPLETED|FAILED|CANCELED).",
+  "cases": [
+    {
+      "name": "no-cursor",
+      "run": "terminal",
+      "lastEventIdHeader": null,
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 200,
+        "replayFromSeq": 1,
+        "thenLive": false
+      }
+    },
+    {
+      "name": "no-cursor-active",
+      "run": "active",
+      "lastEventIdHeader": null,
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 200,
+        "replayFromSeq": 1,
+        "thenLive": true
+      }
+    },
+    {
+      "name": "valid-middle",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:3",
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 200,
+        "replayFromSeq": 4,
+        "thenLive": false
+      }
+    },
+    {
+      "name": "valid-active",
+      "run": "active",
+      "lastEventIdHeader": "eeff258f-0aa4-5728-a27a-3c05ac927a57:2",
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 200,
+        "replayFromSeq": 3,
+        "thenLive": true
+      }
+    },
+    {
+      "name": "valid-query",
+      "run": "active",
+      "lastEventIdHeader": null,
+      "lastEventIdQuery": "eeff258f-0aa4-5728-a27a-3c05ac927a57:2",
+      "schemaRejects": false,
+      "expected": {
+        "http": 200,
+        "replayFromSeq": 3,
+        "thenLive": true
+      }
+    },
+    {
+      "name": "header-and-query-equal",
+      "run": "active",
+      "lastEventIdHeader": "eeff258f-0aa4-5728-a27a-3c05ac927a57:2",
+      "lastEventIdQuery": "eeff258f-0aa4-5728-a27a-3c05ac927a57:2",
+      "schemaRejects": false,
+      "expected": {
+        "http": 200,
+        "replayFromSeq": 3,
+        "thenLive": true
+      }
+    },
+    {
+      "name": "last-seq-terminal",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:14",
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 200,
+        "replayFromSeq": 15,
+        "thenLive": false,
+        "frameCount": 0
+      }
+    },
+    {
+      "name": "last-seq-active",
+      "run": "active",
+      "lastEventIdHeader": "eeff258f-0aa4-5728-a27a-3c05ac927a57:4",
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 200,
+        "replayFromSeq": 5,
+        "thenLive": true,
+        "frameCount": 0
+      }
+    },
+    {
+      "name": "uppercase-uuid",
+      "run": "terminal",
+      "lastEventIdHeader": "5E186280-06EC-5099-8087-8DE875B2B83B:3",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "seq-zero",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:0",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "seq-leading-zero",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:03",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "seq-negative",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:-1",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "seq-over-2-53",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:9007199254740992",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "seq-16-digit-max",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:9999999999999999",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "seq-at-max-beyond-last",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:9007199254740991",
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "trailing-newline",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:3\n",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "no-separator",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "surrounding-space",
+      "run": "terminal",
+      "lastEventIdHeader": " 5e186280-06ec-5099-8087-8de875b2b83b:3",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "seq-only",
+      "run": "terminal",
+      "lastEventIdHeader": "3",
+      "lastEventIdQuery": null,
+      "schemaRejects": true,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "beyond-last-seq",
+      "run": "terminal",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:15",
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "header-query-mismatch",
+      "run": "active",
+      "lastEventIdHeader": "eeff258f-0aa4-5728-a27a-3c05ac927a57:2",
+      "lastEventIdQuery": "eeff258f-0aa4-5728-a27a-3c05ac927a57:3",
+      "schemaRejects": false,
+      "expected": {
+        "http": 400,
+        "code": "RUN4003"
+      }
+    },
+    {
+      "name": "other-run",
+      "run": "terminal",
+      "lastEventIdHeader": "fc745f72-47d7-5710-9d85-8ec947f08e4e:3",
+      "lastEventIdQuery": null,
+      "schemaRejects": false,
+      "expected": {
+        "http": 400,
+        "code": "RUN4004"
+      }
+    },
+    {
+      "name": "other-run-query",
+      "run": "active",
+      "lastEventIdHeader": null,
+      "lastEventIdQuery": "fc745f72-47d7-5710-9d85-8ec947f08e4e:1",
+      "schemaRejects": false,
+      "expected": {
+        "http": 400,
+        "code": "RUN4004"
+      }
+    }
+  ],
+  "accessCases": [
+    {
+      "name": "run-missing",
+      "access": "missing",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:3",
+      "expected": {
+        "http": 404,
+        "code": "RUN4041"
+      }
+    },
+    {
+      "name": "run-other-user",
+      "access": "other_user",
+      "lastEventIdHeader": "5e186280-06ec-5099-8087-8de875b2b83b:3",
+      "expected": {
+        "http": 404,
+        "code": "RUN4041"
+      }
+    }
+  ],
+  "precedence": [
+    "authenticated",
+    "run access (RUN4041)",
+    "cursor format/range (RUN4003)",
+    "cursor run (RUN4004)"
+  ]
+}
