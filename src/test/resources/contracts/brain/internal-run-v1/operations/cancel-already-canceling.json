@@ -1,0 +1,18 @@
+{
+  "name": "cancel-already-canceling",
+  "kind": "cancel",
+  "rationale": "이미 CANCELING 인 run 의 재전달된 cancel — 멱등 ack.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "attempt": 1,
+    "fence_token": "fence-a1b2",
+    "cause": "user_requested"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "outcome": "already_canceling",
+    "state": "canceling"
+  }
+}

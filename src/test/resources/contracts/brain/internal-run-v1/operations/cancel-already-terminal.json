@@ -1,0 +1,18 @@
+{
+  "name": "cancel-already-terminal",
+  "kind": "cancel",
+  "rationale": "terminal 저장이 끝난 run 의 늦은 cancel — 거절.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "attempt": 1,
+    "fence_token": "fence-a1b2",
+    "cause": "user_requested"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "outcome": "already_terminal",
+    "state": "terminal"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "cancel-unknown",
+  "kind": "cancel",
+  "rationale": "모르는 run 의 cancel — 멱등 거절.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "attempt": 1,
+    "fence_token": "fence-a1b2",
+    "cause": "user_requested"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "outcome": "unknown_run",
+    "state": "absent"
+  }
+}

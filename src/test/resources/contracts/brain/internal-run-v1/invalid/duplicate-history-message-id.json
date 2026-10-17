@@ -1,0 +1,135 @@
+{
+  "rationale": "history message_id 는 유일해야 한다.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "request_id": "req-0182",
+    "run_id": "run-441",
+    "user_id": "user-42",
+    "note_id": "note-77",
+    "conversation_id": "note-77",
+    "attempt": 1,
+    "fence_token": "fence-a1b2",
+    "input": {
+      "text": "첨부한 풀이를 검산해줘",
+      "latex": "\\int_0^1 x^2 \\, dx",
+      "requested_tasks": [
+        "solve",
+        "check"
+      ],
+      "requested_outputs": [
+        "text"
+      ],
+      "locale": "ko-KR"
+    },
+    "history": [
+      {
+        "message_id": "msg-101",
+        "role": "user",
+        "text": "이전 질문"
+      },
+      {
+        "message_id": "msg-102",
+        "role": "assistant",
+        "text": "이전 답변"
+      },
+      {
+        "message_id": "msg-101",
+        "role": "user",
+        "text": "다른 내용"
+      }
+    ],
+    "verified_solution_refs": [
+      {
+        "solution_id": "solution-7",
+        "source_message_id": "msg-102",
+        "status": "active",
+        "revises_solution_id": "solution-3",
+        "problem_summary": "이차방정식의 근",
+        "claims": [
+          {
+            "claim_id": "claim-1",
+            "statement": "x^2-5x+6=0의 근은 2와 3이다",
+            "coverage": "direct"
+          },
+          {
+            "claim_id": "claim-2",
+            "statement": "근의 합은 5이다",
+            "coverage": "supporting"
+          }
+        ]
+      }
+    ],
+    "turn_attachment_refs": [
+      {
+        "attachment_id": "att-88",
+        "source_message_id": "msg-101",
+        "sha256": "abababababababababababababababababababababababababababababababab",
+        "mime": "image/png",
+        "page_understanding_version": "pu-v2",
+        "image_normalization_version": "norm-v1",
+        "display_label": "연습지 사진"
+      }
+    ],
+    "viewer_context": {
+      "asset_id": "asset-55",
+      "sha256": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "mime": "application/pdf",
+      "byte_size": 2048576,
+      "page_count": 12,
+      "upload_policy_version": "up-v1",
+      "page_understanding_version": "pu-v2",
+      "image_normalization_version": "norm-v1",
+      "page": 3,
+      "selection": {
+        "left": 0.125,
+        "top": 0.25,
+        "right": 0.875,
+        "bottom": 0.5
+      },
+      "read_url": "https://storage.googleapis.com/bucket/asset-55?sig=abc"
+    },
+    "retrieval_scope": {
+      "note_id": "note-77",
+      "corpus_version": "corpus-9",
+      "search_extraction_version": "se-v3",
+      "chunking_version": "chunk-v2",
+      "embedding_version": "emb-v4"
+    },
+    "turn_attachments": [
+      {
+        "attachment_id": "att-201",
+        "sha256": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+        "mime": "image/jpeg",
+        "byte_size": 524288,
+        "pixel_width": 1600,
+        "pixel_height": 1200,
+        "pixel_count": 1920000,
+        "upload_policy_version": "up-v1",
+        "page_understanding_version": "pu-v2",
+        "image_normalization_version": "norm-v1",
+        "read_url": "https://storage.googleapis.com/bucket/att-201?sig=def"
+      }
+    ],
+    "asset_access_grant": "grant-opaque-token",
+    "execution_options": {
+      "budget_policy_version": "budget-v1",
+      "request_deadline_at": "2026-10-02T09:30:00Z",
+      "limits": {
+        "max_llm_calls": 40,
+        "max_tool_calls": 40,
+        "max_output_tokens": 100000,
+        "max_cost_micros": 5000000,
+        "max_page_understandings": 5,
+        "max_problems": 10,
+        "max_claims": 50
+      },
+      "usage": {
+        "used_llm_calls": 0,
+        "used_tool_calls": 0,
+        "used_output_tokens": 0,
+        "used_cost_micros": 0,
+        "used_page_understandings": 0
+      }
+    }
+  }
+}

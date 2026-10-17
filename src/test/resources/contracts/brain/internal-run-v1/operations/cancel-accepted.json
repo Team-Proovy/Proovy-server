@@ -1,0 +1,18 @@
+{
+  "name": "cancel-accepted",
+  "kind": "cancel",
+  "rationale": "실행 중 레코드에 cancel 수락 — CANCELING 전환.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "attempt": 1,
+    "fence_token": "fence-a1b2",
+    "cause": "user_requested"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "outcome": "accepted",
+    "state": "canceling"
+  }
+}

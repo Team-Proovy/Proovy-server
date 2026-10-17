@@ -1,0 +1,112 @@
+{
+  "consumer_version": "internal-run-fixtures-v2",
+  "contract_version": "internal-run-v1",
+  "fingerprint_algorithm": "sha256-canonical-json-v1",
+  "original_path": "tests/fixtures/contracts/internal-run-v1",
+  "change_reason": "Task 1.65 stream identity-binding rejection: a request_id bound to a different run_id refuses with reason request_id_bound_to_other_run + existing_run_id — operations/stream-request-id-bound and decisions.json binding_overrides pin the shape for the Server.",
+  "consumption_policy": "Pin internal-run-fixtures-v2 at original_path; changes require a new fixture version and reason.",
+  "ownership": {
+    "brain": [
+      "contract validation and sanitization",
+      "canonical JSON and fingerprint document projection",
+      "contention table (operation × record state)"
+    ],
+    "server": [
+      "run_id/request_id/attempt/fence issuance",
+      "history truncation within the product budget",
+      "asset sha256/media facts/versions",
+      "terminal persistence confirmation before cleanup"
+    ]
+  },
+  "boundaries": "Wire contract only — no HTTP endpoints, service auth, lease/fencing storage, budget recording, or recovery persistence.",
+  "requests": [
+    "full",
+    "minimal"
+  ],
+  "operations": [
+    "cancel-accepted",
+    "cancel-already-canceling",
+    "cancel-already-terminal",
+    "cancel-unknown",
+    "cleanup-cleaned",
+    "cleanup-noop",
+    "cleanup-protected",
+    "status-absent",
+    "status-executing",
+    "status-terminal",
+    "status-terminal-canceled",
+    "stream-request-id-bound"
+  ],
+  "invalid": [
+    "attachment-binary",
+    "attempt-zero",
+    "bad-sha256",
+    "conversation-mismatch",
+    "credit-field",
+    "dangling-source-message",
+    "disallowed-mime",
+    "duplicate-history-message-id",
+    "duplicate-requested-tasks",
+    "empty-text",
+    "extra-top-level-field",
+    "history-echoes-input",
+    "image-without-pixels",
+    "jwt-field",
+    "metadata-field",
+    "naive-deadline",
+    "pdf-with-pixels",
+    "pixel-count-mismatch",
+    "scope-note-mismatch",
+    "self-revising-solution",
+    "unknown-input-field",
+    "viewer-page-out-of-range",
+    "wrong-contract-version"
+  ],
+  "fingerprint": [
+    "base",
+    "derived-asset-facts",
+    "diff-attachment-ref",
+    "diff-budget-policy",
+    "diff-corpus-version",
+    "diff-extraction-version",
+    "diff-history",
+    "diff-history-order",
+    "diff-latex",
+    "diff-limits",
+    "diff-locale",
+    "diff-requested-tasks",
+    "diff-solution-content",
+    "diff-solution-id",
+    "diff-text",
+    "diff-turn-attachment-sha",
+    "diff-viewer-page",
+    "diff-viewer-selection",
+    "lifecycle-status",
+    "normalize-whitespace",
+    "order-collections",
+    "retry-attempt",
+    "retry-deadline-usage",
+    "retry-fence",
+    "retry-grant",
+    "retry-request-ids",
+    "retry-urls"
+  ],
+  "canonical_rules": "canonical.json",
+  "decisions": "decisions.json",
+  "change_history": [
+    {
+      "date": "2026-10-02",
+      "reason": "Initial task 1.43 freeze."
+    },
+    {
+      "date": "2026-10-05",
+      "reason": "Task 1.47: status-terminal-canceled adds the stored-only run.canceled terminal variant to RunStatusResponse — additive under internal-run-v1; no existing fixture changed."
+    },
+    {
+      "date": "2026-10-08",
+      "reason": "Task 1.65: a stream whose request_id is bound to a different run_id rejects 409 with reason request_id_bound_to_other_run and existing_run_id naming the owning run — operations gains stream-request-id-bound, decisions.json gains binding_overrides (run-decisions-v2). Additive under internal-run-v1; no existing fixture changed."
+    }
+  ],
+  "validation_scope": "Python validators enforce identifier/media/scope/reference integrity; Java validates against the same canonical JSON and fingerprint expectations.",
+  "fixture_inputs": "Synthetic requests only; no evals oracle or answer metadata."
+}

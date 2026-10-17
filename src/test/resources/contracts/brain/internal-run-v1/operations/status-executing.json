@@ -1,0 +1,19 @@
+{
+  "name": "status-executing",
+  "kind": "status",
+  "rationale": "실행 중 레코드를 조회 — 조회는 실행을 만들지 않는다.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "attempt": 2,
+    "fence_token": "fence-c3d4"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "state": "executing",
+    "attempt": 2,
+    "fence_token": "fence-c3d4",
+    "request_fingerprint": "ffdab4450529177f156f533aec051dbaad13f164e2f65ee9648ce75ef3d68749"
+  }
+}
