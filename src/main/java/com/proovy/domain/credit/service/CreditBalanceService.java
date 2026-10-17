@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -54,6 +55,24 @@ public class CreditBalanceService {
         CreditBalance balance = creditBalanceRepository.findByUserIdForUpdate(userId)
                 .orElseGet(() -> {
                     createInitialBalanceSafely(userId, 0);
+                    return creditBalanceRepository.findByUserIdForUpdate(userId)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.CREDIT4041));
+                });
+
+        refreshDailyCreditIfExpired(balance, nowInBillingZone());
+        return balance;
+    }
+
+    /**
+     * 호출자 transaction 안에서 잔액 row를 잠그고(없으면 같은 transaction에서 생성) 만료된 일일 크레딧을 갱신한다.
+     * {@link #getOrCreateBalanceForUpdate}와 달리 REQUIRES_NEW 생성을 쓰지 않아 독립 commit이 없다.
+     * 요청 사용량 차감·보상({@code RequestUsageService})이 쓴다.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public CreditBalance lockBalanceInCurrentTransaction(Long userId) {
+        CreditBalance balance = creditBalanceRepository.findByUserIdForUpdate(userId)
+                .orElseGet(() -> {
+                    creditBalanceCreator.insertInitialBalanceIfAbsent(userId);
                     return creditBalanceRepository.findByUserIdForUpdate(userId)
                             .orElseThrow(() -> new BusinessException(ErrorCode.CREDIT4041));
                 });
