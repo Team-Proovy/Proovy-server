@@ -4,7 +4,7 @@
 상태 조회 `GET /api/ai-runs/{runId}`는 1.86(`RunReadService.status`) 그대로다(`cancelable` = PENDING|RUNNING).
 
 코드: `com.proovy.domain.run.cancel` — `RunCancelService`(진입점), `RunCancelStore`(잠금·조건부 전환), `RunCancelFinalizer`(CANCELED 확정),
-`RunCancelProperties`(`proovy.run.cancel.*`). 경로는 1.86 `BrowserRunController`에 추가했다. **schema 변경 없음**(V1 cancel 열·trigger 그대로, V5 미사용).
+`RunCancelProperties`(`proovy.run.cancel.*`). 경로는 1.86 `BrowserRunController`에 추가했다. **schema 변경 없음**(V1 cancel 열·trigger 그대로, migration 추가 없음 — V5는 1.85 `recovery_count`).
 
 ## 판정 순서 (`cancel/cases.json` precedence)
 
@@ -64,19 +64,35 @@ ledger PK(request_id)로 PENDING 취소 보상과 deadline·Server 실패 보상
 | `cleanup-timeout` | 2m | Brain 정리 확인 상한. 근거: Brain wind-down 15s, 끊긴 wind-down sweep은 writer lease 만료 뒤, Brain tail 4 × lease TTL 30s. **S14 확정** |
 | `batch-size` | 20 | 주기 한 번 확인 수 |
 
-## 반복 요청 제한 (1.79 재사용 — 차이 보고)
+## 반복 요청 제한 (1.79 재사용 — 사용자 결정: 추가 상한은 후속 태스크)
 
-새 구현 없이 1.79 RUN4291(`proovy.run.admission.rate-limit`, 기본 20건/1분, 임시값)을 그대로 쓴다. 테스트로 고정한 성질:
+이 태스크 범위는 1.79 RUN4291(`proovy.run.admission.rate-limit`, 기본 20건/1분, 임시값) 재사용뿐이다. 테스트로 고정한 성질:
 새 requestId마다 세고, **취소·실패·clarification으로 순사용량 0이 된 run도 센다**(취소로 우회 불가), 같은 requestId 재조회(replay)는 세지 않고,
-다른 사용자에 영향 없음. task 84 문구 대비 차이(구현하지 않음, 결정 필요):
+다른 사용자에 영향 없음.
+
+**후속 태스크(S14 수치와 함께)** — task 84 문구 대비 남은 차이와 제안:
 
 1. 반복 실패/clarification 남용을 "구분"하는 별도 제한이 없다 — 모든 새 요청을 같은 창으로 센다. 무료 결과(보상된 run) 누적 상한(예: 1시간 N건)이 없어
    20건/분 안에서는 무료 Brain 실행을 계속 만들 수 있다.
 2. "입력·준비 상태 보완 요청" 구별이 없다 — 보완 요청도 같은 창으로 센다(더 엄격한 제한이 없으므로 부당하게 막히지도 않는다).
-3. 수치(20/1분)는 S14 운영 결정.
+3. 제안: 보상된 run을 browser fingerprint(`run_request_bindings`) 기준으로 세는 추가 상한(같은 fingerprint 반복만 제한 → 보완 요청은 fingerprint가 달라 제외).
+   browser-run-v1 오류 code는 RUN4291 그대로 쓸 수 있다. 창·상한 수치는 기존 20건/1분과 함께 S14에서 정한다.
 
-제안: 보상된 run을 browser fingerprint(`run_request_bindings`) 기준으로 세는 추가 상한(같은 fingerprint 반복만 제한 → 보완 요청은 fingerprint가 달라 제외).
-browser-run-v1 오류 code는 RUN4291 그대로 쓸 수 있다.
+## 1.85 회수 결정표 중 1.84 소유 항목
+
+1.85(#225, `docs/contracts/run-coordinator.md` stale 회수 절)가 1.84에 넘긴 두 항목의 판정이다.
+
+- **`FINAL_CANCEL_PENDING`(Brain canceling인데 Server RUNNING|RETRYING)** — 1.84 흐름에서는 생기지 않는다. Brain `cancel`을 부르는 곳은
+  `RunCancelFinalizer` 하나이고, 대상은 `status = 'CANCELING'` 행만 읽어 고른다(취소 API는 CANCELING을 commit한 **뒤** `wake`, sweep도 같은 조건).
+  CANCELING → RUNNING|RETRYING 전이는 없으므로 Server가 Brain보다 늦게 취소 상태가 되는 순서가 없다. 그래서 1.84는 이 경우를 수습하지 않는다
+  (coordinator 패키지 변경 금지이기도 하다). 이 counter·WARN이 보이면 Server 밖에서 Brain cancel이 들어온 것(운영 수동 호출, S13 `asset_deleting` 연결 오류 등)이고,
+  run은 1.85 규칙대로 deadline sweep이 timeout으로 끝낸다.
+- **`FINAL_CHECK`·재전달 소진 실패 직전 Brain cancel** — **이 PR에서 하지 않는다.** 실패시키는 곳이 `RunExecution`(coordinator 패키지, 이 태스크에서 수정 금지)이고,
+  internal-run-v1 `CancelCause`(`user_requested`·`asset_deleting`·`budget_exhausted`)에 Server 실패를 뜻하는 값이 없어 계약 추가가 먼저다.
+  그동안 슬롯 over-commit은 1.85 r185-3대로 Brain 자체 상한에 기댄다. 후속(S13, Brain cleanup·lease 만료 sweep과 함께): coordinator가 실패 직전
+  `BrainRunClient.cancel`(1.84가 쓰는 client 그대로, 멱등)을 best-effort로 부르고, 응답과 무관하게 `failByServer`한다 — 확정을 Brain 응답에 묶지 않는다.
+- 1.85 merge 뒤 확인: 회수 후보·인수는 RUNNING|RETRYING만이고 heartbeat 조건은 CANCELING을 포함하므로, 인수 worker가 도는 동안 취소된 run은
+  lease가 살아 있어 `absent` 확정이 기다리고(위 표), worker는 OBSOLETE로 끝난다. 1.84 코드 변경은 필요 없었다.
 
 ## 검증
 
@@ -92,6 +108,9 @@ browser-run-v1 오류 code는 RUN4291 그대로 쓸 수 있다.
 
 - **1.87**: 경로 `POST /api/ai-runs/{runId}/cancel`(body 없음, `ApiResponse<RunCancelResult>`). 실제 Brain cancel 왕복·wind-down 시간 실측, timeout 수치 확인.
 - **1.85**: CANCELING run(lease 만료 포함)은 이 경로 소유다. 1.85 회수는 RUNNING|RETRYING만 다룬다.
-- **S13**: `asset_deleting` cause 취소 연결(이 store의 `cancelPending`·`markCanceling`이 cause를 받는다), Brain runtime `cleanup` 호출.
+- **S13**: `asset_deleting` cause 취소 연결(이 store의 `cancelPending`·`markCanceling`이 cause를 받는다), Brain runtime `cleanup` 호출,
+  1.85 `FINAL_CHECK`·재전달 소진 실패 직전 best-effort Brain cancel(위 1.85 절, `CancelCause` 계약 추가 필요).
+- **후속 태스크(S14 수치와 함께)**: 보상된 run의 같은 fingerprint 반복 추가 상한(위 반복 요청 제한 절). 수치 확정 대상: `cleanup-timeout` 2m,
+  `sweep-interval` 2s, 1.79 rate limit 20건/1분, 추가 상한의 창·건수.
 - **S08**: 정지 버튼·draft 유지(서버는 자동 재실행·queue·draft 전송을 만들지 않는다).
 - Brain cancel 409(fence 불일치·다른 epoch)는 기다림으로 처리해 timeout 뒤 확정된다(새 attempt 금지 전제상 발생하지 않아야 한다).
