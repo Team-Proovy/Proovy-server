@@ -79,13 +79,15 @@ public class RunClaimStore {
     }
 
     /**
-     * 살아 있는 lease를 가진 실행 수(모든 Server 인스턴스). 이전 프로세스·다른 인스턴스의 실행도 lease가 만료될 때까지
-     * 전역 슬롯을 차지한다 — Brain에서 아직 실행 중일 수 있기 때문이다.
+     * 전역 슬롯을 차지하는 실행 수(모든 Server 인스턴스): Brain에 위임됐을 수 있는 비terminal run
+     * ({@code attempt >= 1 AND status IN (RUNNING, RETRYING, CANCELING)}). lease 상태와 무관하다 — 종료·crash·OBSOLETE로
+     * heartbeat가 끊긴 run도 Brain에서 아직 실행 중일 수 있으므로, terminal(deadline sweep·회수·취소 확정)이 될 때까지 센다.
+     * Brain 인스턴스 상한을 전역 슬롯의 대체물로 쓰지 않기 위해서다(spec 07, docs/plan/09).
      */
-    public int countLiveExecutions() {
+    public int countActiveExecutions() {
         Integer count = jdbc.queryForObject("""
                 SELECT count(*) FROM ai_runs
-                WHERE status IN ('RUNNING', 'RETRYING', 'CANCELING') AND lease_expires_at > now()
+                WHERE status IN ('RUNNING', 'RETRYING', 'CANCELING') AND attempt >= 1
                 """, Integer.class);
         return count == null ? 0 : count;
     }

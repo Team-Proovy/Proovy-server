@@ -1,7 +1,6 @@
 package com.proovy.domain.run.coordinator;
 
 import com.proovy.domain.run.coordinator.RunExecution.StopReason;
-import com.proovy.domain.run.entity.RunFailureCode;
 import com.proovy.domain.run.terminal.RunTerminalService;
 import com.proovy.domain.run.terminal.TerminalSettlement;
 import java.util.Collection;
@@ -14,12 +13,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
 
@@ -31,12 +31,15 @@ import org.springframework.context.SmartLifecycle;
  * 인스턴스는 passive로 남아 heartbeat 주기마다 lease를 다시 시도한다. claim transaction은 lease를 {@code FOR SHARE}로
  * 다시 확인하므로 lease가 넘어간 뒤의 claim은 없다.
  * <h2>전역 슬롯</h2>
- * 빈 슬롯 = min(로컬 semaphore, {@code maxConcurrentRuns} − DB의 live lease 실행 수). DB 수에는 다른 인스턴스·이전
- * 프로세스가 lease를 가진 실행도 들어간다. worker pool은 슬롯 수와 같은 고정 크기이고 queue가 없다 — 슬롯이 없으면
- * run은 PENDING으로 남는다(무한 in-memory queue 없음). Brain의 503 capacity는 슬롯의 대체물이 아니라 재전송 대상이다.
+ * 빈 슬롯 = min(로컬 semaphore, {@code maxConcurrentRuns} − DB의 비terminal 실행 수({@code attempt >= 1},
+ * RUNNING·RETRYING·CANCELING, lease 무관)). 다른 인스턴스·이전 프로세스·heartbeat가 끊긴 실행도 terminal이 될 때까지
+ * 슬롯을 차지한다(Brain에서 아직 돌 수 있다). dispatch는 lock으로 한 번에 하나만 돈다. 슬롯이 없으면 run은 PENDING으로
+ * 남는다. worker pool의 대기열은 semaphore가 상한을 지키므로 길이가 0..max로 유한하다(슬롯 반환 직후 thread가 아직
+ * 비지 않은 순간에도 다음 run을 거부하지 않는다). Brain의 503 capacity는 슬롯의 대체물이 아니라 재전송 대상이다.
  * <h2>슬롯 해제</h2>
- * worker가 끝날 때 항상 반환한다: terminal 확정(SETTLED), 이 attempt가 현재가 아님(OBSOLETE: 다른 terminal·CANCELING·
- * fence 교체), 멈춤(STOPPED: 종료·lease 상실), 로컬 오류(LOCAL_ERROR). STOPPED·LOCAL_ERROR의 run은 진행 중 상태로 남는다.
+ * 로컬 permit은 worker가 끝날 때 항상 반환한다: terminal 확정(SETTLED), 이 attempt가 현재가 아님(OBSOLETE: 다른 terminal·
+ * CANCELING·fence 교체), 멈춤(STOPPED: 종료·lease 상실), 로컬 오류(LOCAL_ERROR). OBSOLETE·STOPPED·LOCAL_ERROR에서 run이
+ * 아직 비terminal이면 heartbeat는 멈추지만 전역 슬롯은 DB 수로 계속 차지한다 — terminal이 되어야 풀린다.
  * <h2>스레드</h2>
  * 내부 executor 두 개(control: claim·heartbeat·sweep, worker: run별)이며 Spring bean으로 노출하지 않는다 — 전역 기본
  * {@code taskScheduler}·{@code applicationTaskExecutor}를 바꾸지 않기 위해서다. 스레드 이름은 {@code runCoordinator-*}.
@@ -57,6 +60,7 @@ public class RunCoordinator implements SmartLifecycle {
     private final AtomicBoolean running = new AtomicBoolean();
     private final AtomicBoolean leader = new AtomicBoolean();
     private final AtomicBoolean dispatchQueued = new AtomicBoolean();
+    private final ReentrantLock dispatchLock = new ReentrantLock();
 
     private ScheduledExecutorService control;
     private ThreadPoolExecutor workers;
@@ -84,8 +88,7 @@ public class RunCoordinator implements SmartLifecycle {
         }
         int max = properties.maxConcurrentRuns();
         control = Executors.newScheduledThreadPool(2, threads("runCoordinator-control-"));
-        workers = new ThreadPoolExecutor(max, max, 0, TimeUnit.MILLISECONDS, new SynchronousQueue<>(),
-                threads("runCoordinator-worker-"));
+        workers = workerPool(max);
         log.info("run coordinator starting: owner={}, maxConcurrentRuns={}, brainCapacity={}", owner, max,
                 properties.brainCapacity().total());
         control.scheduleWithFixedDelay(guarded("heartbeat", this::heartbeat), 0,
@@ -98,27 +101,37 @@ public class RunCoordinator implements SmartLifecycle {
     }
 
     /**
-     * claim을 멈추고 worker에 멈춤 신호를 보낸 뒤 {@code shutdownTimeout}까지 기다린다. 진행 중 run은 terminal이 아니라
-     * lease만 만료된 채 남는다(transport 종료를 성공으로 보지 않는다, Brain 실행은 취소하지 않는다). 회수는 1.85다.
+     * claim을 멈추고 coordinator lease를 내놓은 뒤 worker에 멈춤 신호를 보낸다. 전체 대기는 {@code shutdownTimeout} 하나로
+     * 묶는다(Cloud Run 종료 유예 안). 진행 중 run은 terminal이 아니라 lease만 만료된 채 남는다(transport 종료를 성공으로
+     * 보지 않는다, Brain 실행은 취소하지 않는다). 그 run은 terminal이 될 때까지 전역 슬롯을 차지하고 회수는 1.85다.
      */
     @Override
     public void stop() {
         if (!running.compareAndSet(true, false)) {
             return;
         }
+        long deadline = System.nanoTime() + properties.shutdownTimeout().toNanos();
         control.shutdownNow();
         try {
             // 진행 중인 heartbeat·claim이 끝난 뒤에 worker를 멈춘다 — 늦은 heartbeat가 만료시킨 lease를 되살리지 않게.
-            if (!control.awaitTermination(properties.shutdownTimeout().toMillis(), TimeUnit.MILLISECONDS)) {
+            if (!control.awaitTermination(remaining(deadline) / 2, TimeUnit.NANOSECONDS)) {
                 log.warn("run coordinator control tasks did not stop in time");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } finally {
+            // worker 대기보다 먼저 내놓는다. 슬롯 상한은 DB 실행 수가 지키므로 다음 인스턴스가 바로 인수해도 된다.
+            leader.set(false);
+            try {
+                claims.releaseCoordinatorLease(owner);
+            } catch (RuntimeException e) {
+                log.warn("coordinator lease release failed: cause={}", e.getClass().getSimpleName());
+            }
         }
         executions.values().forEach(execution -> execution.stop(StopReason.SHUTDOWN));
         workers.shutdown();
         try {
-            if (!workers.awaitTermination(properties.shutdownTimeout().toMillis(), TimeUnit.MILLISECONDS)) {
+            if (!workers.awaitTermination(remaining(deadline), TimeUnit.NANOSECONDS)) {
                 log.warn("run coordinator workers did not stop in time: remaining={}", executions.size());
                 workers.shutdownNow();
             }
@@ -126,13 +139,11 @@ public class RunCoordinator implements SmartLifecycle {
             Thread.currentThread().interrupt();
             workers.shutdownNow();
         }
-        try {
-            claims.releaseCoordinatorLease(owner);
-        } catch (RuntimeException e) {
-            log.warn("coordinator lease release failed: cause={}", e.getClass().getSimpleName());
-        }
-        leader.set(false);
         log.info("run coordinator stopped: owner={}", owner);
+    }
+
+    private static long remaining(long deadline) {
+        return Math.max(0, deadline - System.nanoTime());
     }
 
     @Override
@@ -187,7 +198,15 @@ public class RunCoordinator implements SmartLifecycle {
 
     /** coordinator lease 갱신 + 실행 중 run lease 갱신. lease를 잃은 run의 worker는 멈춘다. */
     void heartbeat() {
-        boolean held = claims.acquireCoordinatorLease(owner, properties.leaseTtl());
+        boolean held;
+        try {
+            held = claims.acquireCoordinatorLease(owner, properties.leaseTtl());
+        } catch (RuntimeException e) {
+            // 갱신을 확인하지 못했으면 claim을 멈춘다. run lease 갱신은 아래에서 따로 계속한다.
+            held = false;
+            metrics.error("coordinator_lease");
+            log.warn("coordinator lease renewal failed: cause={}", e.getClass().getSimpleName());
+        }
         if (leader.getAndSet(held) != held) {
             if (held) {
                 log.info("run coordinator lease acquired: owner={}", owner);
@@ -215,14 +234,24 @@ public class RunCoordinator implements SmartLifecycle {
         }
     }
 
-    /** 빈 슬롯만큼 PENDING run을 claim해 worker를 시작한다. 겹쳐 돌아도 로컬 semaphore가 슬롯 수를 지킨다. */
+    /** 빈 슬롯만큼 PENDING run을 claim해 worker를 시작한다. */
     void dispatch() {
         dispatchQueued.set(false);
         if (!running.get() || !leader.get()) {
             return;
         }
+        // 주기 dispatch와 슬롯 반환 뒤 dispatch가 겹쳐 같은 DB 수로 각자 claim하면 전역 상한을 넘는다. 한 번에 하나만 돈다.
+        dispatchLock.lock();
+        try {
+            dispatchLocked();
+        } finally {
+            dispatchLock.unlock();
+        }
+    }
+
+    private void dispatchLocked() {
         int free = Math.min(slots.availablePermits(),
-                properties.maxConcurrentRuns() - claims.countLiveExecutions());
+                properties.maxConcurrentRuns() - claims.countActiveExecutions());
         for (int i = 0; i < free && running.get(); i++) {
             if (!slots.tryAcquire()) {
                 return;
@@ -250,15 +279,21 @@ public class RunCoordinator implements SmartLifecycle {
         }
         List<UUID> expired = claims.findDeadlinePassed(DEADLINE_BATCH);
         for (UUID runId : expired) {
-            TerminalSettlement settlement = terminals.expireDeadline(runId);
-            if (settlement.outcome() == TerminalSettlement.Outcome.COMMITTED) {
-                metrics.deadlineExpired();
-                log.info("run deadline expired: runId={}", runId);
-                claims.reserveRuntimeCleanup(runId, properties.runtimeCleanupDelay());
-                RunExecution execution = executions.get(runId);
-                if (execution != null) {
-                    execution.stop(StopReason.FINISHED_ELSEWHERE);
+            // 한 run의 실패가 batch를 막지 않게 run별로 처리한다(같은 run이 매 주기 맨 앞에 와도 나머지는 진행).
+            try {
+                TerminalSettlement settlement = terminals.expireDeadline(runId);
+                if (settlement.outcome() == TerminalSettlement.Outcome.COMMITTED) {
+                    metrics.deadlineExpired();
+                    log.info("run deadline expired: runId={}", runId);
+                    claims.reserveRuntimeCleanup(runId, properties.runtimeCleanupDelay());
+                    RunExecution execution = executions.get(runId);
+                    if (execution != null) {
+                        execution.stop(StopReason.FINISHED_ELSEWHERE);
+                    }
                 }
+            } catch (RuntimeException e) {
+                metrics.error("deadline");
+                log.warn("deadline expiry failed: runId={}, cause={}", runId, e.getClass().getSimpleName());
             }
         }
     }
@@ -271,13 +306,17 @@ public class RunCoordinator implements SmartLifecycle {
         try {
             workers.execute(execution);
         } catch (RejectedExecutionException e) {
-            // 슬롯을 먼저 잡았으므로 일어나지 않아야 한다. claim했지만 Brain에 보내지 않은 run이라 실패·보상으로 끝낸다.
+            // 대기열이 유한하지 않으므로 pool이 종료될 때(stop과 겹친 claim)만 일어난다. 정상 run을 실패시키지 않고
+            // claim도 되돌리지 않는다: lease를 만료시켜 회수(1.85) 대상으로 남긴다. run은 terminal까지 슬롯을 차지한다.
             executions.remove(claim.runId());
             slots.release();
             metrics.error("launch");
-            log.error("run worker rejected: runId={}", claim.runId());
-            terminals.failByServer(claim.runId(), claim.attempt(), claim.fenceToken(),
-                    RunFailureCode.INTERNAL_ERROR, true);
+            log.warn("run worker not started (coordinator stopping): runId={}", claim.runId());
+            try {
+                claims.expireLease(claim, owner);
+            } catch (RuntimeException expiry) {
+                log.warn("lease expiry failed: runId={}, cause={}", claim.runId(), expiry.getClass().getSimpleName());
+            }
         }
     }
 
@@ -292,6 +331,15 @@ public class RunCoordinator implements SmartLifecycle {
                 dispatchQueued.set(false);
             }
         }
+    }
+
+    /**
+     * 고정 크기 worker pool. 대기열 길이는 semaphore(전역 슬롯)가 상한을 지킨다 — permit은 run 하나당 하나이고 worker가
+     * 끝날 때 반환되므로, 반환 직후 thread가 아직 비지 않았을 때 들어온 run은 거부되지 않고 잠깐 대기열에서 기다린다.
+     */
+    static ThreadPoolExecutor workerPool(int size) {
+        return new ThreadPoolExecutor(size, size, 0, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(),
+                threads("runCoordinator-worker-"));
     }
 
     private Runnable guarded(String stage, Runnable task) {

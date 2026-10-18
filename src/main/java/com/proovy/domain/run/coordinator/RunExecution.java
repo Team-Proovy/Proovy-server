@@ -13,6 +13,7 @@ import com.proovy.domain.run.entity.RunFailureCode;
 import com.proovy.domain.run.event.ActivityAppendResult;
 import com.proovy.domain.run.event.RunEventStore;
 import com.proovy.domain.run.repository.AiRunRepository;
+import com.proovy.domain.run.snapshot.RunAssetAccess;
 import com.proovy.domain.run.snapshot.RunSnapshotIntegrityException;
 import com.proovy.domain.run.snapshot.RunSnapshotRestorer;
 import com.proovy.domain.run.terminal.RunTerminalService;
@@ -29,6 +30,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.dao.TransientDataAccessException;
 import reactor.core.publisher.Sinks;
 
 /**
@@ -51,6 +55,8 @@ import reactor.core.publisher.Sinks;
  *       같은 epoch executing이면 같은 요청 재전달, terminal이면 저장 terminal을 {@link RunTerminalService#settle(StoredTerminal)},
  *       fingerprint 불일치는 실패. 조회 한도 소진도 실패·보상이다.</li>
  *   <li>영구(계약·인증·contention·binding): {@code failByServer(INTERNAL_ERROR)}.</li>
+ *   <li>stream 중 일시 DB 오류(연결·timeout·직렬화): 같은 재전달 한도 안에서 backoff 뒤 status 수습. 그 밖의 예외와
+ *       수습 중 DB 실패는 LOCAL_ERROR(lease 만료 → 회수 1.85·deadline sweep)다.</li>
  * </ul>
  */
 @Slf4j
@@ -97,6 +103,7 @@ final class RunExecution implements Runnable {
     private volatile StopReason stopReason;
     private volatile Result result;
     private int resends;
+    private AiRun run;
     private boolean retrying;
 
     RunExecution(ClaimedRun claim, Dependencies deps, Consumer<RunExecution> onFinish) {
@@ -162,15 +169,26 @@ final class RunExecution implements Runnable {
             return Result.OBSOLETE;
         }
         Instant deadline = request.executionOptions().requestDeadlineAt().toInstant();
+        boolean first = true;
         while (true) {
             if (stopped()) {
                 return Result.STOPPED;
             }
+            if (!first) {
+                // grant·read URL은 전달마다 새로 받는다(재전달에 이전 값을 쓰지 않는다). fingerprint는 바뀌지 않는다.
+                request = withFreshAccess(request);
+            }
+            first = false;
             Result step;
             try {
                 step = consume(request);
             } catch (BrainCallException failure) {
                 step = afterFailure(failure, request, deadline);
+            } catch (TransientDataAccessException | RecoverableDataAccessException
+                     | DataAccessResourceFailureException local) {
+                // Activity·terminal 저장 중 일시 DB 오류: 이 stream을 끊고 같은 attempt로 status 수습에 합류한다.
+                // Brain은 같은 요청 재전달에 OBSERVE·RETURN_TERMINAL로 답하고 Activity는 source ID로 dedup된다.
+                step = afterLocalFailure(local, request, deadline);
             }
             if (step != null) {
                 return step;
@@ -178,8 +196,30 @@ final class RunExecution implements Runnable {
         }
     }
 
+    private InternalRunRequest withFreshAccess(InternalRunRequest request) {
+        RunAssetAccess access = deps.access().accessFor(run, claim);
+        return request.withAssetAccess(access.assetAccessGrant(), access.viewerReadUrl(),
+                access.turnAttachmentReadUrls());
+    }
+
+    private Result afterLocalFailure(RuntimeException failure, InternalRunRequest request, Instant deadline) {
+        deps.metrics().error("transient_db");
+        log.warn("transient storage failure during stream: runId={}, attempt={}, cause={}", claim.runId(),
+                claim.attempt(), failure.getClass().getSimpleName());
+        RunCoordinatorProperties.Redelivery policy = deps.properties().redelivery();
+        if (resends >= policy.maxResends()) {
+            // DB를 쓸 수 없으니 실패 확정도 못 할 수 있다. 예외가 나면 LOCAL_ERROR로 회수(1.85)·deadline sweep에 넘긴다.
+            return exhausted(deadline, "resends_TRANSIENT_DB");
+        }
+        resends++;
+        if (await(policy.backoff(resends))) {
+            return Result.STOPPED;
+        }
+        return reconcile(request, deadline);
+    }
+
     private InternalRunRequest prepare() {
-        AiRun run = deps.runs().findById(claim.runId()).orElse(null);
+        run = deps.runs().findById(claim.runId()).orElse(null);
         if (run == null || run.getAttempt() != claim.attempt() || !claim.fenceToken().equals(run.getFenceToken())
                 || (run.getStatus() != AiRunStatus.RUNNING && run.getStatus() != AiRunStatus.RETRYING)) {
             log.info("claimed run changed before dispatch: runId={}", claim.runId());

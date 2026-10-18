@@ -95,8 +95,9 @@ final class FakeBrain implements AutoCloseable {
         scripts.put(requestId, List.of(steps));
     }
 
-    void status(String runId, StatusMode mode) {
-        statusModes.put(runId, mode);
+    /** request_id별 status 응답 모드(접수 전에 건다). */
+    void status(String requestId, StatusMode mode) {
+        statusModes.put(requestId, mode);
     }
 
     void release(String requestId) {
@@ -207,8 +208,8 @@ final class FakeBrain implements AutoCloseable {
 
     private ObjectNode statusResponse(String runId) {
         ObjectNode response = JSON.createObjectNode().put("contract_version", "internal-run-v1").put("run_id", runId);
-        StatusMode mode = statusModes.getOrDefault(runId, StatusMode.ABSENT);
         Delivery last = lastByRun.get(runId);
+        StatusMode mode = last == null ? StatusMode.ABSENT : statusModes.getOrDefault(last.requestId(), StatusMode.ABSENT);
         if (mode == StatusMode.ABSENT || last == null) {
             return response.put("state", "absent");
         }

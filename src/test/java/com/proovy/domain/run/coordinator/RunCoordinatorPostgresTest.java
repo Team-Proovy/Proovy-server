@@ -164,8 +164,7 @@ class RunCoordinatorPostgresTest {
 
     @Test
     void streamingHoldsNoRowLockAndKeepsHeartbeating() throws Exception {
-        RunAdmission run = admit(newUser());
-        brain.script(run.requestId(), Step.HOLD);
+        RunAdmission run = admit(newUser(), Step.HOLD);
         await(() -> !brain.deliveries(run.requestId()).isEmpty());
         Instant firstBeat = instant(runRow(run.runId()).get("heartbeat_at"));
 
@@ -197,8 +196,7 @@ class RunCoordinatorPostgresTest {
         brain.resetInFlightPeak();
         List<RunAdmission> runs = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
-            RunAdmission run = admit(user);
-            brain.script(run.requestId(), Step.HOLD);
+            RunAdmission run = admit(user, Step.HOLD);
             runs.add(run);
         }
         await(() -> sentCount(runs) == 2);
@@ -223,14 +221,50 @@ class RunCoordinatorPostgresTest {
         await(() -> coordinator.slotsInUse() == 0);
     }
 
+    @Test
+    void orphanedExecutionKeepsItsGlobalSlotUntilTerminalEvenWithExpiredLease() throws Exception {
+        long user = newUser();
+        // 이전 프로세스가 claim한 뒤 사라진 run: attempt 1, lease 만료. Brain에서는 아직 돌 수 있다.
+        // PENDING으로 commit하면 coordinator가 먼저 claim할 수 있어 같은 transaction에서 RUNNING으로 만든다.
+        UUID orphan = tx.execute(status -> {
+            UUID runId = insertPendingRunInTransaction(user, Instant.now().plusSeconds(600));
+            jdbc.update("""
+                    UPDATE ai_runs SET status = 'RUNNING', attempt = 1, fence_token = 'fence-gone', started_at = now(),
+                           lease_owner = 'gone-instance', lease_expires_at = now() - interval '1 second',
+                           heartbeat_at = now() - interval '1 minute'
+                    WHERE run_id = ?
+                    """, runId);
+            return runId;
+        });
+        RunAdmission first = admit(user, Step.HOLD);
+        RunAdmission second = admit(user, Step.HOLD);
+        List<RunAdmission> runs = List.of(first, second);
+        try {
+            // 슬롯 2 중 1은 고아 run이 차지한다: lease가 만료됐어도 terminal 전까지 센다
+            await(() -> sentCount(runs) == 1);
+            Thread.sleep(800);
+            assertThat(sentCount(runs)).isEqualTo(1);
+            assertThat(claims.countActiveExecutions()).isEqualTo(2);
+
+            // 고아가 terminal이 되면 슬롯이 풀려 다음 run이 나간다
+            terminals.failByServer(orphan, 1, "fence-gone", RunFailureCode.INTERNAL_ERROR, true);
+            await(() -> sentCount(runs) == 2);
+        } finally {
+            terminals.failByServer(orphan, 1, "fence-gone", RunFailureCode.INTERNAL_ERROR, true);
+            runs.forEach(run -> brain.release(run.requestId()));
+        }
+        for (RunAdmission run : runs) {
+            awaitStatus(run.runId(), "COMPLETED");
+        }
+    }
+
     // ------------------------------------------------------------------
     // capacity·단절·영구 오류
     // ------------------------------------------------------------------
 
     @Test
     void brainCapacityIsRetriedWithTheSameAttemptAndFence() {
-        RunAdmission run = admit(newUser());
-        brain.script(run.requestId(), Step.CAPACITY, Step.CAPACITY, Step.COMPLETE);
+        RunAdmission run = admit(newUser(), Step.CAPACITY, Step.CAPACITY, Step.COMPLETE);
 
         awaitStatus(run.runId(), "COMPLETED");
 
@@ -248,8 +282,7 @@ class RunCoordinatorPostgresTest {
     @Test
     void endlessCapacityIsBoundedAndFailsWithOneCompensation() {
         long user = newUser();
-        RunAdmission run = admit(user);
-        brain.script(run.requestId(), Step.CAPACITY);
+        RunAdmission run = admit(user, Step.CAPACITY);
 
         awaitStatus(run.runId(), "FAILED");
 
@@ -267,9 +300,7 @@ class RunCoordinatorPostgresTest {
 
     @Test
     void streamEndingWithoutTerminalIsNotSuccessAndReattachesToTheLiveExecution() {
-        RunAdmission run = admit(newUser());
-        brain.script(run.requestId(), Step.END_WITHOUT_TERMINAL, Step.COMPLETE);
-        brain.status(run.runId().toString(), StatusMode.EXECUTING);
+        RunAdmission run = admit(newUser(), StatusMode.EXECUTING, Step.END_WITHOUT_TERMINAL, Step.COMPLETE);
 
         awaitStatus(run.runId(), "COMPLETED");
 
@@ -284,9 +315,7 @@ class RunCoordinatorPostgresTest {
 
     @Test
     void storedTerminalFromStatusIsSettledWithoutAnotherStream() {
-        RunAdmission run = admit(newUser());
-        brain.script(run.requestId(), Step.END_WITHOUT_TERMINAL);
-        brain.status(run.runId().toString(), StatusMode.TERMINAL);
+        RunAdmission run = admit(newUser(), StatusMode.TERMINAL, Step.END_WITHOUT_TERMINAL);
 
         awaitStatus(run.runId(), "COMPLETED");
 
@@ -296,9 +325,7 @@ class RunCoordinatorPostgresTest {
 
     @Test
     void absentRecordAfterTransportLossResendsTheSameRequest() {
-        RunAdmission run = admit(newUser());
-        brain.script(run.requestId(), Step.END_WITHOUT_TERMINAL, Step.COMPLETE);
-        brain.status(run.runId().toString(), StatusMode.ABSENT);
+        RunAdmission run = admit(newUser(), StatusMode.ABSENT, Step.END_WITHOUT_TERMINAL, Step.COMPLETE);
 
         awaitStatus(run.runId(), "COMPLETED");
 
@@ -308,8 +335,7 @@ class RunCoordinatorPostgresTest {
     @Test
     void permanentBrainErrorFailsWithoutResend() {
         long user = newUser();
-        RunAdmission run = admit(user);
-        brain.script(run.requestId(), Step.BAD_REQUEST);
+        RunAdmission run = admit(user, Step.BAD_REQUEST);
 
         awaitStatus(run.runId(), "FAILED");
 
@@ -321,8 +347,7 @@ class RunCoordinatorPostgresTest {
     @Test
     void rejectedTerminalIsNotPublishedAndFailsByServer() {
         long user = newUser();
-        RunAdmission run = admit(user);
-        brain.script(run.requestId(), Step.OUT_OF_SCOPE_TERMINAL);
+        RunAdmission run = admit(user, Step.OUT_OF_SCOPE_TERMINAL);
 
         awaitStatus(run.runId(), "FAILED");
 
@@ -383,8 +408,7 @@ class RunCoordinatorPostgresTest {
 
     @Test
     void shutdownStopsWorkersWithoutTreatingTransportEndAsSuccess() {
-        RunAdmission run = admit(newUser());
-        brain.script(run.requestId(), Step.HOLD);
+        RunAdmission run = admit(newUser(), Step.HOLD);
         await(() -> !brain.deliveries(run.requestId()).isEmpty());
 
         coordinator.stop();
@@ -397,6 +421,11 @@ class RunCoordinatorPostgresTest {
                     Boolean.class, run.runId())).isTrue();
             assertThat(coordinator.slotsInUse()).isZero();
             assertThat(coordinator.isExecuting(run.runId())).isFalse();
+            // 로컬 permit은 돌려줬지만 Brain에서 아직 돌 수 있는 run이라 전역 슬롯은 계속 차지한다
+            assertThat(claims.countActiveExecutions()).isGreaterThanOrEqualTo(1);
+            // coordinator lease를 내놓아 다음 인스턴스가 TTL을 기다리지 않는다
+            assertThat(claims.acquireCoordinatorLease("next-instance", Duration.ofSeconds(1))).isTrue();
+            claims.releaseCoordinatorLease("next-instance");
         } finally {
             brain.release(run.requestId());
             coordinator.start();
@@ -411,9 +440,21 @@ class RunCoordinatorPostgresTest {
     // helpers
     // ------------------------------------------------------------------
 
-    private RunAdmission admit(long user) {
+    private RunAdmission admit(long user, Step... steps) {
+        return admit(user, null, steps);
+    }
+
+    /** Brain 각본·status 모드를 먼저 건 뒤 접수한다(접수 commit 직후 coordinator가 바로 가져갈 수 있다). */
+    private RunAdmission admit(long user, StatusMode status, Step... steps) {
+        String requestId = UUID.randomUUID().toString();
+        if (status != null) {
+            brain.status(requestId, status);
+        }
+        if (steps.length > 0) {
+            brain.script(requestId, steps);
+        }
         ObjectNode body = mapper.createObjectNode();
-        body.put("requestId", UUID.randomUUID().toString());
+        body.put("requestId", requestId);
         body.put("text", "x^2-5x+6=0을 풀어줘 " + UUID.randomUUID());
         return admission.admit(user, body);
     }

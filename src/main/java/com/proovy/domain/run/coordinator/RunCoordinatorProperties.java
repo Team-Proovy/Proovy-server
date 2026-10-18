@@ -20,7 +20,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param minDispatchRemaining  남은 deadline이 이보다 짧으면 새로 claim하지 않는다(deadline sweep이 끝낸다)
  * @param redelivery            살아 있는 실행의 같은 attempt 재전달·status 조회 한도
  * @param runtimeCleanupDelay   terminal 확정 뒤 Brain runtime cleanup 예약 시각({@code runtime_cleanup_at}) 지연
- * @param shutdownTimeout       종료 시 worker 정리를 기다리는 최대 시간
+ * @param shutdownTimeout       종료 전체 대기 예산(control·worker 합계, Cloud Run 종료 유예 10초 안)
  */
 @ConfigurationProperties(prefix = "proovy.run.coordinator")
 public record RunCoordinatorProperties(
@@ -35,7 +35,7 @@ public record RunCoordinatorProperties(
         @DefaultValue("5s") Duration minDispatchRemaining,
         @DefaultValue Redelivery redelivery,
         @DefaultValue("0s") Duration runtimeCleanupDelay,
-        @DefaultValue("30s") Duration shutdownTimeout) {
+        @DefaultValue("8s") Duration shutdownTimeout) {
 
     static final Pattern INSTANCE_ID = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}$");
     private static final String PREFIX = "proovy.run.coordinator.";
