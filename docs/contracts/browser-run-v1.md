@@ -38,6 +38,8 @@
 
 OpenAPI에는 component schema만 등록했고 경로는 없다.
 
+> 반영(1.86): 접수 SSE·재접속 SSE·상태·대화 조회 경로 — [`browser-run-sse.md`](browser-run-sse.md). 취소 경로는 1.84.
+
 ## 후속 메모 (PR #229 리뷰 r175-server)
 
 - **1.79 (접수·취소):** `admission/decisions.json`과 `cancel/cases.json` 판정표 fixture를 production admission·cancel

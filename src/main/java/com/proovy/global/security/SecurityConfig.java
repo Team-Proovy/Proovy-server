@@ -1,5 +1,7 @@
 package com.proovy.global.security;
 
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +24,10 @@ import java.util.List;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    private static final String RUN_CREATE_PATH = "/api/conversations";
+    private static final String RUN_EVENTS_PREFIX = "/api/ai-runs/";
+    private static final String RUN_EVENTS_SUFFIX = "/events";
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final JwtAuthenticationEntryPoint jwtAuthEntryPoint;
@@ -46,12 +52,26 @@ public class SecurityConfig {
                     .requestMatchers("/health", "/actuator/health").permitAll()
                     // 에러 디스패치(/error) 시에는 인증 필터가 개입하지 않도록 허용
                     .requestMatchers("/error").permitAll()
+                        // run SSE(1.86): 인증·권한은 최초 요청에서 끝났다. 응답 완료 시의 ASYNC 재dispatch에는 JWT filter가
+                        // 돌지 않아(OncePerRequestFilter) 인증 정보가 없으므로, 이미 열린 run stream 경로만 통과시킨다.
+                        .requestMatchers(SecurityConfig::isRunStreamAsyncDispatch).permitAll()
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(internalApiTokenAuthenticationFilter, JwtAuthenticationFilter.class)
                 .build();
+    }
+
+    /** browser-run-v1 SSE 경로(POST /api/conversations, GET /api/ai-runs/{runId}/events)의 ASYNC dispatch. */
+    static boolean isRunStreamAsyncDispatch(HttpServletRequest request) {
+        if (request.getDispatcherType() != DispatcherType.ASYNC) {
+            return false;
+        }
+        String path = request.getServletPath();
+        return RUN_CREATE_PATH.equals(path)
+                || (path.startsWith(RUN_EVENTS_PREFIX) && path.endsWith(RUN_EVENTS_SUFFIX)
+                && path.indexOf('/', RUN_EVENTS_PREFIX.length()) == path.length() - RUN_EVENTS_SUFFIX.length());
     }
 
     @Bean
