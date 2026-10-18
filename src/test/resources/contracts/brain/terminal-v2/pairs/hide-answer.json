@@ -1,0 +1,288 @@
+{
+  "publication_request": {
+    "schema_version": "publication-v1",
+    "disposition": "substantive",
+    "disclosure": {
+      "scope": "hide_answer",
+      "judgment_completed": true
+    },
+    "pages": [
+      {
+        "presentation": "main",
+        "blocks": [
+          {
+            "kind": "check",
+            "draft": {
+              "text": "두 번째 단계의 변형이 틀렸다. 올바른 결론은 $x=2$이다.",
+              "withheld": [
+                {
+                  "start": 17,
+                  "end": 34
+                }
+              ]
+            },
+            "report": {
+              "status": "reject",
+              "claims": [
+                {
+                  "claim_id": "claim-1",
+                  "verdict": "reject",
+                  "basis": "chain"
+                }
+              ],
+              "requested_claim_count": 1,
+              "steps": [
+                {
+                  "step_id": "step-1",
+                  "status": "failed",
+                  "reason": "step_refuted"
+                }
+              ],
+              "first_error_step_id": "step-1"
+            }
+          },
+          {
+            "kind": "solution",
+            "draft": {
+              "text": "양변에 3을 더해 정리한다. 최종 답은 $x=2$이다.",
+              "withheld": [
+                {
+                  "start": 15,
+                  "end": 30
+                }
+              ]
+            },
+            "report": {
+              "status": "accepted",
+              "claims": [
+                {
+                  "claim_id": "claim-1",
+                  "verdict": "accepted",
+                  "basis": "chain",
+                  "coverage": "direct"
+                }
+              ],
+              "requested_claim_count": 1,
+              "steps": [
+                {
+                  "step_id": "step-1",
+                  "status": "verified",
+                  "level": "direct"
+                }
+              ]
+            },
+            "solution_id": "solution-4",
+            "step_anchors": [
+              {
+                "step_id": "step-1",
+                "span": {
+                  "start": 0,
+                  "end": 15
+                }
+              }
+            ]
+          }
+        ],
+        "title": "오류 설명과 수정 방향"
+      }
+    ]
+  },
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "response_disposition": "substantive",
+      "assistant_response": {
+        "schema_version": "assistant-response-v1",
+        "response_pages": [
+          {
+            "response_page_id": "page-1",
+            "presentation": "main",
+            "title": "오류 설명과 수정 방향",
+            "result_blocks": [
+              {
+                "block_id": "block-1",
+                "body": "두 번째 단계의 변형이 틀렸다.",
+                "kind": "check",
+                "step_marks": [
+                  {
+                    "step_id": "step-1",
+                    "status": "failed",
+                    "reason": "이 단계가 성립하지 않는다고 확인됐다"
+                  }
+                ],
+                "first_error_step_id": "step-1",
+                "quoted_spans": []
+              },
+              {
+                "block_id": "block-2",
+                "body": "양변에 3을 더해 정리한다.",
+                "kind": "solution",
+                "verification": "verified",
+                "solution_id": "solution-4",
+                "claim_ids": [
+                  "claim-1"
+                ],
+                "step_marks": [
+                  {
+                    "step_id": "step-1",
+                    "status": "verified",
+                    "anchor": {
+                      "start": 0,
+                      "end": 15
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "source_references": []
+      },
+      "verified_solutions": [
+        {
+          "schema_version": "verified-solution-v1",
+          "solution_id": "solution-4",
+          "version": 1,
+          "problem_statement": "주어진 명시 조건을 만족하는 결론을 구한다.",
+          "problem_conditions": [
+            {
+              "condition_id": "condition-1",
+              "text": "문제의 명시 조건을 사용한다."
+            }
+          ],
+          "solution_text": "양변에 3을 더해 정리한다. 최종 답은 $x=2$이다.",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "statement": "최종 답은 $x=2$이다."
+            }
+          ],
+          "step_marks": [
+            {
+              "step_id": "step-1",
+              "status": "verified"
+            }
+          ],
+          "verification": {
+            "solution_id": "solution-4",
+            "overall_coverage": "direct",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "coverage": "direct",
+                "method_label": "모든 단계를 실행 검사로 확인",
+                "unconfirmed_steps": []
+              }
+            ]
+          },
+          "verification_version": "chain-verification-report-v3",
+          "source_ref_ids": []
+        }
+      ],
+      "selected_page_provenance": [],
+      "model": "fake/main-model",
+      "tier": "main",
+      "verification_summary": [
+        {
+          "solution_id": "solution-4",
+          "overall_coverage": "direct",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "coverage": "direct",
+              "method_label": "모든 단계를 실행 검사로 확인",
+              "unconfirmed_steps": []
+            }
+          ]
+        }
+      ],
+      "source_labels": []
+    }
+  },
+  "server": {
+    "assistant_message_id": "message-7",
+    "seq": 9,
+    "display_labels": {},
+    "availability": {}
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "responseDisposition": "substantive",
+      "assistantResponse": {
+        "responsePages": [
+          {
+            "responsePageId": "page-1",
+            "presentation": "main",
+            "title": "오류 설명과 수정 방향",
+            "resultBlocks": [
+              {
+                "blockId": "block-1",
+                "body": "두 번째 단계의 변형이 틀렸다.",
+                "kind": "check",
+                "stepMarks": [
+                  {
+                    "stepId": "step-1",
+                    "status": "failed",
+                    "reason": "이 단계가 성립하지 않는다고 확인됐다"
+                  }
+                ],
+                "firstErrorStepId": "step-1",
+                "quotedSpans": []
+              },
+              {
+                "blockId": "block-2",
+                "body": "양변에 3을 더해 정리한다.",
+                "kind": "solution",
+                "verification": "verified",
+                "solutionId": "solution-4",
+                "claimIds": [
+                  "claim-1"
+                ],
+                "stepMarks": [
+                  {
+                    "stepId": "step-1",
+                    "status": "verified",
+                    "anchor": {
+                      "start": 0,
+                      "end": 15
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "sourceReferences": [],
+        "plainText": "오류 설명과 수정 방향\n\n두 번째 단계의 변형이 틀렸다.\n\n양변에 3을 더해 정리한다."
+      },
+      "model": "fake/main-model",
+      "tier": "main",
+      "verificationSummary": [
+        {
+          "solutionId": "solution-4",
+          "overallCoverage": "direct",
+          "claims": [
+            {
+              "claimId": "claim-1",
+              "coverage": "direct",
+              "methodLabel": "모든 단계를 실행 검사로 확인",
+              "unconfirmedSteps": []
+            }
+          ]
+        }
+      ],
+      "assistantMessageId": "message-7"
+    }
+  }
+}

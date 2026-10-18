@@ -1,0 +1,39 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "인수분해는 맞다. 마지막 합산은 확인되지 않았다.",
+            "kind": "solution",
+            "verification": "unverified",
+            "claim_ids": [],
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "anchor": {
+                  "start": 0,
+                  "end": 9
+                }
+              },
+              {
+                "step_id": "step-2",
+                "status": "unconfirmed",
+                "reason": "검사 실행 증거가 없다"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [],
+  "source_labels": {}
+}

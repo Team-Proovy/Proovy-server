@@ -1,0 +1,59 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "substantive",
+  "disclosure": {
+    "scope": "hide_answer",
+    "judgment_completed": true
+  },
+  "pages": [
+    {
+      "presentation": "main",
+      "blocks": [
+        {
+          "kind": "solution",
+          "draft": {
+            "text": "전개는 맞다. 그리고 따라서 답은 $42$이다 라고 결론낸다.",
+            "withheld": [
+              {
+                "start": 12,
+                "end": 25
+              }
+            ]
+          },
+          "report": {
+            "status": "accepted",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "verdict": "accepted",
+                "basis": "chain",
+                "coverage": "direct"
+              }
+            ],
+            "requested_claim_count": 1,
+            "steps": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "level": "direct"
+              }
+            ]
+          },
+          "solution_id": "solution-1"
+        },
+        {
+          "kind": "rich_text",
+          "draft": {
+            "text": "전부 비공개.",
+            "withheld": [
+              {
+                "start": 0,
+                "end": 7
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -24,7 +24,8 @@ class BrainContractMirrorTest {
 
     private static final JsonNode PIN = read(MIRROR.resolve("PIN.json"));
     /** manifest가 없는 artifact의 pin (activity-v1은 version을 CATALOG.md에 둔다, task 1.80). */
-    private static final Set<String> MANIFESTLESS_PINS = Set.of("PIN-activity-v1.json");
+    private static final Set<String> MANIFESTLESS_PINS = Set.of(
+            "PIN-activity-v1.json", "PIN-response-v1.json", "PIN-publication-v1.json");
     private static final JsonNode MANIFEST = load("manifest.json");
 
     @Test
@@ -57,7 +58,8 @@ class BrainContractMirrorTest {
         listed.add("PIN.json");
         listed.add("README.md");
         // 다른 artifact 사본은 각자의 PIN-*.json이 소유하고 그 mirror test가 검사한다
-        // (internal-run-v1: task 1.76 InternalRunContractMirrorTest, activity-v1: task 1.80 ActivityContractMirrorTest).
+        // (internal-run-v1: task 1.76 InternalRunContractMirrorTest, activity-v1: task 1.80 ActivityContractMirrorTest,
+        //  terminal-v2·response-v1·publication-v1: task 1.81 TerminalContractMirrorTest).
         try (Stream<Path> pins = Files.list(MIRROR)) {
             for (Path pinFile : pins.filter(path -> path.getFileName().toString().matches("PIN-.+\\.json")).toList()) {
                 JsonNode pin = read(pinFile);

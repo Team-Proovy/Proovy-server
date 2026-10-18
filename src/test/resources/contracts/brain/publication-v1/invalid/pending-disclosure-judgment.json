@@ -1,0 +1,22 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "substantive",
+  "disclosure": {
+    "scope": "full",
+    "judgment_completed": false
+  },
+  "pages": [
+    {
+      "presentation": "main",
+      "blocks": [
+        {
+          "kind": "rich_text",
+          "draft": {
+            "text": "결과다.",
+            "withheld": []
+          }
+        }
+      ]
+    }
+  ]
+}

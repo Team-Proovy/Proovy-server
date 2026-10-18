@@ -1,0 +1,27 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "지원하는 부분의 풀이 결과다.",
+            "kind": "rich_text"
+          },
+          {
+            "block_id": "block-2",
+            "body": "요청 중 변형·연습문제 생성 부분은 아직 지원하지 않아 그 결과가 없다.",
+            "kind": "notice"
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [],
+  "source_labels": {}
+}

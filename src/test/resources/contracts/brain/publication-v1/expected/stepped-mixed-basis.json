@@ -1,0 +1,20 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [{
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [{
+        "block_id": "block-1",
+        "body": "첫 번째 주장은 답 비교에서 반박됐다.",
+        "kind": "check",
+        "step_marks": [{"step_id": "step-1", "status": "verified"}],
+        "quoted_spans": []
+      }]
+    }],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [],
+  "source_labels": {}
+}

@@ -1,0 +1,68 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "title": "검증된 풀이",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]",
+            "kind": "solution",
+            "verification": "verified",
+            "solution_id": "solution-1",
+            "claim_ids": [
+              "claim-1"
+            ],
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "anchor": {
+                  "start": 0,
+                  "end": 24
+                }
+              },
+              {
+                "step_id": "step-2",
+                "status": "verified",
+                "anchor": {
+                  "start": 25,
+                  "end": 46
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "source_references": [
+      {
+        "source_ref_id": "sref-1",
+        "asset_id": "note-alpha",
+        "page_start": 3,
+        "page_end": 4
+      }
+    ]
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [
+    {
+      "solution_id": "solution-1",
+      "overall_coverage": "direct",
+      "claims": [
+        {
+          "claim_id": "claim-1",
+          "coverage": "direct",
+          "method_label": "모든 단계를 실행 검사로 확인",
+          "unconfirmed_steps": []
+        }
+      ]
+    }
+  ],
+  "source_labels": {
+    "sref-1": "개념 노트 3–4쪽"
+  }
+}

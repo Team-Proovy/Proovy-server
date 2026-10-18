@@ -1,0 +1,272 @@
+{
+  "publication_request": {
+    "schema_version": "publication-v1",
+    "disposition": "substantive",
+    "disclosure": {
+      "scope": "full",
+      "judgment_completed": true
+    },
+    "pages": [
+      {
+        "presentation": "main",
+        "blocks": [
+          {
+            "kind": "solution",
+            "draft": {
+              "text": "√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다.",
+              "withheld": []
+            },
+            "report": {
+              "status": "accepted",
+              "claims": [
+                {
+                  "claim_id": "claim-1",
+                  "verdict": "accepted",
+                  "basis": "chain",
+                  "coverage": "supporting"
+                }
+              ],
+              "requested_claim_count": 1,
+              "steps": [
+                {
+                  "step_id": "step-1",
+                  "status": "verified",
+                  "level": "direct"
+                },
+                {
+                  "step_id": "step-2",
+                  "status": "unconfirmed",
+                  "reason": "legitimate_logical_move",
+                  "settled_logical_move": true
+                }
+              ]
+            },
+            "solution_id": "solution-2",
+            "step_anchors": [
+              {
+                "step_id": "step-1",
+                "span": {
+                  "start": 0,
+                  "end": 13
+                }
+              },
+              {
+                "step_id": "step-2",
+                "span": {
+                  "start": 14,
+                  "end": 24
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "response_disposition": "substantive",
+      "assistant_response": {
+        "schema_version": "assistant-response-v1",
+        "response_pages": [
+          {
+            "response_page_id": "page-1",
+            "presentation": "main",
+            "result_blocks": [
+              {
+                "block_id": "block-1",
+                "body": "√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다.",
+                "kind": "solution",
+                "verification": "partially_verified",
+                "solution_id": "solution-2",
+                "claim_ids": [
+                  "claim-1"
+                ],
+                "step_marks": [
+                  {
+                    "step_id": "step-1",
+                    "status": "verified",
+                    "anchor": {
+                      "start": 0,
+                      "end": 13
+                    }
+                  },
+                  {
+                    "step_id": "step-2",
+                    "status": "unconfirmed",
+                    "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다",
+                    "anchor": {
+                      "start": 14,
+                      "end": 24
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "source_references": []
+      },
+      "verified_solutions": [
+        {
+          "schema_version": "verified-solution-v1",
+          "solution_id": "solution-2",
+          "version": 1,
+          "problem_statement": "주어진 명시 조건을 만족하는 결론을 구한다.",
+          "problem_conditions": [
+            {
+              "condition_id": "condition-1",
+              "text": "문제의 명시 조건을 사용한다."
+            }
+          ],
+          "solution_text": "√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다.",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "statement": "명시 조건에서 제시한 결론이 성립한다."
+            }
+          ],
+          "step_marks": [
+            {
+              "step_id": "step-1",
+              "status": "verified"
+            },
+            {
+              "step_id": "step-2",
+              "status": "unconfirmed",
+              "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다"
+            }
+          ],
+          "verification": {
+            "solution_id": "solution-2",
+            "overall_coverage": "supporting",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "coverage": "supporting",
+                "method_label": "일부 단계를 논리 수사 검토로 확인",
+                "unconfirmed_steps": [
+                  {
+                    "step_id": "step-2",
+                    "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다"
+                  }
+                ]
+              }
+            ]
+          },
+          "verification_version": "chain-verification-report-v3",
+          "source_ref_ids": []
+        }
+      ],
+      "selected_page_provenance": [],
+      "model": "fake/main-model",
+      "tier": "main",
+      "verification_summary": [
+        {
+          "solution_id": "solution-2",
+          "overall_coverage": "supporting",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "coverage": "supporting",
+              "method_label": "일부 단계를 논리 수사 검토로 확인",
+              "unconfirmed_steps": [
+                {
+                  "step_id": "step-2",
+                  "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "source_labels": []
+    }
+  },
+  "server": {
+    "assistant_message_id": "message-7",
+    "seq": 9,
+    "display_labels": {},
+    "availability": {}
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "responseDisposition": "substantive",
+      "assistantResponse": {
+        "responsePages": [
+          {
+            "responsePageId": "page-1",
+            "presentation": "main",
+            "resultBlocks": [
+              {
+                "blockId": "block-1",
+                "body": "√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다.",
+                "kind": "solution",
+                "verification": "partially_verified",
+                "solutionId": "solution-2",
+                "claimIds": [
+                  "claim-1"
+                ],
+                "stepMarks": [
+                  {
+                    "stepId": "step-1",
+                    "status": "verified",
+                    "anchor": {
+                      "start": 0,
+                      "end": 13
+                    }
+                  },
+                  {
+                    "stepId": "step-2",
+                    "status": "unconfirmed",
+                    "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다",
+                    "anchor": {
+                      "start": 14,
+                      "end": 24
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "sourceReferences": [],
+        "plainText": "√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다."
+      },
+      "model": "fake/main-model",
+      "tier": "main",
+      "verificationSummary": [
+        {
+          "solutionId": "solution-2",
+          "overallCoverage": "supporting",
+          "claims": [
+            {
+              "claimId": "claim-1",
+              "coverage": "supporting",
+              "methodLabel": "일부 단계를 논리 수사 검토로 확인",
+              "unconfirmedSteps": [
+                {
+                  "stepId": "step-2",
+                  "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "assistantMessageId": "message-7"
+    }
+  }
+}

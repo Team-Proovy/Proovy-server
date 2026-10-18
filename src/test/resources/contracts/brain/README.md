@@ -9,6 +9,8 @@ commit에서 복사한 파일만 둔다(단계 2 합의 D9 — 복사본 + 해�
 | `browser-run-v1/**` | `tests/fixtures/contracts/browser-run-v1/**` (manifest·CATALOG·builder 포함 전체) |
 | `terminal-v2/browser.schema.json` | `tests/fixtures/contracts/terminal-v2/browser.schema.json` (schema `$ref` 의존) |
 | `internal-run-v1/**` | `tests/fixtures/contracts/internal-run-v1/**` (Server↔Brain 내부 실행 wire, task 1.76, pin `PIN-internal-run-v1.json`) |
+| `terminal-v2/**` | `tests/fixtures/contracts/terminal-v2/**` (terminal 수락 검증, task 1.81, pin `PIN-terminal-v2.json`) |
+| `response-v1/**`·`publication-v1/**` | 같은 경로 (task 1.81, pin `PIN-response-v1.json`·`PIN-publication-v1.json`) |
 
 - `BrainContractMirrorTest`가 다음을 검사한다.
   - `PIN.json`의 `manifest_sha256`·`consumer_version`이 사본 manifest와 같다.
@@ -84,3 +86,29 @@ git -C <proovy-brain checkout> archive "$SHA" tests/fixtures/contracts/activity-
 
 consumer_version이 바뀌면 `SourceActivities.CONSUMER_VERSION`과 Brain `contracts/activity.py` 대응 규칙을 함께 올리고
 `./gradlew test --tests 'com.proovy.domain.run.event.*'`로 확인한다.
+
+## terminal-v2·response-v1·publication-v1 (task 1.81)
+
+- pin: `PIN-terminal-v2.json`(`terminal-fixtures-v2`, manifest sha256 포함), `PIN-response-v1.json`(`response-fixtures-v1`),
+  `PIN-publication-v1.json`(`publication-fixtures-v1.2`). 세 artifact 모두 파일별 sha256이 없어 PIN의 `files`에 적는다.
+  response-v1·publication-v1은 manifest가 없다. activity-v1과 같이 PIN의 `manifest`는 `null`이고(`BrainContractMirrorTest`의
+  `MANIFESTLESS_PINS` 명시 목록), `consumer_version`은 `CATALOG.md`의 `버전:` 줄 값이다(`catalog` 키가 그 파일을 가리킨다).
+- `terminal-v2/browser.schema.json`은 `PIN.json`(browser-run-v1 dependency)과 `PIN-terminal-v2.json`이 함께 소유한다.
+  갱신할 때 두 pin을 같은 commit으로 맞춘다.
+- `TerminalContractMirrorTest`가 해시·목록 밖 파일·manifest pair 존재를 검사한다. `BrainContractMirrorTest`는
+  `PIN-*.json`이 소유한 경로를 목록 밖 파일에서 제외한다.
+
+갱신 절차:
+
+```bash
+SHA=<merge commit>
+DEST=src/test/resources/contracts/brain
+rm -rf "$DEST/terminal-v2" "$DEST/response-v1" "$DEST/publication-v1"
+git -C <proovy-brain checkout> archive "$SHA" tests/fixtures/contracts/terminal-v2 \
+  tests/fixtures/contracts/response-v1 tests/fixtures/contracts/publication-v1 | tar -x --strip-components=3 -C "$DEST"
+# PIN-<artifact>.json: commit, consumer_version, files(경로 → sha256), terminal-v2는 manifest_sha256도 다시 쓴다.
+# 각 값이 Brain commit blob과 같은지 확인한다(위 internal-run-v1 절차와 같다).
+```
+
+consumer_version이 바뀌면 `TerminalContractMirrorTest`의 기대 version을 올리고
+`./gradlew test --tests 'com.proovy.domain.run.terminal.*'`로 확인한다.

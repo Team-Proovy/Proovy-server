@@ -1,0 +1,59 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "title": "반복 구간 검증",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "$√2$부터 $x+1$까지, 다시 $x+1$이다.",
+            "kind": "solution",
+            "verification": "verified",
+            "solution_id": "solution-6",
+            "claim_ids": [
+              "claim-1"
+            ],
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "anchor": {
+                  "start": 7,
+                  "end": 12
+                }
+              },
+              {
+                "step_id": "step-2",
+                "status": "verified",
+                "anchor": {
+                  "start": 19,
+                  "end": 24
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [
+    {
+      "solution_id": "solution-6",
+      "overall_coverage": "direct",
+      "claims": [
+        {
+          "claim_id": "claim-1",
+          "coverage": "direct",
+          "method_label": "모든 단계를 실행 검사로 확인",
+          "unconfirmed_steps": []
+        }
+      ]
+    }
+  ],
+  "source_labels": {}
+}

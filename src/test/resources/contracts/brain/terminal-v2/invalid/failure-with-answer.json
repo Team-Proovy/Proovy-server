@@ -1,0 +1,226 @@
+{
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.failed",
+    "payload": {
+      "response_disposition": "substantive",
+      "assistant_response": {
+        "schema_version": "assistant-response-v1",
+        "response_pages": [
+          {
+            "response_page_id": "page-1",
+            "presentation": "main",
+            "title": "검증된 풀이",
+            "result_blocks": [
+              {
+                "block_id": "block-1",
+                "body": "인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]",
+                "kind": "solution",
+                "verification": "verified",
+                "solution_id": "solution-1",
+                "claim_ids": [
+                  "claim-1"
+                ],
+                "step_marks": [
+                  {
+                    "step_id": "step-1",
+                    "status": "verified",
+                    "anchor": {
+                      "start": 0,
+                      "end": 24
+                    }
+                  },
+                  {
+                    "step_id": "step-2",
+                    "status": "verified",
+                    "anchor": {
+                      "start": 25,
+                      "end": 46
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "source_references": [
+          {
+            "source_ref_id": "sref-1",
+            "asset_id": "note-alpha",
+            "page_start": 3,
+            "page_end": 4
+          }
+        ]
+      },
+      "verified_solutions": [
+        {
+          "schema_version": "verified-solution-v1",
+          "solution_id": "solution-1",
+          "version": 1,
+          "problem_statement": "주어진 명시 조건을 만족하는 결론을 구한다.",
+          "problem_conditions": [
+            {
+              "condition_id": "condition-1",
+              "text": "문제의 명시 조건을 사용한다."
+            }
+          ],
+          "solution_text": "인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "statement": "명시 조건에서 제시한 결론이 성립한다."
+            }
+          ],
+          "step_marks": [
+            {
+              "step_id": "step-1",
+              "status": "verified"
+            },
+            {
+              "step_id": "step-2",
+              "status": "verified"
+            }
+          ],
+          "verification": {
+            "solution_id": "solution-1",
+            "overall_coverage": "direct",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "coverage": "direct",
+                "method_label": "모든 단계를 실행 검사로 확인",
+                "unconfirmed_steps": []
+              }
+            ]
+          },
+          "verification_version": "chain-verification-report-v3",
+          "source_ref_ids": [
+            "sref-1"
+          ]
+        }
+      ],
+      "selected_page_provenance": [
+        {
+          "asset_id": "note-alpha",
+          "content_version": "content-v1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "page": 3,
+          "understanding_version": "page-understanding-v1"
+        },
+        {
+          "asset_id": "note-alpha",
+          "content_version": "content-v1",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "page": 4,
+          "understanding_version": "page-understanding-v1"
+        }
+      ],
+      "model": "fake/main-model",
+      "tier": "main",
+      "verification_summary": [
+        {
+          "solution_id": "solution-1",
+          "overall_coverage": "direct",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "coverage": "direct",
+              "method_label": "모든 단계를 실행 검사로 확인",
+              "unconfirmed_steps": []
+            }
+          ]
+        }
+      ],
+      "source_labels": [
+        {
+          "source_ref_id": "sref-1",
+          "label": "개념 노트 3–4쪽"
+        }
+      ]
+    }
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.failed",
+    "payload": {
+      "responseDisposition": "substantive",
+      "assistantResponse": {
+        "responsePages": [
+          {
+            "responsePageId": "page-1",
+            "presentation": "main",
+            "title": "검증된 풀이",
+            "resultBlocks": [
+              {
+                "blockId": "block-1",
+                "body": "인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]",
+                "kind": "solution",
+                "verification": "verified",
+                "solutionId": "solution-1",
+                "claimIds": [
+                  "claim-1"
+                ],
+                "stepMarks": [
+                  {
+                    "stepId": "step-1",
+                    "status": "verified",
+                    "anchor": {
+                      "start": 0,
+                      "end": 24
+                    }
+                  },
+                  {
+                    "stepId": "step-2",
+                    "status": "verified",
+                    "anchor": {
+                      "start": 25,
+                      "end": 46
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "sourceReferences": [
+          {
+            "sourceRefId": "sref-1",
+            "assetId": "note-alpha",
+            "pageStart": 3,
+            "pageEnd": 4,
+            "displayLabelSnapshot": "개념 노트 3–4쪽",
+            "available": true
+          }
+        ],
+        "plainText": "검증된 풀이\n\n인수분해하면 (x-2)(x-3)=0이다. 따라서 x=2 또는 x=3이다."
+      },
+      "model": "fake/main-model",
+      "tier": "main",
+      "verificationSummary": [
+        {
+          "solutionId": "solution-1",
+          "overallCoverage": "direct",
+          "claims": [
+            {
+              "claimId": "claim-1",
+              "coverage": "direct",
+              "methodLabel": "모든 단계를 실행 검사로 확인",
+              "unconfirmedSteps": []
+            }
+          ]
+        }
+      ],
+      "assistantMessageId": "message-7"
+    }
+  },
+  "source_outcome": "reject",
+  "browser_outcome": "reject"
+}

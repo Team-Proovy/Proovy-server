@@ -1,0 +1,16 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "unsupported_only",
+  "disclosure": {
+    "scope": "full",
+    "judgment_completed": true
+  },
+  "pages": [],
+  "clarification": {
+    "reason": "missing_input",
+    "draft": {
+      "text": "무엇을 풀지 알려 주세요.",
+      "withheld": []
+    }
+  }
+}
