@@ -36,9 +36,15 @@ public record ScopedSolution(
     public static ScopedSolution of(VerifiedSolution solution, String publicSolutionId) {
         Map<String, SummaryCoverage> coverage = new LinkedHashMap<>();
         for (JsonNode claim : solution.getClaims()) {
-            String wire = claim.path("coverage").asText();
-            coverage.put(claim.path("claim_id").asText(), wire.equals(SummaryCoverage.DIRECT.wireValue())
-                    ? SummaryCoverage.DIRECT : SummaryCoverage.SUPPORTING);
+            String claimId = claim.path("claim_id").asText("");
+            String wire = claim.path("coverage").asText("");
+            SummaryCoverage value = wire.equals(SummaryCoverage.DIRECT.wireValue()) ? SummaryCoverage.DIRECT
+                    : wire.equals(SummaryCoverage.SUPPORTING.wireValue()) ? SummaryCoverage.SUPPORTING : null;
+            // V1 claims CHECK가 막는 값이다. 들어와 있으면 저장 데이터 손상이므로 추측하지 않고 드러낸다.
+            if (claimId.isEmpty() || value == null) {
+                throw new IllegalStateException("stored verified solution claims are corrupt: " + solution.getId());
+            }
+            coverage.put(claimId, value);
         }
         return new ScopedSolution(publicSolutionId, solution.getId(), solution.getNoteId(), solution.getStatus(),
                 solution.getRevisesSolutionId(), solution.getSolutionVersion(), coverage);

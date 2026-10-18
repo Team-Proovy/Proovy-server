@@ -163,6 +163,30 @@ class TerminalScopeAcceptanceTest {
         }
 
         @Test
+        @DisplayName("S3 SigV2·STS token 흔적도 signed URL로 거부된다")
+        void s3TemporaryCredentialRejected() {
+            for (String query : List.of("AWSAccessKeyId=a&Signature=b", "X-Amz-Security-Token=t")) {
+                ObjectNode source = copy(pair(SEEDED).get("source"));
+                ObjectNode block = (ObjectNode) source.at("/payload/assistant_response/response_pages/0/result_blocks/0");
+                block.put("body", block.get("body").asText() + " [원본](https://s3.amazonaws.com/b/o?" + query + ")");
+                assertRejected(source, seededScope(source), TerminalRejectionReason.FORBIDDEN_CONTENT);
+            }
+        }
+
+        @Test
+        @DisplayName("page metadata 없는 PDF dependency로는 scope를 만들 수 없다")
+        void pdfWithoutPageCountRefused() {
+            Asset asset = Asset.builder().userId(USER_ID).noteId(NOTE_ID).fileName("a.pdf").fileSize(10L)
+                    .mimeType("application/pdf").objectKey("k").source(Asset.AssetSource.upload)
+                    .status(AssetStatus.ACTIVE).build();
+            ReflectionTestUtils.setField(asset, "id", 100L);
+            RunAssetDependency dependency = new RunAssetDependency(UUID.randomUUID(), NOTE_ID, 100L,
+                    RunAssetDependencyKind.CORPUS_SNAPSHOT, 1, Instant.now());
+            assertThatThrownBy(() -> ScopedAsset.of(dependency, asset, "note-alpha", "content-v1", "pu-v1"))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
         @DisplayName("dependency·asset entity와 snapshot wire 값으로 scope를 만든다")
         void scopedAssetFromEntities() {
             UUID runId = UUID.randomUUID();
@@ -229,6 +253,27 @@ class TerminalScopeAcceptanceTest {
                 assertThat(completion.sourceReferences()).isEmpty();
                 assertThat(completion.verifiedSolutions()).isEmpty();
                 assertThat(completion.verificationSummary()).isEmpty();
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("Brain parity: enum·Literal은 strip하지 않는다")
+    class EnumWhitespace {
+
+        @Test
+        @DisplayName("공백이 붙은 coverage·tier·disposition·schema_version은 거부된다")
+        void paddedEnumRejected() {
+            ObjectNode coverage = copy(pair(SEEDED).get("source"));
+            ((ObjectNode) coverage.at("/payload/verification_summary/0/claims/0")).put("coverage", "direct ");
+            ObjectNode tier = copy(pair(SEEDED).get("source"));
+            ((ObjectNode) tier.get("payload")).put("tier", " main");
+            ObjectNode disposition = copy(pair(SEEDED).get("source"));
+            ((ObjectNode) disposition.get("payload")).put("response_disposition", "substantive ");
+            ObjectNode literal = copy(pair(SEEDED).get("source"));
+            ((ObjectNode) literal.at("/payload/assistant_response")).put("schema_version", " assistant-response-v1");
+            for (ObjectNode source : List.of(coverage, tier, disposition, literal)) {
+                assertRejected(source, seededScope(source), TerminalRejectionReason.MALFORMED);
             }
         }
     }
@@ -350,6 +395,26 @@ class TerminalScopeAcceptanceTest {
                     .contentSha256("c".repeat(64)).createdAt(Instant.now()).build();
             assertThat(ScopedSolution.of(row, "solution-3")).isEqualTo(new ScopedSolution("solution-3", target,
                     NOTE_ID, VerifiedSolutionStatus.ACTIVE, null, 1, Map.of("claim-1", SummaryCoverage.SUPPORTING)));
+        }
+
+        @Test
+        @DisplayName("저장 claim coverage가 손상됐으면 추측하지 않고 IllegalStateException")
+        void corruptStoredCoverageSurfaces() {
+            for (ObjectNode claim : List.of(
+                    TerminalFixtures.RAW.createObjectNode().put("claim_id", "claim-1").put("coverage", "inconclusive"),
+                    TerminalFixtures.RAW.createObjectNode().put("claim_id", "claim-1"),
+                    TerminalFixtures.RAW.createObjectNode().put("coverage", "direct"))) {
+                VerifiedSolution row = VerifiedSolution.builder().id(target).publicSolutionId("solution-1")
+                        .noteId(NOTE_ID).sourceRunId(UUID.randomUUID()).assistantMessageId(UUID.randomUUID())
+                        .schemaVersion("verified-solution-v1").solutionVersion(1).problemStatement("p")
+                        .problemConditions(TerminalFixtures.RAW.createArrayNode()).solutionText("s")
+                        .claims(TerminalFixtures.RAW.createArrayNode().add(claim))
+                        .stepMarks(TerminalFixtures.RAW.createArrayNode())
+                        .verificationSummary(TerminalFixtures.RAW.createObjectNode()).verificationVersion("v")
+                        .sourceRefIds(TerminalFixtures.RAW.createArrayNode()).overallCoverage("direct")
+                        .contentSha256("c".repeat(64)).createdAt(Instant.now()).build();
+                assertThatThrownBy(() -> ScopedSolution.of(row, "solution-3")).isInstanceOf(IllegalStateException.class);
+            }
         }
 
         private ObjectNode revising(String targetId) {

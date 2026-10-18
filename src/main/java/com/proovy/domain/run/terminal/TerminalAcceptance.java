@@ -62,9 +62,13 @@ import java.util.regex.Pattern;
 public final class TerminalAcceptance {
 
     private static final ObjectMapper JSON = new ObjectMapper();
-    /** 공개 텍스트에 나오면 안 되는 signed URL·grant query 흔적(GCS v2·v4, S3). */
+    /**
+     * 공개 텍스트에 나오면 안 되는 signed URL·임시 자격증명 query 흔적(GCS V2·V4, S3 SigV2·SigV4·STS token).
+     * 운영 저장소는 GCS이고 나머지는 같은 종류의 누출을 막는 방어다. 자연어 secret 일반 탐지가 아니다.
+     */
     private static final Pattern SIGNED_URL = Pattern.compile(
-            "x-goog-signature|x-goog-credential|googleaccessid=|x-amz-signature|x-amz-credential",
+            "x-goog-signature|x-goog-credential|googleaccessid=|x-amz-signature|x-amz-credential"
+                    + "|x-amz-security-token|awsaccesskeyid=",
             Pattern.CASE_INSENSITIVE);
 
     private TerminalAcceptance() {
@@ -369,7 +373,10 @@ public final class TerminalAcceptance {
         return asset;
     }
 
-    /** existing reference는 run이 보낸 참조 안이고 version·claim coverage가 저장된 row와 같아야 한다. */
+    /**
+     * existing reference는 run이 보낸 참조 안이고 version·claim coverage가 저장된 row와 같아야 한다.
+     * superseded row의 재표현도 허용한다(사용자 결정): 원래 coverage 배지가 따라오므로 "정정된 풀이" 표시는 1.86/S08 화면이 한다.
+     */
     private static List<UUID> checkExistingReferences(Completed payload, TerminalAcceptanceScope scope) {
         Map<String, ScopedSolution> approved = scope.solutionsByPublicId();
         List<UUID> referenced = new ArrayList<>();
@@ -391,7 +398,7 @@ public final class TerminalAcceptance {
         return referenced;
     }
 
-    /** revises_solution_id: 승인 참조 안의 ACTIVE row만, 같은 terminal artifact·중복 정정·순환은 거부. */
+    /** revises_solution_id: 승인 참조 안의 ACTIVE row만, 같은 terminal artifact·중복 정정·기존 이력 순환(데이터 손상)은 거부. */
     private static Map<String, UUID> checkRevisions(Completed payload, TerminalAcceptanceScope scope) {
         Map<String, ScopedSolution> approved = scope.solutionsByPublicId();
         Set<String> newIds = new HashSet<>();
@@ -416,6 +423,8 @@ public final class TerminalAcceptance {
             if (!targets.add(solution.solutionId())) {
                 throw revision("one solution can be revised only once");
             }
+            // 새 artifact는 아직 UUID가 없어 이 terminal이 순환을 만들 수는 없다. 이 loop는 이미 손상된 기존 이력만
+            // 탐지한다. 같은 대상의 동시 정정 경합은 1.82의 조건부 UPDATE(WHERE status='ACTIVE')가 막는다.
             Set<UUID> seen = new HashSet<>();
             for (UUID cursor = solution.solutionId(); cursor != null; cursor = scope.revisionLinks().get(cursor)) {
                 if (!seen.add(cursor)) {

@@ -14,7 +14,8 @@ import java.util.Objects;
  *
  * @param dependencyContentVersion run 생성 시 {@code run_asset_dependencies}에 고정한 version
  * @param currentContentVersion    지금 {@code assets.content_version}
- * @param pageCount                PDF page 수. 이미지 등 page metadata가 없으면 null(1 page로 본다)
+ * @param pageCount                PDF page 수. 이미지처럼 page가 없는 asset만 null이고 1 page로 본다.
+ *                                 PDF는 반드시 값이 있어야 한다({@link #of}가 강제, 직접 생성 시 호출자 책임).
  */
 public record ScopedAsset(
         String brainAssetId,
@@ -29,6 +30,8 @@ public record ScopedAsset(
         Integer pageCount,
         String pageUnderstandingVersion) {
 
+    private static final String PDF_MIME = "application/pdf";
+
     public ScopedAsset {
         Objects.requireNonNull(brainAssetId, "brainAssetId");
         Objects.requireNonNull(status, "status");
@@ -41,6 +44,10 @@ public record ScopedAsset(
             String brainContentVersion, String pageUnderstandingVersion) {
         if (!dependency.getAssetId().equals(asset.getId())) {
             throw new IllegalArgumentException("dependency and asset must name the same asset");
+        }
+        if (PDF_MIME.equals(asset.getMimeType()) && asset.getPageCount() == null) {
+            // page_count 없는 PDF를 1쪽으로 보면 정상 인용이 "범위 밖"으로 잘못 거부된다. scope 생성 단계에서 막는다.
+            throw new IllegalArgumentException("a pdf dependency requires page metadata");
         }
         return new ScopedAsset(brainAssetId, asset.getId(), asset.getUserId(), asset.getNoteId(), asset.getStatus(),
                 dependency.getContentVersion(), asset.getContentVersion(), brainContentVersion, asset.getSha256(),

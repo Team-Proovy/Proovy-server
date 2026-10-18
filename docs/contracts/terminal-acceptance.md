@@ -21,8 +21,8 @@ AcceptedTerminal accepted = TerminalAcceptance.accept(storedTerminalOrSourceEven
 |---|---|
 | `runId`·`attempt`·`fenceToken` | 현재 `ai_runs` (Brain에 보낸 wire run_id) |
 | `userId`·`noteId` | run 소유자·Note |
-| `assets[]` (`ScopedAsset`) | `run_asset_dependencies` + `assets`. `brainAssetId`·`brainContentVersion`·`pageUnderstandingVersion`은 이 run의 Brain 요청 snapshot이 보낸 wire 값을 그대로 넣는다(정수 ID·version의 wire 철자는 1.78 snapshot 매핑이 정한다). `ScopedAsset.of(dependency, asset, …)` |
-| `solutions[]` (`ScopedSolution`) | 요청 `verified_solution_refs` + `verified_solutions` row. `ScopedSolution.of(row, publicId)` |
+| `assets[]` (`ScopedAsset`) | `run_asset_dependencies` + `assets`. `brainAssetId`는 1.78 snapshot과 같은 `String.valueOf(asset id)`다. `pageUnderstandingVersion`은 snapshot `viewer_context.page_understanding_version`(또는 corpus 적용 version)이다. `brainContentVersion`은 아래 "검증하지 않은 부분"을 본다. `ScopedAsset.of(dependency, asset, …)`. PDF는 `page_count`가 있어야 한다(없으면 `of`가 `IllegalArgumentException`) |
+| `solutions[]` (`ScopedSolution`) | 요청 `verified_solution_refs` + `verified_solutions` row. `ScopedSolution.of(row, publicId)`. 저장 claim이 손상됐으면(coverage가 direct·supporting 밖, claim_id 없음) `IllegalStateException` |
 | `revisionLinks` | 같은 Note의 `solution_id → revises_solution_id` (순환 검사용, 아는 만큼) |
 
 source 없는 텍스트 run은 `TerminalAcceptanceScope.textOnly(...)`.
@@ -63,14 +63,24 @@ message는 범주·필드 경로·위반 종류만 담고 payload 값은 담지 
 | `SOURCE_CATALOG` | label과 catalog 불일치, artifact source ID가 catalog 밖 |
 | `PROVENANCE` | 인용 범위 page provenance 누락(비연속 근거의 범위 합침 포함), 범위 밖·중복 provenance, asset version 불일치, guidance의 provenance |
 | `FAILURE_PAYLOAD` | code·class·message·reason 불일치(내부 원문 message) |
-| `FORBIDDEN_CONTENT` | 공개 텍스트·label·artifact의 signed URL 흔적(`X-Goog-Signature` 등) |
+| `FORBIDDEN_CONTENT` | 공개 텍스트·label·artifact의 signed URL·임시 자격증명 흔적(GCS V2·V4, S3 SigV2·SigV4·`X-Amz-Security-Token`). 자연어 secret 일반 탐지는 아니다 |
 | `RUN_MISMATCH` | 다른 run_id·attempt·fence |
 | `SOURCE_SCOPE` | dependency 밖 asset, 다른 user/Note, ACTIVE 아님, run 시작 뒤 content version 변경, page_count 초과, provenance version·sha256·understanding version 불일치 |
 | `SOLUTION_REFERENCE_SCOPE` | 승인 안 된 existing reference, version·claim coverage 불일치, 다른 Note |
-| `REVISION` | 승인 밖 대상, superseded 대상, 자기 자신, 같은 terminal artifact 대상, 한 대상 두 번 정정, 순환 이력 |
+| `REVISION` | 승인 밖 대상, superseded 대상, 자기 자신, 같은 terminal artifact 대상, 한 terminal 안에서 한 대상 두 번 정정, 기존 이력의 순환(데이터 손상 탐지) |
 
 Brain보다 엄격한 Server 규칙은 두 가지다. 하나는 artifact 공개 요구다. Brain은 inconclusive 공개와 artifact가 함께 와도 거부하지 않는다. 다른 하나는 signed URL 검사다.
 나머지는 fixture로 Brain 판정과 같음을 검사한다. 정수·bool은 JSON 정수·bool만 받는다(문자열 coercion 거부, fail-closed).
+str 필드는 Brain `str_strip_whitespace`처럼 strip한다. enum·Literal 값은 strip하지 않고 원문으로 비교한다(Brain과 같다).
+
+## 정책 결정
+
+- **superseded solution의 재표현 허용** (사용자 결정, 리뷰 r181 R5): `existing_solution_references`는 status를 보지 않는다.
+  run 요청이 active·superseded 참조를 모두 보내므로(1.78), "이전 풀이 설명"으로 superseded solution을 재표현할 수 있다.
+  원래 coverage 배지가 그대로 따라오므로 "정정된 풀이"라는 표시는 **1.86/S08 화면**이 한다.
+  정정 대상(`revises_solution_id`)은 계속 ACTIVE만 허용한다.
+- **revision 순환**: 새 artifact는 아직 UUID가 없어 terminal 하나가 순환을 만들 수는 없다. `revisionLinks` 검사는 이미 손상된
+  기존 이력만 탐지한다. 같은 대상을 두 run이 동시에 정정하는 경합은 1.82의 조건부 UPDATE(`WHERE status='ACTIVE'`)가 막는다.
 
 ## 1.82 인계 — transaction 재확인 (TOCTOU)
 
@@ -87,6 +97,16 @@ Brain보다 엄격한 Server 규칙은 두 가지다. 하나는 artifact 공개 
 ## 검증하지 않은 부분
 
 - 실제 S09 업로드·GCS·page metadata 경로: asset sha256·page_count·Page Understanding version은 seeded/fake 값으로만 검사했다.
+  page_count가 아직 없는 PDF는 scope를 만들 수 없다(`ScopedAsset.of` 거부). 1.82는 이 경우를 provenance 거부가 아니라
+  scope 구성 실패(데이터 미준비)로 분류해야 한다.
+- provenance `content_version` 문자열: Server는 Brain에 content version 문자열을 보내지 않는다. viewer_context에는
+  sha256·understanding version만 있고, corpus snapshot에는 정수만 있다. 따라서 Brain이 provenance에 쓰는 문자열과 Server 정수의 대응이
+  계약에 없다. 지금은 호출자가 `brainContentVersion`을 넣고 이 검증은 그 값과 대조할 뿐이다.
+  **Brain 후속(S09/S10 이전에 고정 필요)**: provenance `content_version`의 철자를 계약으로 정한다(예: Server 정수의 문자열).
+- SafeMarkdown CR(`\r`): Brain 규칙과 같이 `\r`을 허용하고 행 기준 검사(fenced code·link definition·indented code)는 `\n`만 본다.
+  CommonMark 렌더러는 `\r`을 줄바꿈으로 보므로 `x\r~~~` 같은 우회가 가능하다. Server 단독으로 막으면 Brain parity가 깨지므로 그대로 두었다.
+  **Brain 후속**: CR 금지 또는 CRLF 정규화를 계약에 넣는다. **1.86 방어**: browser 렌더러가 `\r`을 줄바꿈으로 해석하지 않게 한다
+  (렌더 전에 `\r`을 공백으로 바꾸거나 제거).
 - asset ID·content version의 Brain wire 철자: 1.78 snapshot 매핑에 달려 있고, 이 태스크는 scope가 그 값을 받는다고 가정한다.
 - 인용 의미·정답 grounding(S11·Brain), 수학 재판정(Brain), browser projection(`available` hydration, 1.86).
 - catalog entry를 아무 marker도 인용하지 않아도 수락한다(Brain과 같음).

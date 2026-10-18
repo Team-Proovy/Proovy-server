@@ -13,7 +13,8 @@ import java.util.regex.Pattern;
  * Brain closed model(pydantic {@code extra="forbid"}·{@code str_strip_whitespace}) 의미로 JSON object를 읽는다.
  * <ul>
  *   <li>알 수 없는 key는 거부한다.</li>
- *   <li>문자열은 Python {@code str.strip()}으로 정리한 뒤 code point 길이·형식을 검사한다.</li>
+ *   <li>문자열은 Python {@code str.strip()}으로 정리한 뒤 code point 길이·형식을 검사한다.
+ *       enum·Literal 값은 str 필드가 아니므로 strip하지 않고 원문으로 비교한다.</li>
  *   <li>정수·bool은 JSON 정수·bool만 받는다(문자열·실수 coercion 없음 — Brain보다 엄격한 쪽, fail-closed).</li>
  *   <li>선택 배열이 없으면 빈 목록이고, JSON {@code null} 배열은 거부한다.</li>
  * </ul>
@@ -184,7 +185,8 @@ final class StrictJson {
     /** 기본값이 있는 literal(없으면 통과, 있으면 같은 값). */
     void literal(String key, String expected) {
         JsonNode value = node.get(key);
-        if (value != null && !(value.isTextual() && expected.equals(Python.strip(value.textValue())))) {
+        // Literal·enum은 str 필드가 아니라 strip하지 않는다(pydantic str_strip_whitespace는 str에만 적용).
+        if (value != null && !(value.isTextual() && expected.equals(value.textValue()))) {
             throw malformed(path(key), "unexpected literal");
         }
     }
@@ -204,11 +206,16 @@ final class StrictJson {
         return value;
     }
 
+    /** enum은 원문 그대로 비교한다(공백이 붙은 값은 Brain처럼 거부). */
     <E extends Enum<E>> E optionalEnum(String key, Class<E> type) {
-        String wire = optionalString(key, 1, MAX_IDENTIFIER_LENGTH);
-        if (wire == null) {
+        JsonNode value = node.get(key);
+        if (value == null || value.isNull()) {
             return null;
         }
+        if (!value.isTextual()) {
+            throw malformed(path(key), "must be a string");
+        }
+        String wire = value.textValue();
         for (E candidate : type.getEnumConstants()) {
             if (wire.equals(wireValue(candidate))) {
                 return candidate;
