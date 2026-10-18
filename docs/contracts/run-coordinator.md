@@ -46,7 +46,7 @@ SecurityConfig·SSE·hikari·`spring.task.*`·`server.*`는 바꾸지 않았다.
 - **빈 슬롯** = min(로컬 semaphore, `max-concurrent-runs` − DB의 비terminal 실행 수(`attempt >= 1 AND status IN (RUNNING, RETRYING, CANCELING)`, **lease 무관**)).
   다른 인스턴스·이전 프로세스·heartbeat가 끊긴 실행도 Brain에서 아직 돌 수 있으므로 terminal(완료·deadline sweep·회수·취소 확정)이 될 때까지 슬롯을 차지한다.
   배포 교체 때도 새 coordinator가 Brain 동시 실행을 max 이상으로 올리지 않는다. 고아 run의 상한은 deadline sweep이 보장한다(CANCELING은 1.84 확정).
-  dispatch는 lock으로 한 번에 하나만 돈다(주기 dispatch와 슬롯 반환 뒤 dispatch가 같은 DB 수로 각자 claim하지 않게).
+  dispatch는 한 번에 하나만 돈다(주기 dispatch와 슬롯 반환 뒤 dispatch가 같은 DB 수로 각자 claim하지 않게). 이미 돌고 있으면 기다리지 않고 재실행만 표시해 control thread(heartbeat·sweep)를 묶지 않는다.
   슬롯이 없으면 run은 PENDING으로 남는다(무한 in-memory queue 없음).
 - Brain 503 capacity·429는 슬롯의 대체물이 아니다. 같은 요청을 bounded 재전송하는 transient다.
 
@@ -96,7 +96,7 @@ stream은 transaction 없이 소비한다(`toStream` + 멈춤 신호 `takeUntilO
   `failByServer(PROVIDER_ERROR, true)`, 지났으면 `expireDeadline`(timeout)이다. 둘 다 1.82가 보상을 한 번 처리한다. **transport 종료는 성공이 아니다.**
 - **재전달마다 자격증명 재발급**: 첫 전달 뒤 모든 재전달(capacity·status 뒤 재연결) 전에 `RunAssetAccessProvider.accessFor`로 grant·read URL을 새로 받아
   `withAssetAccess`로 갈아 끼운다(fingerprint 불변). 이전 전달의 값을 다시 보내지 않는다.
-- **일시 DB 오류**(Activity·terminal 저장 중 `TransientDataAccessException`·`RecoverableDataAccessException`·`DataAccessResourceFailureException`):
+- **일시 DB 오류**(Activity·terminal 저장 중 `TransientDataAccessException`·`RecoverableDataAccessException`·`DataAccessResourceFailureException`·`CannotCreateTransactionException`):
   그 stream을 끊고 같은 재전달 한도 안에서 backoff 뒤 status 수습에 합류한다. Brain은 같은 요청에 OBSERVE·RETURN_TERMINAL로 답하고 Activity는 source ID로 dedup된다.
   수습 중에도 DB를 쓸 수 없거나 다른 예외면 LOCAL_ERROR다.
 - deadline sweep은 `PENDING|RUNNING|RETRYING AND request_deadline_at <= now`를 `expireDeadline`으로 끝내고(슬롯 대기 중 PENDING 포함), cleanup을 예약하고,

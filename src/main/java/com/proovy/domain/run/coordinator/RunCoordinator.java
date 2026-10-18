@@ -61,6 +61,7 @@ public class RunCoordinator implements SmartLifecycle {
     private final AtomicBoolean leader = new AtomicBoolean();
     private final AtomicBoolean dispatchQueued = new AtomicBoolean();
     private final ReentrantLock dispatchLock = new ReentrantLock();
+    private final AtomicBoolean redispatch = new AtomicBoolean();
 
     private ScheduledExecutorService control;
     private ThreadPoolExecutor workers;
@@ -241,12 +242,20 @@ public class RunCoordinator implements SmartLifecycle {
             return;
         }
         // 주기 dispatch와 슬롯 반환 뒤 dispatch가 겹쳐 같은 DB 수로 각자 claim하면 전역 상한을 넘는다. 한 번에 하나만 돈다.
-        dispatchLock.lock();
-        try {
-            dispatchLocked();
-        } finally {
-            dispatchLock.unlock();
-        }
+        // 기다리지 않는다(control thread를 묶으면 heartbeat·sweep이 늦어진다): 이미 돌고 있으면 다시 돌라고 표시만 하고,
+        // 잡고 있는 쪽이 끝난 뒤 한 번 더 돈다.
+        do {
+            if (!dispatchLock.tryLock()) {
+                redispatch.set(true);
+                return;
+            }
+            try {
+                redispatch.set(false);
+                dispatchLocked();
+            } finally {
+                dispatchLock.unlock();
+            }
+        } while (redispatch.get() && running.get() && leader.get());
     }
 
     private void dispatchLocked() {

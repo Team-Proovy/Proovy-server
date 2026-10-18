@@ -1,6 +1,8 @@
 package com.proovy.domain.run.coordinator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -10,6 +12,7 @@ import com.proovy.domain.run.coordinator.FakeBrain.Delivery;
 import com.proovy.domain.run.coordinator.FakeBrain.StatusMode;
 import com.proovy.domain.run.coordinator.FakeBrain.Step;
 import com.proovy.domain.run.entity.RunFailureCode;
+import com.proovy.domain.run.event.RunEventStore;
 import com.proovy.domain.run.terminal.RunTerminalService;
 import com.proovy.domain.usage.service.RequestUsageService;
 import com.proovy.support.db.PostgresTestDatabase;
@@ -44,6 +47,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -118,6 +123,8 @@ class RunCoordinatorPostgresTest {
     @Autowired RunCoordinator coordinator;
     @Autowired RunClaimStore claims;
     @Autowired RunTerminalService terminals;
+    /** 실제 저장소 그대로, 특정 테스트에서만 일시 실패를 주입한다. */
+    @MockitoSpyBean RunEventStore events;
     @Autowired RequestUsageService usage;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
@@ -333,6 +340,24 @@ class RunCoordinatorPostgresTest {
     }
 
     @Test
+    void transactionAcquisitionFailureDuringStreamReconcilesInsteadOfAbandoningTheRun() {
+        String requestId = UUID.randomUUID().toString();
+        // 첫 Activity 저장에서 transaction을 열지 못한다(연결 획득 실패). 다음 시도부터는 실제 저장소
+        doThrow(new CannotCreateTransactionException("connection unavailable")).doCallRealMethod()
+                .when(events).appendActivity(argThat(event -> event != null && event.runId() != null
+                        && brain.deliveries(requestId).stream().anyMatch(d -> d.runId().equals(event.runId()))));
+        RunAdmission run = admit(newUser(), requestId, StatusMode.EXECUTING, Step.COMPLETE, Step.COMPLETE);
+
+        awaitStatus(run.runId(), "COMPLETED");
+
+        // LOCAL_ERROR로 버리지 않고 같은 attempt로 status 수습 뒤 다시 붙었다
+        assertThat(brain.statusCalls(run.runId().toString())).isGreaterThanOrEqualTo(1);
+        assertThat(brain.deliveries(requestId)).hasSize(2).extracting(Delivery::attempt).containsOnly(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_run_events WHERE run_id = ? AND event_type = "
+                + "'activity.started'", Long.class, run.runId())).isEqualTo(1);
+    }
+
+    @Test
     void permanentBrainErrorFailsWithoutResend() {
         long user = newUser();
         RunAdmission run = admit(user, Step.BAD_REQUEST);
@@ -446,7 +471,10 @@ class RunCoordinatorPostgresTest {
 
     /** Brain 각본·status 모드를 먼저 건 뒤 접수한다(접수 commit 직후 coordinator가 바로 가져갈 수 있다). */
     private RunAdmission admit(long user, StatusMode status, Step... steps) {
-        String requestId = UUID.randomUUID().toString();
+        return admit(user, UUID.randomUUID().toString(), status, steps);
+    }
+
+    private RunAdmission admit(long user, String requestId, StatusMode status, Step... steps) {
         if (status != null) {
             brain.status(requestId, status);
         }

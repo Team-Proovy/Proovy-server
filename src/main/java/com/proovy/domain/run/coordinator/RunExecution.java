@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.dao.TransientDataAccessException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import reactor.core.publisher.Sinks;
 
 /**
@@ -55,7 +56,7 @@ import reactor.core.publisher.Sinks;
  *       같은 epoch executing이면 같은 요청 재전달, terminal이면 저장 terminal을 {@link RunTerminalService#settle(StoredTerminal)},
  *       fingerprint 불일치는 실패. 조회 한도 소진도 실패·보상이다.</li>
  *   <li>영구(계약·인증·contention·binding): {@code failByServer(INTERNAL_ERROR)}.</li>
- *   <li>stream 중 일시 DB 오류(연결·timeout·직렬화): 같은 재전달 한도 안에서 backoff 뒤 status 수습. 그 밖의 예외와
+ *   <li>stream 중 일시 DB 오류(연결·timeout·직렬화, transaction 시작 시 연결 획득 실패): 같은 재전달 한도 안에서 backoff 뒤 status 수습. 그 밖의 예외와
  *       수습 중 DB 실패는 LOCAL_ERROR(lease 만료 → 회수 1.85·deadline sweep)다.</li>
  * </ul>
  */
@@ -185,7 +186,7 @@ final class RunExecution implements Runnable {
             } catch (BrainCallException failure) {
                 step = afterFailure(failure, request, deadline);
             } catch (TransientDataAccessException | RecoverableDataAccessException
-                     | DataAccessResourceFailureException local) {
+                     | DataAccessResourceFailureException | CannotCreateTransactionException local) {
                 // Activity·terminal 저장 중 일시 DB 오류: 이 stream을 끊고 같은 attempt로 status 수습에 합류한다.
                 // Brain은 같은 요청 재전달에 OBSERVE·RETURN_TERMINAL로 답하고 Activity는 source ID로 dedup된다.
                 step = afterLocalFailure(local, request, deadline);
