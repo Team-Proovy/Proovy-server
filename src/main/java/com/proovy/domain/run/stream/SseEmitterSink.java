@@ -26,8 +26,21 @@ final class SseEmitterSink implements RunEventSink {
     public void write(String block) throws IOException {
         try {
             emitter.send(new RawBlock(block));
-        } catch (IllegalStateException alreadyCompleted) {
-            throw new IOException("emitter already completed", alreadyCompleted);
+        } catch (IllegalStateException e) {
+            // 이미 끝난 emitter(단절·timeout과 경합)만 단절로 본다. 그 밖(변환 실패 등)은 stream 오류 경로로 보낸다.
+            if (e.getMessage() != null && e.getMessage().contains("already completed")) {
+                throw new IOException("emitter already completed", e);
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public void fail(Throwable error) {
+        try {
+            emitter.completeWithError(error);
+        } catch (RuntimeException ignored) {
+            // 이미 끝난 연결
         }
     }
 

@@ -22,13 +22,15 @@ import lombok.extern.slf4j.Slf4j;
  * </ol>
  *
  * <h2>연결당 전송 하나</h2>
- * 전송(drain)은 연결마다 동시에 최대 하나다. 전송 중 들어온 신호는 {@code pending} 표시 하나로 합쳐지고 끝나면 한 번 더 읽는다.
- * 그래서 신호가 몰리거나 브라우저가 느려도 서버에 연결별 frame queue가 쌓이지 않고, 신호 listener(append commit thread)는
- * 기다리지 않는다. 느린 브라우저는 자기 전송 thread 하나만 붙잡는다.
+ * 연결의 모든 쓰기(frame 전송 drain과 heartbeat)는 {@code draining} 소유권 하나를 가진 쪽만 한다. 그래서 연결마다 쓰는 thread는
+ * 동시에 최대 하나이고, 느린 브라우저는 pool thread 하나만 붙잡는다(heartbeat가 다른 thread에서 쓰기를 기다리지 않는다 — 전송 중이면
+ * heartbeat는 필요 없어 건너뛴다). 전송 중 들어온 신호는 {@code pending} 표시 하나로 합쳐지고 끝나면 한 번 더 읽는다. 그래서 신호가
+ * 몰리거나 브라우저가 느려도 서버에 연결별 frame queue가 쌓이지 않고, 신호 listener(append commit thread)는 기다리지 않는다.
  *
  * <h2>종료</h2>
- * terminal frame을 보내면(또는 terminal run의 cursor가 이미 끝이면) 연결을 정상 종료한다. 브라우저 단절·timeout·전송 실패는
- * {@link #close()} — 구독과 예약 작업만 해제하고 run 실행·상태는 건드리지 않는다.
+ * terminal frame을 보내면(또는 terminal run의 cursor가 이미 끝이면) 연결을 정상 종료한다. 브라우저 단절·timeout은
+ * {@link #close()} — 구독과 예약 작업만 해제하고 run 실행·상태는 건드리지 않는다. 복원·조회 실패는 오류 종료
+ * ({@link RunEventSink#fail})라 브라우저는 terminal 없이 끝난 stream으로 보고 backoff 뒤 재접속한다.
  */
 @Slf4j
 final class RunEventStream {
@@ -41,7 +43,6 @@ final class RunEventStream {
     private final RunSseProperties properties;
     private final Runnable onClose;
 
-    private final Object writeLock = new Object();
     private final AtomicBoolean draining = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
     private volatile boolean pending;
@@ -107,15 +108,21 @@ final class RunEventStream {
             log.debug("run SSE client gone: runId={}", runId);
             close();
         } catch (RuntimeException e) {
-            log.warn("run SSE stream failed: runId={}, error={}", runId, e.getClass().getSimpleName());
-            close();
-            sink.complete();
-        } finally {
-            draining.set(false);
-            // 해제와 새 신호 사이 경합: 표시가 남아 있으면 다시 맡는다
-            if (pending && !closed.get() && draining.compareAndSet(false, true)) {
-                scheduler.execute(this::drain);
+            // 같은 seq에서 반복될 수 있는 복원·조회 실패: 원인을 남기고 오류로 끝낸다(정상 종료로 보이면 즉시 재접속 루프가 된다)
+            log.error("run SSE stream failed: runId={}, cursor={}", runId, cursor, e);
+            if (close()) {
+                sink.fail(e);
             }
+        } finally {
+            yieldWriter();
+        }
+    }
+
+    /** 쓰기 소유권을 놓는다. 해제와 새 신호 사이 경합: 표시가 남아 있으면 다시 맡는다. */
+    private void yieldWriter() {
+        draining.set(false);
+        if (pending && !closed.get() && draining.compareAndSet(false, true)) {
+            scheduler.execute(this::drain);
         }
     }
 
@@ -151,24 +158,26 @@ final class RunEventStream {
         }
     }
 
+    /** 전송 중이면 건너뛴다(frame이 이미 흐르고 있고, 쓰기를 기다리느라 두 번째 thread를 붙잡지 않는다). */
     private void heartbeat() {
-        if (closed.get()) {
+        if (closed.get() || !draining.compareAndSet(false, true)) {
             return;
         }
         try {
             write(OutboundFrame.HEARTBEAT);
         } catch (IOException e) {
             close();
+        } finally {
+            yieldWriter();
         }
     }
 
+    /** {@code draining} 소유자만 부른다. */
     private void write(String block) throws IOException {
-        synchronized (writeLock) {
-            if (closed.get()) {
-                throw new IOException("stream closed");
-            }
-            sink.write(block);
+        if (closed.get()) {
+            throw new IOException("stream closed");
         }
+        sink.write(block);
     }
 
     private void finish() {

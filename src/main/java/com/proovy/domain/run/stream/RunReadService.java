@@ -105,7 +105,9 @@ public class RunReadService {
         PublicRunStatus status = PublicRunStatus.from(run.status());
         RunFailureSummary failure = null;
         if (run.status() == AiRunStatus.FAILED) {
-            JsonNode failed = failedPayloads(List.of(run.runId())).get(run.runId());
+            JsonNode failed = json(jdbc.queryForObject(
+                    "SELECT payload::text FROM ai_run_events WHERE run_id = ? AND event_type = 'run.failed'",
+                    String.class, run.runId()));
             failure = new RunFailureSummary(failed.get("code").asText(), textOrNull(failed, "reason"),
                     failed.get("recoverable").asBoolean());
         }
@@ -283,16 +285,6 @@ public class RunReadService {
         }, (rs, row) -> new ActiveRunSummary(rs.getObject(1, UUID.class).toString(),
                 PublicRunStatus.from(AiRunStatus.valueOf(rs.getString(2))), rs.getLong(3)))
                 .stream().findFirst().orElse(null);
-    }
-
-    private Map<UUID, JsonNode> failedPayloads(List<UUID> runIds) {
-        Map<UUID, JsonNode> failed = new HashMap<>();
-        terminalAndCreated(runIds).forEach((runId, events) -> {
-            if (events.containsKey("run.failed")) {
-                failed.put(runId, events.get("run.failed"));
-            }
-        });
-        return failed;
     }
 
     /** run별 {@code run.created}·{@code run.completed}·{@code run.failed} 저장 payload. 각 type은 run당 최대 하나다. */

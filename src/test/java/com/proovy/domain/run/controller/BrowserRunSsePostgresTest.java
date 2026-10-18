@@ -541,6 +541,44 @@ class BrowserRunSsePostgresTest {
         assertThat(badLimit.statusCode()).isEqualTo(400);
     }
 
+    @Test
+    @DisplayName("열린 연결도 Note가 삭제 중이 되면 더 보내지 않고 닫는다(새 GET은 RUN4041)")
+    void openStreamClosesWhenNoteStartsDeleting() throws Exception {
+        try (Sse post = post(alice(), requestBody(UUID.randomUUID().toString(), null))) {
+            JsonNode created = post.nextFrame().json();
+            UUID runId = UUID.fromString(created.get("runId").asText());
+            long noteId = created.at("/payload/noteId").asLong();
+            jdbc.update("UPDATE notes SET status = 'DELETING', deletion_requested_at = now() WHERE note_id = ?", noteId);
+            claim(runId);
+            activity(runId, "activity-1", 0);
+            assertThat(post.framesUntilEnd()).as("삭제 중 Note의 event는 보내지 않는다").isEmpty();
+            try (Sse again = events(alice(), runId, null, null)) {
+                assertThat(again.status).isEqualTo(404);
+            }
+        }
+        awaitNoOpenStreams();
+    }
+
+    @Test
+    @DisplayName("stream 전 예상 밖 실패는 Accept가 SSE여도 COMMON500 JSON이다")
+    void unexpectedFailureBeforeStreamIsJson() throws Exception {
+        UUID runId;
+        try (Sse post = post(alice(), requestBody(UUID.randomUUID().toString(), null))) {
+            runId = UUID.fromString(post.nextFrame().json().get("runId").asText());
+        }
+        claim(runId);
+        // run.failed event 없이 FAILED가 된 손상 상태(정상 경로에서는 생기지 않는다) → 상태 조회가 실패한다
+        jdbc.update("""
+                UPDATE ai_runs SET status = 'FAILED', failure_code = 'internal_error', failure_class = 'infrastructure',
+                       completed_at = now(), lease_owner = NULL, lease_expires_at = NULL
+                WHERE run_id = ?
+                """, runId);
+        HttpResponse<String> response = get(alice(), "/api/ai-runs/" + runId, null);
+        assertThat(response.statusCode()).isEqualTo(500);
+        assertThat(response.headers().firstValue("Content-Type").orElse("")).startsWith("application/json");
+        assertThat(RAW.readTree(response.body()).get("code").asText()).isEqualTo("COMMON500");
+    }
+
     // ------------------------------------------------------------------
     // source availability · 대화 조회 페이지
     // ------------------------------------------------------------------

@@ -72,7 +72,13 @@ public class RunStreamService {
             stream.close();
             emitter.complete();
         });
-        stream.start();
+        try {
+            stream.start();
+        } catch (RuntimeException e) {
+            // 예약 실패(shutdown 중 등): 이미 건 구독과 연결 수를 되돌린다
+            stream.close();
+            throw e;
+        }
         return emitter;
     }
 }

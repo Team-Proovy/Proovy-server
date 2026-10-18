@@ -3,12 +3,14 @@ package com.proovy.domain.run.controller;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ApiResponse;
 import com.proovy.global.response.ErrorCode;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -45,6 +47,27 @@ public class BrowserRunExceptionHandler {
     @ExceptionHandler(AsyncRequestNotUsableException.class)
     public void clientGone(AsyncRequestNotUsableException e) {
         log.debug("browser run SSE client disconnected");
+    }
+
+    /**
+     * 예상 밖 실패. stream 시작 전이면 Accept가 SSE여도 COMMON500 JSON이다(전역 catch-all은 Content-Type을 정하지 않아
+     * {@code text/event-stream} 요청에서 빈 500이 된다). 이미 SSE 응답이 시작됐으면(stream 중 오류 종료) 쓸 수 없으니 기록만 한다 —
+     * 원인 stack은 stream이 남겼다.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Object>> unexpected(Exception e, HttpServletResponse response) {
+        if (response.isCommitted()) {
+            log.debug("browser run SSE ended with error after the stream started: {}", e.getClass().getSimpleName());
+            return null;
+        }
+        if (e instanceof ErrorResponse spring && spring.getStatusCode().is4xxClientError()) {
+            // Spring MVC의 요청 오류(406·필수 header 누락 등)는 상태를 유지한다
+            log.info("browser run request rejected by MVC: {}", e.getClass().getSimpleName());
+            return ResponseEntity.status(spring.getStatusCode()).contentType(MediaType.APPLICATION_JSON)
+                    .body(ApiResponse.failure(ErrorCode.COMMON400));
+        }
+        log.error("browser run request failed before the stream started", e);
+        return failure(ErrorCode.COMMON500);
     }
 
     private static ResponseEntity<ApiResponse<Object>> failure(ErrorCode code) {

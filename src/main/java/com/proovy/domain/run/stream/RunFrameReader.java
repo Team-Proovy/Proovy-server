@@ -45,7 +45,12 @@ public class RunFrameReader implements RunFrameSource {
 
     @Override
     public Optional<Progress> progress(UUID runId) {
-        return jdbc.query("SELECT status, last_event_seq FROM ai_runs WHERE run_id = ?",
+        // Note가 ACTIVE가 아니면(삭제 중) 새 GET·조회의 RUN4041과 같게 열린 연결도 더 보내지 않고 닫는다.
+        return jdbc.query("""
+                        SELECT r.status, r.last_event_seq FROM ai_runs r
+                        JOIN notes n ON n.note_id = r.note_id AND n.user_id = r.user_id
+                        WHERE r.run_id = ? AND n.status = 'ACTIVE'
+                        """,
                 (rs, row) -> new Progress(AiRunStatus.valueOf(rs.getString(1)).isTerminal(), rs.getLong(2)), runId)
                 .stream().findFirst();
     }

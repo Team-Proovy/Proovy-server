@@ -172,6 +172,73 @@ class RunEventStreamTest {
     }
 
     @Test
+    @DisplayName("느린 연결은 pool thread 하나만 붙잡는다: 쓰기가 막힌 동안 heartbeat는 건너뛰고 thread 2개 pool의 다른 연결이 진행한다")
+    void slowConnectionHoldsOneThread() throws Exception {
+        RunSseProperties beating = new RunSseProperties(Duration.ofMillis(10), Duration.ofMillis(10),
+                Duration.ofMinutes(1), 100, 2);
+        try (RunSseScheduler two = new RunSseScheduler(2)) {
+            source.append(1);
+            CountDownLatch release = new CountDownLatch(1);
+            AtomicInteger writers = new AtomicInteger();
+            AtomicInteger maxWriters = new AtomicInteger();
+            RecordingSink slow = new RecordingSink() {
+                @Override
+                public void write(String block) throws IOException {
+                    maxWriters.accumulateAndGet(writers.incrementAndGet(), Math::max);
+                    try {
+                        release.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    } finally {
+                        writers.decrementAndGet();
+                    }
+                    super.write(block);
+                }
+            };
+            RunEventStream slowStream = new RunEventStream(RUN, 0, source, slow, signals, two, beating, () -> { });
+            slowStream.start();
+            Thread.sleep(200); // heartbeat·catch-up이 여러 번 돈다
+
+            FakeSource otherSource = new FakeSource();
+            otherSource.append(2);
+            otherSource.appendTerminal();
+            RecordingSink other = new RecordingSink();
+            new RunEventStream(UUID.randomUUID(), 0, otherSource, other, signals, two, beating, () -> { }).start();
+            await(other::completed);
+            assertThat(maxWriters).as("한 연결의 동시 쓰기").hasValue(1);
+
+            release.countDown();
+            slowStream.close();
+        }
+    }
+
+    @Test
+    @DisplayName("복원·조회 실패는 정상 종료가 아니라 오류 종료다(즉시 재접속 루프 방지)")
+    void runtimeFailureEndsWithError() throws Exception {
+        source.append(1);
+        RunFrameSource broken = new RunFrameSource() {
+            @Override
+            public Optional<Progress> progress(UUID runId) {
+                return source.progress(runId);
+            }
+
+            @Override
+            public List<OutboundFrame> after(UUID runId, long afterSeq, int limit) {
+                throw new IllegalStateException("run.completed without a completed assistant message");
+            }
+        };
+        RecordingSink sink = new RecordingSink();
+        RunEventStream stream = new RunEventStream(RUN, 0, broken, sink, signals, scheduler, FAST,
+                closed::incrementAndGet);
+        stream.start();
+        await(() -> sink.failure() != null);
+        assertThat(sink.completed()).isFalse();
+        assertThat(stream.isClosed()).isTrue();
+        assertThat(signals.listeners()).isZero();
+        assertThat(closed).hasValue(1);
+    }
+
+    @Test
     @DisplayName("브라우저 단절(쓰기 실패)은 구독·예약 작업만 해제한다")
     void disconnectReleasesSubscription() throws Exception {
         source.append(1);
@@ -284,6 +351,7 @@ class RunEventStreamTest {
     static class RecordingSink implements RunEventSink {
         private final List<String> blocks = new CopyOnWriteArrayList<>();
         private volatile boolean completed;
+        private volatile Throwable failure;
 
         @Override
         public void write(String block) throws IOException {
@@ -293,6 +361,15 @@ class RunEventStreamTest {
         @Override
         public void complete() {
             completed = true;
+        }
+
+        @Override
+        public void fail(Throwable error) {
+            failure = error;
+        }
+
+        Throwable failure() {
+            return failure;
         }
 
         boolean completed() {

@@ -7,7 +7,7 @@ import java.util.UUID;
 /** {@link RunEventStream}이 DB에서 읽는 것. production 구현은 {@link RunFrameReader}다. */
 interface RunFrameSource {
 
-    /** 지금 run 상태. run이 사라졌으면(Note 삭제 cascade) empty. */
+    /** 지금 run 상태. run이 사라졌거나(Note 삭제 cascade) Note가 삭제 중이면 empty — 연결을 닫는다. */
     Optional<Progress> progress(UUID runId);
 
     /** {@code afterSeq} 이후 commit된 frame을 seq 오름차순으로 최대 {@code limit}개(hydration 끝난 SSE 블록). */
