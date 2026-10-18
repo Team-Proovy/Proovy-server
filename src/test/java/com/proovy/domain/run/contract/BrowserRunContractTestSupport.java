@@ -22,7 +22,7 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
  * pin된 proovy-brain 계약 사본(src/test/resources/contracts/brain)을 읽는 테스트 도우미.
  * 사본 자체의 무결성은 {@link BrainContractMirrorTest}가 검사한다.
  */
-final class BrowserRunContractTestSupport {
+public final class BrowserRunContractTestSupport {
 
     /** Java 쪽이 맞춰 둔 consumer_version. 사본을 새 version으로 갱신하면 함께 올린다. */
     static final String EXPECTED_CONSUMER_VERSION = "browser-run-fixtures-v1";
@@ -51,7 +51,7 @@ final class BrowserRunContractTestSupport {
         }
     }
 
-    static JsonNode load(String relative) {
+    public static JsonNode load(String relative) {
         return read(FIXTURES.resolve(relative));
     }
 
@@ -84,14 +84,14 @@ final class BrowserRunContractTestSupport {
     }
 
     /** browser-run-v1 schema의 {@code $defs/<name>}으로 검증한 오류 목록. */
-    static Set<ValidationMessage> schemaErrors(String definition, JsonNode value) {
+    public static Set<ValidationMessage> schemaErrors(String definition, JsonNode value) {
         JsonSchema schema = DEFINITIONS.computeIfAbsent(definition, name -> SCHEMAS.getSchema(
                 "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\","
                         + "\"$ref\":\"" + SCHEMA_ID + "#/$defs/" + name + "\"}"));
         return schema.validate(value);
     }
 
-    static boolean schemaOk(String definition, JsonNode value) {
+    public static boolean schemaOk(String definition, JsonNode value) {
         return schemaErrors(definition, value).isEmpty();
     }
 
