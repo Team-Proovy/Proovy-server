@@ -327,7 +327,8 @@ public class RunCoordinator implements SmartLifecycle {
             return;
         }
         RunCoordinatorProperties.Recovery policy = properties.recovery();
-        for (UUID runId : claims.findStale(policy.batch())) {
+        // 이 인스턴스에서 아직 도는 worker의 run은 SQL에서 뺀다(앞쪽 batch가 그런 행으로 차서 뒤 후보가 가려지지 않게).
+        for (UUID runId : claims.findStale(policy.batch(), executions.keySet())) {
             if (!running.get()) {
                 return;
             }
@@ -354,6 +355,17 @@ public class RunCoordinator implements SmartLifecycle {
                 continue;
             }
             StaleRun stale = taken.get();
+            if (!running.get()) {
+                // 종료와 겹쳤다: 방금 갱신한 lease를 TTL 동안 쥐지 않게 즉시 만료시켜 다음 인스턴스에 넘긴다.
+                slots.release();
+                metrics.recovery("ABANDONED_STOPPING");
+                try {
+                    claims.expireLease(stale.claim(), owner);
+                } catch (RuntimeException e) {
+                    log.warn("lease expiry failed: runId={}, cause={}", runId, e.getClass().getSimpleName());
+                }
+                return;
+            }
             Mode mode = stale.recoveryCount() > policy.maxRecoveries() ? Mode.FINAL_CHECK : Mode.RECOVER;
             metrics.recovery(mode == Mode.RECOVER ? "TAKEN" : "LIMIT_EXCEEDED");
             log.info("stale run taken over: runId={}, attempt={}, recoveryCount={}, mode={}", runId,
@@ -379,6 +391,9 @@ public class RunCoordinator implements SmartLifecycle {
             executions.remove(claim.runId());
             slots.release();
             metrics.error("launch");
+            if (mode != Mode.DISPATCH) {
+                metrics.recoveryFinished(RunExecution.Result.STOPPED);
+            }
             log.warn("run worker not started (coordinator stopping): runId={}", claim.runId());
             try {
                 claims.expireLease(claim, owner);

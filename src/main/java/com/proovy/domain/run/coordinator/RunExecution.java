@@ -127,10 +127,6 @@ final class RunExecution implements Runnable {
     /** 이 worker가 Brain stream frame을 하나라도 받았다(Brain이 이 요청을 등록·시작했다). */
     private boolean brainSeen;
 
-    RunExecution(ClaimedRun claim, Dependencies deps, Consumer<RunExecution> onFinish) {
-        this(claim, Mode.DISPATCH, deps, onFinish);
-    }
-
     RunExecution(ClaimedRun claim, Mode mode, Dependencies deps, Consumer<RunExecution> onFinish) {
         this.claim = claim;
         this.mode = mode;
@@ -255,6 +251,18 @@ final class RunExecution implements Runnable {
             return exhausted(deadline, "resends_TRANSIENT_DB");
         }
         resends++;
+        // 재전달 횟수를 run 행 retry_count에도 남겨 인수가 이 예산을 초기화하지 않게 한다. DB가 아직 안 되면 메모리 횟수만
+        // 남는다(그 경우 상한은 max-recoveries × max-resends).
+        try {
+            if (!deps.claims().markRetrying(claim, deps.owner())) {
+                log.info("run no longer owned before redelivery: runId={}", claim.runId());
+                return Result.OBSOLETE;
+            }
+            retrying = true;
+        } catch (RuntimeException unavailable) {
+            log.warn("retry count not persisted: runId={}, cause={}", claim.runId(),
+                    unavailable.getClass().getSimpleName());
+        }
         if (await(policy.backoff(resends))) {
             return Result.STOPPED;
         }
@@ -340,6 +348,8 @@ final class RunExecution implements Runnable {
      */
     private Result reconcile(Instant deadline) {
         RunCoordinatorProperties.Redelivery policy = deps.properties().redelivery();
+        // 인수 한도를 넘은 run은 조회도 한 번뿐이다(응답이 없으면 더 기다리지 않고 실패 수습).
+        int maxChecks = mode == Mode.FINAL_CHECK ? 1 : policy.maxStatusChecks();
         for (int check = 1; ; check++) {
             if (stopped()) {
                 return Result.STOPPED;
@@ -353,7 +363,7 @@ final class RunExecution implements Runnable {
                         claim.fenceToken())).block();
             } catch (BrainCallException failure) {
                 deps.metrics().statusCheck("FAILED_" + failure.kind().name());
-                if (check >= policy.maxStatusChecks()) {
+                if (check >= maxChecks) {
                     return exhausted(deadline, "status_" + failure.kind().name());
                 }
                 if (await(policy.backoff(check))) {
@@ -385,14 +395,15 @@ final class RunExecution implements Runnable {
                     if (!matchesRun(status)) {
                         return failByServer(RunFailureCode.INTERNAL_ERROR, "status_fingerprint_mismatch");
                     }
+                    if (mode == Mode.FINAL_CHECK) {
+                        // 인수 한도를 넘었다: 살아 있다는 응답만으로 더 관찰하지 않는다(늦은 terminal은 1.82가 거부한다).
+                        // 다른 epoch도 같다 — Server는 새 attempt를 발급하지 않으므로 반복 인수로 기다릴 대상이 없다.
+                        return failByServer(RunFailureCode.PROVIDER_ERROR, "recoveries_exhausted");
+                    }
                     if (!sameEpoch(status)) {
                         log.warn("brain record follows another epoch: runId={}, attempt={}, brainAttempt={}",
                                 claim.runId(), claim.attempt(), status.attempt());
                         return Result.OBSOLETE;
-                    }
-                    if (mode == Mode.FINAL_CHECK) {
-                        // 인수 한도를 넘었다: 살아 있다는 응답만으로 더 관찰하지 않는다(늦은 terminal은 1.82가 거부한다).
-                        return failByServer(RunFailureCode.PROVIDER_ERROR, "recoveries_exhausted");
                     }
                     // 같은 실행에 다시 붙는다(OBSERVE). 새 실행이 아니다.
                     return resend("STATUS_EXECUTING", deadline);
@@ -405,16 +416,29 @@ final class RunExecution implements Runnable {
                     if (terminal.type() == StoredTerminalType.RUN_CANCELED) {
                         // 취소 terminal은 취소 경로(1.84)가 확정한다.
                         log.info("brain stored run.canceled: runId={}", claim.runId());
-                        return Result.OBSOLETE;
+                        return cancelOwned();
                     }
                     return settled(deps.terminals().settle(terminal));
                 }
                 case CANCELING -> {
-                    return Result.OBSOLETE;
+                    return cancelOwned();
                 }
                 default -> throw new IllegalStateException("unknown record state");
             }
         }
+    }
+
+    /**
+     * Brain이 취소 중·취소됨이다. 취소 수습은 1.84 소유라 회수 경로는 어떤 모드에서도 전이하지 않는다. 인수 한도를 넘었는데도
+     * 여기 오면 Server가 아직 CANCELING이 아닌 불일치라 TTL마다 다시 인수된다 — 관측 counter로 드러내고 deadline sweep이 끝낸다.
+     */
+    private Result cancelOwned() {
+        if (mode == Mode.FINAL_CHECK) {
+            deps.metrics().recovery("FINAL_CANCEL_PENDING");
+            log.warn("stale run reached its recovery limit while brain is canceling; left to the cancel path: runId={}",
+                    claim.runId());
+        }
+        return Result.OBSOLETE;
     }
 
     private boolean matchesRun(RunStatusResponse status) {

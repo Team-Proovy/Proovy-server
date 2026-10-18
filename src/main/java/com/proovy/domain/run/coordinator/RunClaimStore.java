@@ -1,9 +1,11 @@
 package com.proovy.domain.run.coordinator;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -179,13 +181,19 @@ public class RunClaimStore {
      * deadline이 지난 run은 deadline sweep이 timeout으로 끝낸다. CANCELING은 취소 경로(1.84) 소유라 고르지 않는다.
      */
     public List<UUID> findStale(int limit) {
+        return findStale(limit, List.of());
+    }
+
+    /** {@link #findStale(int)}에서 {@code excluded}(이 인스턴스에서 worker가 도는 run)를 뺀다. */
+    public List<UUID> findStale(int limit, Collection<UUID> excluded) {
+        String ids = excluded.stream().map(UUID::toString).collect(Collectors.joining(",", "{", "}"));
         return jdbc.queryForList("""
                 SELECT run_id FROM ai_runs
                 WHERE status IN ('RUNNING', 'RETRYING') AND attempt >= 1 AND lease_expires_at <= now()
-                  AND request_deadline_at > now()
+                  AND request_deadline_at > now() AND run_id <> ALL (CAST(? AS uuid[]))
                 ORDER BY lease_expires_at
                 LIMIT ?
-                """, UUID.class, limit);
+                """, UUID.class, ids, limit);
     }
 
     /**

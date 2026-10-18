@@ -158,7 +158,8 @@ RETURNING attempt, fence_token, recovery_count
 ```
 
 - **attempt·fence를 바꾸지 않는다**(새 attempt 금지 전제 유지). 동시 인수·heartbeat 재개·terminal·취소 전환과 겹치면 조건부 UPDATE 하나만 이긴다.
-- 이 인스턴스에 그 run의 worker가 있으면(`isExecuting`, heartbeat만 늦음) 건너뛴다. 인수 worker도 **로컬 permit**을 잡고(없으면 다음 주기),
+- 이 인스턴스에서 worker가 도는 run은 후보 SQL에서 빼고(`run_id <> ALL(…)`, 앞쪽 batch를 가리지 않게) 인수 직전에도 다시 확인한다(`isExecuting`, heartbeat만 늦음).
+  인수가 종료와 겹치면(`running=false`) 방금 갱신한 lease를 즉시 만료시키고 permit을 돌려준다(`ABANDONED_STOPPING`). 인수 worker도 **로컬 permit**을 잡고(없으면 다음 주기),
   전역 슬롯은 그 run이 이미 비terminal 수로 차지하고 있어 새로 세지 않는다. 비PENDING run의 worker는 이 주기 작업만 띄우므로 같은 run의 로컬 worker가 겹치지 않는다.
 - **CANCELING은 고르지 않는다**(1.84 소유). deadline이 지난 run은 deadline sweep이 timeout으로 끝낸다(회수 조회 없음).
 - 인수한 worker는 일반 worker와 같아 heartbeat·`release`·deadline sweep 중단·종료 정리를 그대로 받는다.
@@ -168,8 +169,9 @@ RETURNING attempt, fence_token, recovery_count
 | Brain status (같은 attempt·fence 조회) | 결정 |
 |---|---|
 | `terminal` (`run.completed`·`run.failed`), fingerprint = `ai_runs.request_fingerprint` | `settle(StoredTerminal)` — **새 stream·provider 실행 없음, snapshot 복원도 없음**. COMMITTED·DUPLICATE면 cleanup 예약, DEADLINE_PASSED면 `expireDeadline` |
-| `terminal` `run.canceled`·`canceling`·다른 epoch | OBSOLETE (취소 경로 1.84·다른 fence). run은 그대로 |
-| `executing`, 같은 epoch | 저장 snapshot에서 같은 요청을 복원해 다시 붙는다(Brain OBSERVE). 이후 일반 worker 규칙 |
+| `terminal` `run.canceled`·`canceling` | OBSOLETE — 취소 수습은 1.84 소유라 회수는 어떤 모드에서도 전이하지 않는다. run은 그대로 |
+| `executing` 다른 epoch | OBSOLETE (`FINAL_CHECK`에서는 실패 — Server는 새 attempt를 발급하지 않으므로 기다릴 대상이 없다) |
+| `executing`, 같은 epoch | 저장 snapshot에서 같은 요청을 복원해 다시 붙는다(Brain OBSERVE). 이후 일반 worker 규칙. **재부착도 재전달 1회로 센다** — 누적 `retry_count`가 `max-resends`에 닿았으면 Brain이 executing이어도 실패·보상(아래 한도) |
 | `absent`, Brain 시작 증거 없음 | **명확한 미시작**(Brain record는 Postgres 영속이라 absent = 등록된 적 없음) → 같은 요청이 Brain의 첫 START |
 | `absent`, Brain 시작 증거 있음 | **실행 소실** → 재전송 없이 `failByServer(PROVIDER_ERROR)`(1.82가 한 번 보상). counter `execution_lost` |
 | fingerprint 불일치 | `failByServer(INTERNAL_ERROR)` |
@@ -186,10 +188,17 @@ RETURNING attempt, fence_token, recovery_count
 | 요청 deadline | `request_deadline_at`(불변) | `expireDeadline` timeout. 회수 후보에서도 빠진다 |
 | 같은 attempt 재전달 `max-resends` | run 행 `retry_count`(단조)부터 이어서 센다 | 실패·보상 |
 | 연속 status 실패 `max-status-checks` | worker 단위(인수마다 새로 센다 — 인수 횟수가 상한) | 실패·보상 |
-| 인수 `max-recoveries` | `recovery_count`(V5, 단조 trigger) | 초과한 인수는 `FINAL_CHECK`: status 한 번으로 저장 terminal만 회수하고, executing·absent면 재전송 없이 `failByServer(PROVIDER_ERROR)` |
+| 인수 `max-recoveries` | `recovery_count`(V5, 단조 trigger) | 초과한 인수는 `FINAL_CHECK`: status **조회 1회**(실패해도 재조회 없음)로 저장 terminal만 회수하고, executing(어느 epoch든)·absent·조회 실패면 재전송 없이 `failByServer(PROVIDER_ERROR)` |
+
+- **결정(r185-1)**: OBSERVE 재부착은 재전달 예산과 따로 세지 않는다. 한 run이 Brain에 보내는 같은 attempt 요청의 총량을 하나의 상한으로 묶기 위해서다.
+  그래서 예산을 다 쓴 run은 정상 실행 중이어도 인수 뒤 실패한다(1.87은 이 결정표 그대로 검증한다).
+- **예외(r185-4)**: stream 중 일시 DB 오류의 재전달은 `markRetrying`으로 `retry_count`에 남기려 하지만, DB가 아직 안 되면 메모리 횟수만 남는다.
+  그 경우 인수 뒤 다시 세므로 상한은 `max-recoveries × max-resends`다(여전히 bounded).
 
 usage 예산(`used_*`)은 1.83과 같다(Brain 회신 계약 전까지 0, 새 attempt 금지 전제로 Brain record 단조 병합에 의존).
-`canceling`·다른 epoch처럼 OBSOLETE로 끝난 인수는 lease가 TTL에 만료되면 다시 인수되고 `recovery_count`가 오른다 — 결국 deadline sweep이 끝낸다.
+**반복 인수 규칙(r185-2)**: `canceling`·`run.canceled`처럼 OBSOLETE로 끝난 인수는 lease가 TTL에 만료되면 다시 인수되고 `recovery_count`가 오른다.
+한도를 넘은 뒤에도 Brain이 취소 중이면 회수는 손대지 않고 `recoveries{result=FINAL_CANCEL_PENDING}`·WARN 로그로 드러내며, TTL마다 status 1회씩 deadline sweep까지 반복된다.
+정상 흐름(1.84가 Server를 먼저 CANCELING으로 바꾼 뒤 Brain cancel)에서는 후보에서 빠지므로 생기지 않는다 — 생기면 1.84 쪽 불일치 신호다.
 
 ### 경합 방어 (기존 조건부 경계 재사용)
 
@@ -210,7 +219,10 @@ counter `recoveries{result}`(TAKEN·LIMIT_EXCEEDED·NOT_TAKEN·NO_PERMIT), `reco
 - **재사용 경계**: `RunClaimStore.findStale`·`takeOver`(같은 attempt·fence 인수 + `recovery_count`), `RunExecution` `RECOVER`/`FINAL_CHECK`(status 먼저 → 1.82 `settle(StoredTerminal)`·`failByServer`·`expireDeadline`),
   `hasBrainEvents`(미시작 vs 실행 소실 판정). 새 terminal 처리기를 만들지 말고 이 경계를 부른다.
 - **S13**: 회수·실패로 끝난 run도 `runtime_cleanup_at`을 예약한다(attempt ≥ 1). Brain `cleanup` 호출·retention·자산 deletion 연동은 S13이다.
-  `FINAL_CHECK`가 executing 상태에서 실패시킨 run은 Brain record가 executing으로 남을 수 있다(cleanup은 executing을 REJECT) — S13이 Brain lease 만료 sweep·cleanup 재시도와 함께 다뤄야 한다.
+  `FINAL_CHECK`·재전달 소진이 executing 상태에서 실패시킨 run은 Brain record가 executing으로 남을 수 있다(cleanup은 executing을 REJECT) — S13이 Brain lease 만료 sweep·cleanup 재시도와 함께 다뤄야 한다.
+- **슬롯 over-commit (r185-3, S13·1.84 인계)**: 위처럼 Brain이 아직 도는 run을 Server가 FAILED로 확정하면 전역 슬롯(비terminal 수)이 풀려 다음 PENDING이
+  claim된다. 그동안 Brain 실제 동시 실행이 `max-concurrent-runs`를 넘을 수 있고 Brain 자체 상한(503 capacity → 재전송)에 기댄다(1.83 재전달 소진과 같은 선례).
+  1.84 Brain cancel client가 생기면 이 실패 직전에 cancel 요청을 보내는 것을 권장한다(S13·1.84 결정).
 - **1.87**: 상태별 결정표·한도는 위와 같다. fault injection은 실제 Postgres + 실제 `BrainRunClient` + loopback 가짜 Brain(`RunRecoveryPostgresTest`)이다.
 
 ## 검증하지 않은 부분

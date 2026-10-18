@@ -287,6 +287,23 @@ class RunRecoveryPostgresTest {
     }
 
     @Test
+    void finalCheckQueriesStatusOnlyOnceBeforeFailing() {
+        long user = newUser();
+        RunAdmission run = admit(user, Step.HOLD, Step.COMPLETE);
+        brain.failStatus(run.requestId(), 1000);
+        interruptByRestart(run, StatusMode.TERMINAL,
+                () -> jdbc.update("UPDATE ai_runs SET recovery_count = 2 WHERE run_id = ?", run.runId()));
+
+        awaitStatus(run.runId(), "FAILED");
+
+        // 인수 한도를 넘은 run은 max-status-checks(2)가 아니라 한 번만 조회한다
+        assertThat(brain.statusCalls(run.runId().toString())).isEqualTo(1);
+        assertThat(brain.deliveries(run.requestId())).hasSize(1);
+        assertThat(compensations(run.requestId())).isEqualTo(1);
+        assertThat(credits(user)).isEqualTo(DAILY_CREDITS);
+    }
+
+    @Test
     void recoveryCountIsMonotonic() {
         UUID runId = insertStaleRun(newUser(), Instant.now().plusSeconds(600));
         // 회수 주기가 먼저 끝내지 않게 다른 인스턴스의 살아 있는 lease로 둔다
@@ -346,6 +363,9 @@ class RunRecoveryPostgresTest {
             // coordinator lease가 없는 인스턴스는 인수하지 않는다
             jdbc.update("UPDATE ai_runs SET lease_expires_at = now() WHERE run_id = ?", stale);
             assertThat(claims.takeOver(stale, "not-the-leader", Duration.ofSeconds(30))).isEmpty();
+            // 로컬에서 worker가 도는 run은 후보 SQL에서 빠진다(뒤쪽 후보를 가리지 않게)
+            assertThat(claims.findStale(50)).contains(stale);
+            assertThat(claims.findStale(50, List.of(stale))).doesNotContain(stale);
             claims.releaseCoordinatorLease("rescuer");
         } finally {
             if (stale != null) {
