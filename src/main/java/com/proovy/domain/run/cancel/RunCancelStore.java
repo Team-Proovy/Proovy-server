@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -119,14 +120,15 @@ public class RunCancelStore {
      * RUNNING|RETRYING(현재 attempt·fence) → CANCELING + {@code run.canceling}. 이후 이 fence의 Activity는 열린 Activity의
      * {@code activity.canceled}만, terminal은 하나도 받지 않는다(1.80·1.82). lease·heartbeat는 그대로라 worker가 stream을 마저
      * 소비하고, 비terminal이라 전역 슬롯·Note Active Run 자리를 계속 차지한다. 이전 grant는 폐기한다(plan 12).
+     * {@code cancel_requested_at}은 DB {@code now()}다 — cleanup-timeout을 다른 인스턴스가 DB 시각으로 비교한다.
      */
     void markCanceling(LockedRun run, RunCancelCause cause) {
         Instant now = now();
         int updated = jdbc.update("""
                 UPDATE ai_runs SET status = 'CANCELING', cancel_cause = ?, cancel_requested_from = status,
-                       cancel_requested_at = ?, grant_digest = NULL, grant_expires_at = NULL
+                       cancel_requested_at = now(), grant_digest = NULL, grant_expires_at = NULL
                 WHERE run_id = ? AND status IN ('RUNNING', 'RETRYING') AND attempt = ? AND fence_token = ?
-                """, cause.wireValue(), time(now), run.runId(), run.attempt(), run.fenceToken());
+                """, cause.wireValue(), run.runId(), run.attempt(), run.fenceToken());
         requireOne(updated, "canceling transition lost its guard", run);
         events.appendServerEvent(run.runId(), ServerFrameType.RUN_CANCELING,
                 new RunCancelingPayload(run.assistantMessageId().toString(), PublicRunStatus.CANCELING), now);
@@ -172,14 +174,16 @@ public class RunCancelStore {
 
     /**
      * 자기 transaction에서 실행한다. 직렬화·교착·연결 실패만 같은 입력으로 새 transaction을 연다(판정을 잠금 뒤 다시 하므로
-     * commit 여부를 모르는 실패 뒤에도 멱등이다 — 이미 바뀐 상태를 보고 ALREADY_*로 답한다).
+     * commit 여부를 모르는 실패 뒤에도 멱등이다 — 이미 바뀐 상태를 보고 ALREADY_*로 답한다). 호출자 transaction이 열려 있으면
+     * 거기에 참여하고 재시도하지 않는다 — rollback-only가 된 바깥 transaction 안에서 다시 시도할 수 없다(RunTerminalService와 같은 규칙).
      */
     <T> T inTransactions(Supplier<T> work) {
+        boolean outer = TransactionSynchronizationManager.isActualTransactionActive();
         for (int attempt = 1; ; attempt++) {
             try {
                 return tx.execute(status -> work.get());
             } catch (RuntimeException e) {
-                if (attempt >= MAX_TRANSACTIONS || !isRetryable(e)) {
+                if (outer || attempt >= MAX_TRANSACTIONS || !isRetryable(e)) {
                     throw e;
                 }
                 log.info("cancel transaction {} failed, retrying: cause={}", attempt, e.getClass().getSimpleName());
@@ -203,16 +207,10 @@ public class RunCancelStore {
         }
     }
 
+    private static final RunCancelCause.Converter CAUSES = new RunCancelCause.Converter();
+
     static RunCancelCause cause(String wire) {
-        if (wire == null) {
-            return null;
-        }
-        for (RunCancelCause cause : RunCancelCause.values()) {
-            if (cause.wireValue().equals(wire)) {
-                return cause;
-            }
-        }
-        throw new IllegalStateException("unknown cancel_cause " + wire);
+        return CAUSES.convertToEntityAttribute(wire);
     }
 
     private static AiRunStatus status(String value) {

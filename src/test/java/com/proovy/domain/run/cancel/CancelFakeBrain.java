@@ -46,7 +46,9 @@ final class CancelFakeBrain implements AutoCloseable {
         /** record 없음 — unknown_run(absent) */
         ABSENT,
         /** 503 */
-        UNAVAILABLE
+        UNAVAILABLE,
+        /** 응답하지 않는다(close까지) — hang인 Brain */
+        HANG
     }
 
     enum Record {
@@ -70,6 +72,8 @@ final class CancelFakeBrain implements AutoCloseable {
     private final Map<String, Boolean> open = new ConcurrentHashMap<>();
     private final List<String> streamCalls = new CopyOnWriteArrayList<>();
     private final List<JsonNode> cancelCalls = new CopyOnWriteArrayList<>();
+    private final Map<String, Runnable> beforeCancelAck = new ConcurrentHashMap<>();
+    private final CountDownLatch closed = new CountDownLatch(1);
 
     CancelFakeBrain() {
         try {
@@ -103,6 +107,11 @@ final class CancelFakeBrain implements AutoCloseable {
         latch(runId).countDown();
     }
 
+    /** 다음 cancel 호출 하나가 응답하기 직전에 한 번 실행한다(Brain 호출 중의 Server 쪽 변화 재현). */
+    void beforeNextCancelAck(String runId, Runnable action) {
+        beforeCancelAck.put(runId, action);
+    }
+
     long streamCalls(String runId) {
         return streamCalls.stream().filter(runId::equals).count();
     }
@@ -117,6 +126,7 @@ final class CancelFakeBrain implements AutoCloseable {
 
     @Override
     public void close() {
+        closed.countDown();
         windDown.values().forEach(CountDownLatch::countDown);
         server.stop(0);
         executor.shutdownNow();
@@ -197,6 +207,18 @@ final class CancelFakeBrain implements AutoCloseable {
     private void cancel(HttpExchange exchange, String runId, JsonNode request) throws IOException {
         cancelCalls.add(request);
         CancelMode mode = modes.getOrDefault(runId, CancelMode.CONFIRM);
+        if (mode == CancelMode.HANG) {
+            try {
+                closed.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return;
+        }
+        Runnable before = beforeCancelAck.remove(runId);
+        if (before != null) {
+            before.run();
+        }
         ObjectNode ack = JSON.createObjectNode().put("contract_version", "internal-run-v1").put("run_id", runId);
         switch (mode) {
             case UNAVAILABLE -> {

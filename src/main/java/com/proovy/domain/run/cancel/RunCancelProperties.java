@@ -14,17 +14,20 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *                       기본 2분 = Brain의 끊긴 wind-down 정리 상한(writer lease TTL 30s × 4, internal-run-v1 tail)보다 길게 —
  *                       S14 배포 값과 함께 확정
  * @param batchSize      주기 한 번에 확인하는 CANCELING run 수(오래된 취소 요청부터)
+ * @param failureBackoff 확인이 예외로 끝난 run을 주기 확인에서 빼 두는 시간(실패 행이 batch를 막지 않게)
  */
 @ConfigurationProperties(prefix = "proovy.run.cancel")
 public record RunCancelProperties(
         @DefaultValue("true") boolean enabled,
         @DefaultValue("2s") Duration sweepInterval,
         @DefaultValue("2m") Duration cleanupTimeout,
-        @DefaultValue("20") int batchSize) {
+        @DefaultValue("20") int batchSize,
+        @DefaultValue("30s") Duration failureBackoff) {
 
     public RunCancelProperties {
         requirePositive(sweepInterval, "sweep-interval");
         requirePositive(cleanupTimeout, "cleanup-timeout");
+        requirePositive(failureBackoff, "failure-backoff");
         if (batchSize < 1 || batchSize > 200) {
             throw new IllegalArgumentException("proovy.run.cancel.batch-size must be within 1..200");
         }

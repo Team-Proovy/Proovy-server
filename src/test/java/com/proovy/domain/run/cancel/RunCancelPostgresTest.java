@@ -58,6 +58,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -72,6 +73,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * cleanup-timeout 5s, 확인 주기 200ms, 사용자별 접수 제한 3건/1분(반복 요청 제한 검사용 — 다른 테스트는 사용자마다 3건 이하).
  */
 @Tag("postgres")
+// 끝난 class의 context를 닫아 finalizer sweep이 닫힌 DB를 계속 두드리지 않게 한다
+@DirtiesContext
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "gcs.project-id=proovy-test",
@@ -476,6 +479,84 @@ class RunCancelPostgresTest {
     }
 
     @Test
+    @DisplayName("Brain absent 응답 동안 늦은 heartbeat가 lease를 갱신하면 잠금 뒤 다시 보고 확정하지 않는다")
+    void absentConfirmationRechecksTheLeaseUnderTheRunLock() throws Exception {
+        long user = newUser();
+        UUID runId = runningRun(user, CancelMode.ABSENT);
+        jdbc.update("UPDATE ai_runs SET lease_expires_at = now() WHERE run_id = ?", runId);
+        // 확인 전 읽기는 lease 만료를 보고, Brain 응답 직전 worker heartbeat가 lease를 되살린다
+        brain.beforeNextCancelAck(runId.toString(), () -> jdbc.update(
+                "UPDATE ai_runs SET lease_expires_at = now() + interval '1 minute' WHERE run_id = ?", runId));
+        cancels.cancel(user, runId.toString(), null);
+        await(() -> !brain.cancelCalls(runId.toString()).isEmpty());
+        Thread.sleep(1000);
+        assertThat(status(runId)).isEqualTo("CANCELING");
+
+        jdbc.update("UPDATE ai_runs SET lease_expires_at = now() WHERE run_id = ?", runId);
+        awaitStatus(runId, "CANCELED");
+        assertThat(runRow(runId).get("runtime_cleanup_at")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("cleanup-timeout이 지난 run은 Brain을 부르지 않고 확정, hang인 Brain은 남은 시간까지만 기다린다")
+    void timedOutRunsDoNotWaitForBrain() throws Exception {
+        long user = newUser();
+        UUID overdue = runningRun(user, CancelMode.HANG);
+        // 다른 인스턴스가 1분 전에 CANCELING으로 바꾼 run(그 인스턴스는 사라짐)
+        jdbc.update("""
+                UPDATE ai_runs SET status = 'CANCELING', cancel_cause = 'user_requested', cancel_requested_from = status,
+                       cancel_requested_at = now() - interval '1 minute', grant_digest = NULL, grant_expires_at = NULL
+                WHERE run_id = ?""", overdue);
+        awaitStatus(overdue, "CANCELED");
+        assertThat(brain.cancelCalls(overdue.toString())).isEmpty();
+
+        // hang: client request-timeout(10s)이 아니라 cleanup-timeout(5s)에 확정된다
+        UUID hanging = runningRun(newUser(), CancelMode.HANG);
+        cancels.cancel(runRowUser(hanging), hanging.toString(), null);
+        awaitStatus(hanging, "CANCELED");
+        Map<String, Object> row = runRow(hanging);
+        assertThat(Duration.between(instant(row.get("cancel_requested_at")), instant(row.get("completed_at"))))
+                .isGreaterThanOrEqualTo(CLEANUP_TIMEOUT).isLessThan(Duration.ofSeconds(8));
+    }
+
+    @Test
+    @DisplayName("확정이 계속 실패하는 run은 backoff로 주기 확인에서 빠지고(전부 rollback, cleanup 예약 없음), 취소 API의 확인은 그대로")
+    void failingConfirmationBacksOffAndRollsBackAtomically() throws Exception {
+        long user = newUser();
+        UUID runId = runningRun(user, CancelMode.CONFIRM);
+        jdbc.execute("""
+                CREATE FUNCTION t184_block_cancel() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF NEW.run_id = '%s' AND NEW.status = 'CANCELED' THEN
+                        RAISE EXCEPTION 't184 blocked' USING ERRCODE = 'P0001';
+                    END IF;
+                    RETURN NEW;
+                END $$""".formatted(runId));
+        jdbc.execute("CREATE TRIGGER t184_block_cancel BEFORE UPDATE ON ai_runs FOR EACH ROW "
+                + "EXECUTE FUNCTION t184_block_cancel()");
+        try {
+            cancels.cancel(user, runId.toString(), null);
+            // 첫 확인 canceling → 다음 sweep에서 terminal → 확정 실패 → backoff(30s)
+            await(() -> brain.cancelCalls(runId.toString()).size() >= 2);
+            Thread.sleep(400);
+            int calls = brain.cancelCalls(runId.toString()).size();
+            Thread.sleep(1500);
+            assertThat(brain.cancelCalls(runId.toString())).hasSize(calls);
+            Map<String, Object> row = runRow(runId);
+            assertThat(row.get("status")).isEqualTo("CANCELING");
+            assertThat(row.get("runtime_cleanup_at")).isNull();
+            assertThat(messageStatus(admissionOf(runId).assistantMessageId())).isNotEqualTo("CANCELED");
+        } finally {
+            jdbc.execute("DROP TRIGGER t184_block_cancel ON ai_runs");
+            jdbc.execute("DROP FUNCTION t184_block_cancel()");
+        }
+        // 다시 온 취소 요청은 backoff와 무관하게 곧바로 확인한다
+        assertThat(postCancelJson(token(user), runId).get("outcome").asText()).isEqualTo("already_canceling");
+        awaitStatus(runId, "CANCELED");
+        assertThat(runRow(runId).get("runtime_cleanup_at")).isNotNull();
+    }
+
+    @Test
     @DisplayName("RUNNING 완료와 취소 경합: 결과 확정과 취소 중 하나만, 순사용량은 승자 정책대로")
     void runningCompletionRacesCancel() throws Exception {
         for (int round = 0; round < 6; round++) {
@@ -719,6 +800,10 @@ class RunCancelPostgresTest {
 
     private Map<String, Object> runRow(UUID runId) {
         return jdbc.queryForMap("SELECT * FROM ai_runs WHERE run_id = ?", runId);
+    }
+
+    private long runRowUser(UUID runId) {
+        return jdbc.queryForObject("SELECT user_id FROM ai_runs WHERE run_id = ?", Long.class, runId);
     }
 
     private String status(UUID runId) {

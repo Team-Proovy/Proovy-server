@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -32,6 +33,8 @@ import org.springframework.test.context.DynamicPropertySource;
  * 전역 슬롯 1이라 CANCELING run이 Brain 정리 확인 전까지 다음 run의 dispatch를 막는지(슬롯 유지) 본다.
  */
 @Tag("postgres")
+// 끝난 class의 context를 닫아 finalizer sweep이 닫힌 DB를 계속 두드리지 않게 한다
+@DirtiesContext
 @ActiveProfiles("test")
 @SpringBootTest(properties = {
         "gcs.project-id=proovy-test",
