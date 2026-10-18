@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 class BrainContractMirrorTest {
 
     private static final JsonNode PIN = read(MIRROR.resolve("PIN.json"));
+    /** manifest가 없는 artifact의 pin (activity-v1은 version을 CATALOG.md에 둔다, task 1.80). */
+    private static final Set<String> MANIFESTLESS_PINS = Set.of("PIN-activity-v1.json");
     private static final JsonNode MANIFEST = load("manifest.json");
 
     @Test
@@ -54,11 +56,22 @@ class BrainContractMirrorTest {
         listed.add("browser-run-v1/manifest.json");
         listed.add("PIN.json");
         listed.add("README.md");
-        // internal-run-v1 사본은 별도 pin(task 1.76)이 소유하고 InternalRunContractMirrorTest가 검사한다.
-        JsonNode internalRunPin = read(MIRROR.resolve("PIN-internal-run-v1.json"));
-        internalRunPin.get("files").properties().forEach(entry -> listed.add(entry.getKey()));
-        listed.add(internalRunPin.get("manifest").asText());
-        listed.add("PIN-internal-run-v1.json");
+        // 다른 artifact 사본은 각자의 PIN-*.json이 소유하고 그 mirror test가 검사한다
+        // (internal-run-v1: task 1.76 InternalRunContractMirrorTest, activity-v1: task 1.80 ActivityContractMirrorTest).
+        try (Stream<Path> pins = Files.list(MIRROR)) {
+            for (Path pinFile : pins.filter(path -> path.getFileName().toString().matches("PIN-.+\\.json")).toList()) {
+                JsonNode pin = read(pinFile);
+                pin.get("files").properties().forEach(entry -> listed.add(entry.getKey()));
+                // manifest는 필수다. artifact에 manifest가 없는 pin만 명시 목록으로 예외를 둔다.
+                if (MANIFESTLESS_PINS.contains(pinFile.getFileName().toString())) {
+                    assertThat(pin.get("manifest").isNull()).as(pinFile.toString()).isTrue();
+                } else {
+                    assertThat(pin.hasNonNull("manifest")).as(pinFile.toString()).isTrue();
+                    listed.add(pin.get("manifest").asText());
+                }
+                listed.add(pinFile.getFileName().toString());
+            }
+        }
         try (Stream<Path> files = Files.walk(MIRROR)) {
             Set<String> onDisk = new HashSet<>();
             files.filter(Files::isRegularFile)

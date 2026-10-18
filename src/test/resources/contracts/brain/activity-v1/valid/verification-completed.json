@@ -1,0 +1,15 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-9f8c",
+  "source_event_id": "run-7:activity-7:r2:completed",
+  "occurred_at": "2026-10-01T09:00:20Z",
+  "type": "activity.completed",
+  "payload": {
+    "kind": "verification",
+    "activity_id": "activity-7",
+    "method_label": "단계별 함의 검사",
+    "progress": {"checked": 5, "total": 5}
+  }
+}

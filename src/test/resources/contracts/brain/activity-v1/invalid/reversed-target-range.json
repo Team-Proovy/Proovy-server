@@ -1,0 +1,18 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-9f8c",
+  "source_event_id": "run-7:activity-3:r0:started",
+  "occurred_at": "2026-10-01T09:00:02Z",
+  "type": "activity.started",
+  "payload": {
+    "kind": "asset_understanding",
+    "activity_id": "activity-3",
+    "label": "reading_pages",
+    "reason": "viewer_focus",
+    "targets": [
+      {"asset_id": "asset-9f8c", "page_start": 5, "page_end": 3}
+    ]
+  }
+}
