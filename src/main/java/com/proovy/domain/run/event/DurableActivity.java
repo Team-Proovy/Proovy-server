@@ -22,9 +22,4 @@ public record DurableActivity(
         String activityId,
         ObjectNode payload,
         Instant occurredAt) {
-
-    public boolean isActivityTerminal() {
-        return type == AiRunEventType.ACTIVITY_COMPLETED || type == AiRunEventType.ACTIVITY_FAILED
-                || type == AiRunEventType.ACTIVITY_CANCELED;
-    }
 }

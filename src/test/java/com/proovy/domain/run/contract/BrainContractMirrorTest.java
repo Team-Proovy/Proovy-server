@@ -23,6 +23,8 @@ import org.junit.jupiter.api.Test;
 class BrainContractMirrorTest {
 
     private static final JsonNode PIN = read(MIRROR.resolve("PIN.json"));
+    /** manifest가 없는 artifact의 pin (activity-v1은 version을 CATALOG.md에 둔다, task 1.80). */
+    private static final Set<String> MANIFESTLESS_PINS = Set.of("PIN-activity-v1.json");
     private static final JsonNode MANIFEST = load("manifest.json");
 
     @Test
@@ -60,7 +62,11 @@ class BrainContractMirrorTest {
             for (Path pinFile : pins.filter(path -> path.getFileName().toString().matches("PIN-.+\\.json")).toList()) {
                 JsonNode pin = read(pinFile);
                 pin.get("files").properties().forEach(entry -> listed.add(entry.getKey()));
-                if (pin.hasNonNull("manifest")) {
+                // manifest는 필수다. artifact에 manifest가 없는 pin만 명시 목록으로 예외를 둔다.
+                if (MANIFESTLESS_PINS.contains(pinFile.getFileName().toString())) {
+                    assertThat(pin.get("manifest").isNull()).as(pinFile.toString()).isTrue();
+                } else {
+                    assertThat(pin.hasNonNull("manifest")).as(pinFile.toString()).isTrue();
                     listed.add(pin.get("manifest").asText());
                 }
                 listed.add(pinFile.getFileName().toString());

@@ -4,7 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.proovy.domain.run.brain.SourceEvent;
+import com.proovy.domain.run.contract.BrowserRunContract;
 import com.proovy.domain.run.contract.ServerFrameType;
+import com.proovy.domain.run.entity.AiRun;
 import com.proovy.domain.run.entity.AiRunEventType;
 import com.proovy.domain.run.entity.AiRunStatus;
 import com.proovy.domain.run.event.ActivityAppendResult.Outcome;
@@ -18,6 +20,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -59,8 +62,10 @@ import org.springframework.transaction.annotation.Transactional;
  * 저장한 transaction이 commit된 뒤에만 {@link RunEventSignals}로 {@code (runId, lastSeq)}를 알린다. 알림은 힌트이고,
  * 구독자는 {@link #findAfter}로 DB에서 읽는다.
  *
- * <p>JPA로 저장 중인 entity(예: 접수의 {@code AiRun})가 있으면 append 전에 flush한다. native UPDATE 뒤 영속성 context의
- * {@code AiRun.lastEventSeq}는 갱신되지 않으므로 seq는 반환값이나 {@link #lastSeq}로 읽는다.
+ * <p>JPA로 저장 중인 entity(예: 접수의 {@code AiRun})가 있으면 append 전에 flush한다. seq를 native UPDATE로 올린 뒤
+ * 같은 영속성 context에 그 run의 {@code AiRun}이 있으면 refresh한다. 그러지 않으면 호출자가 같은 transaction에서 AiRun을
+ * 바꿨을 때 Hibernate의 전체 컬럼 UPDATE가 옛 {@code last_event_seq}를 되써 {@code ai_runs_guard_update}(단조 증가)가
+ * transaction을 rollback시킨다. refresh는 append 전 flush 뒤라 호출자의 변경을 잃지 않는다.
  */
 @Slf4j
 @Service
@@ -78,6 +83,8 @@ public class RunEventStore {
             VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?)
             ON CONFLICT DO NOTHING
             """;
+
+    private static final AiRunEventType.Converter EVENT_TYPES = new AiRunEventType.Converter();
 
     private final JdbcTemplate jdbc;
     private final EntityManager entityManager;
@@ -153,6 +160,7 @@ public class RunEventStore {
         long seq = nextSeq(runId);
         insert(runId, run.noteId(), seq, activity.type(), activity.sourceEventId(), activity.attempt(),
                 activity.activityId(), payload, activity.occurredAt());
+        refreshManagedRun(runId);
         signals.signalAfterCommit(runId, seq);
         return new ActivityAppendResult(Outcome.APPENDED, seq);
     }
@@ -168,22 +176,28 @@ public class RunEventStore {
 
     /** browser-run-v1 S6: started 하나 → 같은 kind의 후속 → terminal 하나, terminal 뒤 event 없음. */
     private boolean inOrder(DurableActivity activity) {
-        List<String[]> history = jdbc.query("""
+        // run 잠금 아래에서 Activity 이력 전체가 아니라 첫·마지막 row만 읽는다.
+        List<String[]> first = jdbc.query("""
                         SELECT event_type, payload ->> 'kind' FROM ai_run_events
-                        WHERE run_id = ? AND activity_id = ? ORDER BY seq
+                        WHERE run_id = ? AND activity_id = ? ORDER BY seq LIMIT 1
                         """, (rs, row) -> new String[]{rs.getString(1), rs.getString(2)},
                 activity.runId(), activity.activityId());
         if (activity.type() == AiRunEventType.ACTIVITY_STARTED) {
-            return history.isEmpty();
+            return first.isEmpty();
         }
-        if (history.isEmpty() || !AiRunEventType.ACTIVITY_STARTED.wireValue().equals(history.get(0)[0])
-                || !activity.kind().wireValue().equals(history.get(0)[1])) {
+        if (first.isEmpty() || eventType(first.get(0)[0]) != AiRunEventType.ACTIVITY_STARTED
+                || !activity.kind().wireValue().equals(first.get(0)[1])) {
             return false;
         }
-        String last = history.get(history.size() - 1)[0];
-        return !(AiRunEventType.ACTIVITY_COMPLETED.wireValue().equals(last)
-                || AiRunEventType.ACTIVITY_FAILED.wireValue().equals(last)
-                || AiRunEventType.ACTIVITY_CANCELED.wireValue().equals(last));
+        String last = jdbc.queryForObject("""
+                SELECT event_type FROM ai_run_events WHERE run_id = ? AND activity_id = ? ORDER BY seq DESC LIMIT 1
+                """, String.class, activity.runId(), activity.activityId());
+        return !isActivityTerminal(eventType(last));
+    }
+
+    private static boolean isActivityTerminal(AiRunEventType type) {
+        return type == AiRunEventType.ACTIVITY_COMPLETED || type == AiRunEventType.ACTIVITY_FAILED
+                || type == AiRunEventType.ACTIVITY_CANCELED;
     }
 
     private static ActivityAppendResult rejected(DurableActivity activity, Outcome outcome) {
@@ -234,6 +248,7 @@ public class RunEventStore {
         }
         long seq = nextSeq(runId);
         insert(runId, run.noteId(), seq, eventType, null, null, null, json(body), occurredAt);
+        refreshManagedRun(runId);
         signals.signalAfterCommit(runId, seq);
         return seq;
     }
@@ -283,9 +298,19 @@ public class RunEventStore {
         }
         for (int i = 0; i < batch.size(); i++) {
             TerminalRunEvent event = batch.get(i);
-            insert(runId, run.noteId(), first + i, event.type(), event.sourceEventId(), event.attempt(), null,
+            String sourceEventId = event.sourceEventId() == null ? null
+                    : SourceActivities.storedSourceEventId(event.sourceEventId());
+            if (sourceEventId != null && jdbc.queryForObject(
+                    "SELECT count(*) FROM ai_run_events WHERE run_id = ? AND source_event_id = ?", Long.class,
+                    runId, sourceEventId) > 0) {
+                // Brain ID는 event kind를 포함해 결정되므로 일어나지 않아야 한다. 같은 키로 insert하면 unique 위반이라
+                // 원인을 드러내고 rollback한다. 호출자는 source_event_id 없이(null) 다시 저장할 수 있다.
+                throw new IllegalStateException("terminal source_event_id is already used in run " + runId);
+            }
+            insert(runId, run.noteId(), first + i, event.type(), sourceEventId, event.attempt(), null,
                     json(event.payload()), occurredAt);
         }
+        refreshManagedRun(runId);
         signals.signalAfterCommit(runId, lastEventSeq);
         return first;
     }
@@ -368,6 +393,17 @@ public class RunEventStore {
 
     // ------------------------------------------------------------------
 
+    /**
+     * 영속성 context에 이미 있는 AiRun만 DB 값으로 다시 읽는다. 없으면 {@code getReference}는 SQL 없이 초기화되지 않은
+     * proxy만 만들므로 dirty checking 대상이 생기지 않는다.
+     */
+    private void refreshManagedRun(UUID runId) {
+        AiRun managed = entityManager.getReference(AiRun.class, runId);
+        if (Hibernate.isInitialized(managed)) {
+            entityManager.refresh(managed);
+        }
+    }
+
     private Optional<RunRow> lockIfExists(UUID runId) {
         return jdbc.query(LOCK_RUN, (rs, row) -> new RunRow(rs.getLong(1), AiRunStatus.valueOf(rs.getString(2)),
                 rs.getInt(3), rs.getString(4), rs.getLong(5)), runId).stream().findFirst();
@@ -391,8 +427,10 @@ public class RunEventStore {
 
     private void insert(UUID runId, long noteId, long seq, AiRunEventType type, String sourceEventId,
                         Integer attempt, String activityId, String payload, Instant occurredAt) {
+        // 모든 경로의 시각을 wire 정밀도(µs)로 맞춰 저장한다(Postgres 반올림이 호출자 값과 갈리지 않게).
+        OffsetDateTime createdAt = OffsetDateTime.ofInstant(BrowserRunContract.wireTime(occurredAt), ZoneOffset.UTC);
         int inserted = jdbc.update(INSERT_EVENT, runId, noteId, seq, type.wireValue(), sourceEventId, attempt,
-                activityId, payload, OffsetDateTime.ofInstant(occurredAt, ZoneOffset.UTC));
+                activityId, payload, createdAt);
         if (inserted != 1) {
             // run row 잠금 아래에서는 일어나지 않는다. 배정한 seq를 남기지 않도록 transaction을 되돌린다.
             throw new IllegalStateException("event insert conflicted for run " + runId + " seq " + seq);
@@ -416,12 +454,7 @@ public class RunEventStore {
     }
 
     private static AiRunEventType eventType(String wireValue) {
-        for (AiRunEventType type : AiRunEventType.values()) {
-            if (type.wireValue().equals(wireValue)) {
-                return type;
-            }
-        }
-        throw new IllegalStateException("unknown stored event type");
+        return EVENT_TYPES.convertToEntityAttribute(wireValue);
     }
 
     private record RunRow(long noteId, AiRunStatus status, int attempt, String fenceToken, long lastEventSeq) {

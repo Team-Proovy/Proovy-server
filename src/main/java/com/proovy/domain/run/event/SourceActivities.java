@@ -91,19 +91,23 @@ public final class SourceActivities {
             throw violation("run_id", "is not a server run id");
         }
         AiRunEventType type = eventType(event.type());
+        if (isDigestKey(event.sourceEventId())) {
+            throw violation("source_event_id", "uses the reserved digest prefix");
+        }
         ObjectNode payload = browserPayload(event.type(), event.payload());
         if (storedLength(payload) > MAX_STORED_PAYLOAD_BYTES) {
             throw violation("payload", "is too large to store");
         }
         return new DurableActivity(UUID.fromString(event.runId()), event.attempt(), event.fenceToken(),
-                storedSourceEventId(event.sourceEventId()), type, ActivityKind.of(payload.get("kind").textValue()).orElseThrow(),
+                storedSourceEventId(event.sourceEventId()), type, ActivityKind.of(payload.get("kind").textValue())
+                        .orElseThrow(() -> violation("payload.kind", "is not a known activity kind")),
                 payload.get("activityId").textValue(), payload,
                 BrowserRunContract.wireTime(event.occurredAt().toInstant()));
     }
 
     /**
      * dedup 키로 저장할 source_event_id. 128자 이하는 그대로, 더 길면 같은 입력에 항상 같은 {@code sha256:<hex>}(71자)로
-     * 줄인다. Brain ID는 run_id(UUID)로 시작하므로 이 prefix와 겹치지 않는다.
+     * 줄인다. 두 키 공간이 겹치지 않도록 {@code sha256:}으로 시작하는 원래 ID는 받지 않는다({@link #isDigestKey}).
      */
     static String storedSourceEventId(String sourceEventId) {
         if (sourceEventId.length() <= MAX_STORED_SOURCE_EVENT_ID_LENGTH) {
@@ -116,6 +120,11 @@ public final class SourceActivities {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** digest 키 prefix로 시작하는 ID. Brain ID(run_id로 시작)는 해당하지 않으며, 오면 계약 위반으로 거부한다. */
+    static boolean isDigestKey(String sourceEventId) {
+        return sourceEventId.startsWith(DIGEST_PREFIX);
     }
 
     /** source payload(snake_case)를 검사해 browser payload(camelCase)로 바꾼다. */

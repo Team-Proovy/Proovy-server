@@ -40,8 +40,16 @@ public class RunEventSignals {
 
     private final Map<UUID, Set<Listener>> listeners = new ConcurrentHashMap<>();
 
+    /**
+     * 추가·제거를 모두 map entry의 원자 연산({@code compute}) 안에서 한다. 그래야 마지막 구독 해제가 entry를 지우는 순간
+     * 새 구독이 map에서 떨어진 set에 붙어 신호를 영영 못 받는 경합이 없다.
+     */
     public Subscription subscribe(UUID runId, Listener listener) {
-        listeners.computeIfAbsent(runId, key -> new CopyOnWriteArraySet<>()).add(listener);
+        listeners.compute(runId, (key, set) -> {
+            Set<Listener> target = set == null ? new CopyOnWriteArraySet<>() : set;
+            target.add(listener);
+            return target;
+        });
         return () -> listeners.computeIfPresent(runId, (key, set) -> {
             set.remove(listener);
             return set.isEmpty() ? null : set;
@@ -61,7 +69,7 @@ public class RunEventSignals {
         });
     }
 
-    private void deliver(UUID runId, long lastSeq) {
+    void deliver(UUID runId, long lastSeq) {
         Set<Listener> targets = listeners.get(runId);
         if (targets == null) {
             return;

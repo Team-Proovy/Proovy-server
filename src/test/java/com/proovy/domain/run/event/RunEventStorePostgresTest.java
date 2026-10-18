@@ -13,12 +13,16 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.proovy.domain.run.brain.InternalRunWire;
 import com.proovy.domain.run.brain.SourceEvent;
 import com.proovy.domain.run.contract.ServerFrameType;
+import com.proovy.domain.run.entity.AiRun;
 import com.proovy.domain.run.entity.AiRunEventType;
 import com.proovy.domain.run.event.ActivityAppendResult.Outcome;
+import com.proovy.domain.run.repository.AiRunRepository;
 import com.proovy.support.db.PostgresTestDatabase;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -96,6 +100,7 @@ class RunEventStorePostgresTest {
     @Autowired TransactionTemplate tx;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper objectMapper;
+    @Autowired AiRunRepository aiRunRepository;
 
     // ------------------------------------------------------------------
     // dedup·seq
@@ -189,6 +194,46 @@ class RunEventStorePostgresTest {
             assertThat(store.appendActivity(started)).isEqualTo(new ActivityAppendResult(Outcome.APPENDED, 2));
             assertThat(signalled).containsExactly(2L);
         }
+    }
+
+    // ------------------------------------------------------------------
+    // 영속성 context의 AiRun (r180 #1)
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("같은 transaction의 managed AiRun을 바꿔도 append가 올린 last_event_seq가 되써지지 않는다(Activity)")
+    void managedRunDoesNotWriteBackStaleSeqAfterActivity() {
+        UUID run = runningRun();
+        tx.executeWithoutResult(status -> {
+            AiRun managed = aiRunRepository.findById(run).orElseThrow();
+            assertThat(store.appendActivity(started(run, "activity-1", "input_analysis", "analyzing_input")).seq())
+                    .isEqualTo(2);
+            assertThat(managed.getLastEventSeq()).isEqualTo(2);
+            // 후속 태스크가 AiRun에 변경 메서드를 두는 경우를 흉내 낸다: 전체 컬럼 UPDATE가 일어난다
+            touch(managed);
+        });
+        assertThat(store.lastSeq(run)).hasValue(2);
+        assertThat(jdbc.queryForObject("SELECT heartbeat_at FROM ai_runs WHERE run_id = ?", OffsetDateTime.class,
+                run).toInstant()).isEqualTo(TOUCHED);
+    }
+
+    @Test
+    @DisplayName("접수 흐름: JPA로 persist한 AiRun → run.created → AiRun 변경 → commit이 seq 1을 유지한다")
+    void admissionWithJpaRunKeepsCreatedSeq() {
+        UUID run = UUID.randomUUID();
+        tx.executeWithoutResult(status -> {
+            long noteId = newNote();
+            UUID[] turn = insertTurn(noteId);
+            AiRun pending = aiRunRepository.save(AiRun.pending().id(run).requestId(UUID.randomUUID().toString())
+                    .userId(ALICE).noteId(noteId).userMessageId(turn[0]).assistantMessageId(turn[1])
+                    .requestFingerprint("f".repeat(64)).requestSnapshot(json("{\"input\":{}}"))
+                    .policySnapshot(json("{\"limits\":{}}")).budgetPolicyVersion("budget-v1")
+                    .requestDeadlineAt(Instant.now().plusSeconds(600)).createdAt(Instant.now()).build());
+            assertThat(store.appendServerEvent(run, ServerFrameType.RUN_CREATED, runCreated(), T0)).isEqualTo(1);
+            touch(pending);
+        });
+        assertThat(store.lastSeq(run)).hasValue(1);
+        assertThat(seqs(run)).containsExactly(1L);
     }
 
     // ------------------------------------------------------------------
@@ -412,6 +457,43 @@ class RunEventStorePostgresTest {
                 AiRunEventType.RESPONSE_PAGE_STARTED, AiRunEventType.RESPONSE_PAGE_COMPLETED,
                 AiRunEventType.RUN_COMPLETED);
         assertThat(store.lastSeq(run)).hasValue(6);
+    }
+
+    @Test
+    @DisplayName("terminal source_event_id도 128자를 넘으면 digest 키로 저장하고, 이미 쓰인 키·예약 prefix는 거부한다")
+    void terminalSourceEventIds() {
+        UUID run = runningRun();
+        String longId = run + ":" + "t".repeat(200);
+        Long first = tx.execute(status -> store.appendTerminalEvents(run, complete(run, 1),
+                List.of(TerminalRunEvent.runCompleted(json("{}"), longId, 1)), T0));
+        assertThat(first).isEqualTo(2L);
+        assertThat(jdbc.queryForObject("SELECT source_event_id FROM ai_run_events WHERE run_id = ? AND seq = 2",
+                String.class, run)).isEqualTo(SourceActivities.storedSourceEventId(longId)).startsWith("sha256:");
+
+        // Activity와 같은 source_event_id를 terminal이 다시 쓰면 원인을 드러내고 rollback한다
+        UUID other = runningRun();
+        SourceEvent activity = started(other, "activity-1", "input_analysis", "analyzing_input");
+        store.appendActivity(activity);
+        assertThatThrownBy(() -> tx.executeWithoutResult(status -> store.appendTerminalEvents(other,
+                complete(other, 1), List.of(TerminalRunEvent.runCompleted(json("{}"), activity.sourceEventId(), 1)), T0)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("already used");
+        assertThat(store.lastSeq(other)).hasValue(2);
+
+        assertThatThrownBy(() -> TerminalRunEvent.runCompleted(json("{}"), "sha256:" + "0".repeat(64), 1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TerminalRunEvent.runCompleted(json("{}"), "x".repeat(257), 1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("digest 키 prefix로 시작하는 Activity source_event_id는 MALFORMED (키 공간 분리)")
+    void reservedDigestPrefixRejected() {
+        UUID run = runningRun();
+        ObjectNode envelope = envelope(run.toString(), "activity.started",
+                base("activity-1", "input_analysis").put("label", "analyzing_input"));
+        envelope.put("source_event_id", "sha256:" + "0".repeat(64));
+        assertThat(store.appendActivity(source(envelope)).outcome()).isEqualTo(Outcome.MALFORMED);
+        assertThat(rows(run)).isEqualTo(1);
     }
 
     @Test
@@ -709,6 +791,31 @@ class RunEventStorePostgresTest {
         UUID run = UUID.randomUUID();
         insertPendingRun(run, newNote());
         return run;
+    }
+
+    /** user·assistant message 한 쌍 → {userMessageId, assistantMessageId}. */
+    private UUID[] insertTurn(long noteId) {
+        UUID userMessageId = UUID.randomUUID();
+        UUID assistantMessageId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO chat_messages (message_id, note_id, role, status, user_input, plain_text, created_at)
+                VALUES (?, ?, 'USER', 'COMPLETED', '{"text":"1번 문제 풀어줘"}', '1번 문제 풀어줘', clock_timestamp()),
+                       (?, ?, 'ASSISTANT', 'PENDING', NULL, NULL, clock_timestamp() + interval '1 millisecond')
+                """, userMessageId, noteId, assistantMessageId, noteId);
+        return new UUID[]{userMessageId, assistantMessageId};
+    }
+
+    private static final Instant TOUCHED = Instant.parse("2026-10-17T10:00:00Z");
+
+    /** AiRun에는 변경 메서드가 없어 reflection으로 필드 하나를 바꿔 dirty checking 전체 컬럼 UPDATE를 일으킨다. */
+    private static void touch(AiRun run) {
+        try {
+            Field heartbeat = AiRun.class.getDeclaredField("heartbeatAt");
+            heartbeat.setAccessible(true);
+            heartbeat.set(run, TOUCHED);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private void insertPendingRun(UUID run, long noteId) {

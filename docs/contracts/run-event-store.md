@@ -23,8 +23,20 @@
 - rollback되면 seq 증가도 되돌아간다(같은 seq가 다음 append에 다시 배정된다).
 - seq는 Server 수락 순서다. Brain source 순서나 `occurred_at`과 같다고 가정하지 않는다.
 - dedup 키는 `(run_id, source_event_id)`다. 같은 source event 재전달은 row·seq·`last_event_seq`를 늘리지 않는다(DUPLICATE).
-  128자를 넘는 Brain ID(brain-source-v1은 256자까지 허용, V1 column은 128자)는 결정적 `sha256:<hex>` 키로 저장한다.
-- frame `occurredAt`은 `ai_run_events.created_at`이다. Activity는 source `occurred_at`(µs), Server event는 호출자가 넘긴 시각이다.
+  128자를 넘는 Brain ID(brain-source-v1은 256자까지 허용, V1 column은 128자)는 Activity·terminal 모두 결정적 `sha256:<hex>` 키로
+  저장한다. 키 공간이 겹치지 않도록 `sha256:`으로 시작하는 원래 ID는 거부한다(Activity는 MALFORMED, terminal은 `IllegalArgumentException`).
+- frame `occurredAt`은 `ai_run_events.created_at`이다. Activity는 source `occurred_at`, Server·terminal event는 호출자가 넘긴 시각이며
+  모든 경로에서 µs로 자른다(`BrowserRunContract.wireTime`).
+
+## 영속성 context의 `AiRun` (r180 #1)
+
+- seq는 native `UPDATE ai_runs SET last_event_seq = ...`로 올린다. 같은 transaction에 그 run의 managed `AiRun`이 있으면 store가 append
+  직후 `refresh`한다. 그러지 않으면 호출자가 이후 AiRun을 바꿨을 때 Hibernate 전체 컬럼 UPDATE가 옛 `last_event_seq`를 되써
+  `ai_runs_guard_update`(단조 증가)가 transaction 전체를 rollback시킨다(1.79 접수·1.84 취소 흐름).
+- refresh 전에 store가 flush하므로 append 전의 변경은 잃지 않는다. **append 뒤 AiRun 변경은 refresh된 값 위에서 하면 된다.**
+  호출자가 terminal 전환 등 다른 컬럼을 native UPDATE로 바꾼 뒤 managed AiRun을 계속 쓰는 것은 store가 막을 수 없다 — 그 경우도 refresh하거나
+  entity를 다시 읽는다.
+- 근본 해결(`AiRun.lastEventSeq`를 `@Column(updatable = false)`로, 또는 `@DynamicUpdate`)은 1.74 엔티티 소유 범위라 이 PR에서 바꾸지 않았다.
 
 ## Brain Activity 수락 — `appendActivity(SourceEvent)` (1.83 coordinator)
 
@@ -57,7 +69,7 @@
 
 조건이 맞지 않으면 `IllegalStateException`(호출자 transaction rollback). page 경계·run.canceled는 이 경로가 아니다.
 payload는 1.75 record(`RunCreatedPayload` 등)나 JSON object이고 Spring ObjectMapper로 직렬화한다.
-native UPDATE라 영속성 context의 `AiRun.lastEventSeq`는 갱신되지 않는다. seq는 반환값이나 `lastSeq`로 읽는다.
+append 뒤 managed `AiRun`은 store가 refresh한다(위 "영속성 context의 `AiRun`"). seq는 반환값이나 `lastSeq`로 읽는다.
 
 ## terminal event — `appendTerminalEvents(runId, lastEventSeq, events, occurredAt)` (MANDATORY, 1.82·1.84)
 
@@ -81,16 +93,29 @@ RETURNING last_event_seq
 
 - `findAfter(runId, afterSeq, limit)`: commit된 event를 seq 오름차순으로. cursor 없는 replay는 `afterSeq = 0`.
 - `lastSeq(runId)`: `RunEventCursor.resolve(runId, lastSeq, header, query)`의 범위 판정용.
-- `RunEventSignals.subscribe(runId, listener)`: commit 뒤 `(runId, lastSeq)`. rollback·중복은 신호가 없다.
+- `RunEventSignals.subscribe(runId, listener)`: commit 뒤 `(runId, lastSeq)`. rollback·중복은 신호가 없다. 구독 추가·해제는 map entry의
+  원자 연산이라 같은 run의 마지막 해제와 새 구독이 경합해도 새 구독이 떨어져 나가지 않는다.
   신호는 유실될 수 있다 → **구독을 먼저 걸고** cursor 이후를 DB에서 catch-up하고, 신호마다 다시 cursor 이후를 읽는다.
   listener는 commit thread에서 동기로 불리므로 빨리 반환한다. 다른 Server 인스턴스의 commit은 신호가 없다(다중 인스턴스는 S14).
 - heartbeat는 저장 type이 없다. source comment는 1.76 client가 버리고 browser heartbeat는 1.86이 연결에서만 보낸다.
 
-## 후속 메모
+- terminal `source_event_id`가 이미 다른 event(예: Activity)에 쓰인 키면 `IllegalStateException`으로 rollback한다(unique 위반 대신 원인을
+  드러낸다). Brain ID는 event kind를 포함해 결정되므로 일어나지 않아야 하고, 일어나면 1.82는 source_event_id 없이(null) 저장할 수 있다.
+
+## 소유 경계·문서 조율 인계
 
 - **Activity 의미 검사 소유:** `internal-run-v1.md` 메모는 "activity-v1 pin과 의미 검사는 1.83"이라고 적었지만 원본 task 1.80이
   kind별 제한 payload와 fake source 검증을 요구해 이 저장소가 소유한다. 1.83은 `appendActivity`만 호출한다.
-- **CANCELING:** Brain wind-down의 `activity.canceled`만 받는다. 표식이 유실되면(stream 단절) 열린 Activity가 남을 수 있다.
-  replay에서 run terminal 뒤 열린 Activity를 끝난 것으로 그리는 것은 reducer(S08)·1.86에서 정한다.
+- **1.76 failure-kind 처리는 1.83 소유 (r180 #12):** `internal-run-v1.md`의 "1.80 (coordinator): stream 실패 kind별 처리
+  (`isRecoverableByStatusQuery`·`isSafeToResend`)"와 #215 종료 코멘트(TRANSPORT_LOST 뒤 status absent면 deadline 안 재전송, 상한은 발급·응답
+  각각 request-timeout)는 stream 소비·transient 처리라 task 1.83 coordinator 범위다. 1.80은 저장소만 구현했다.
+  `internal-run-v1.md`의 "1.80 (coordinator)" 표기를 "1.83 (coordinator)"로 정정해야 한다(1.76 문서라 여기서는 고치지 않음).
+- **CANCELING 예외 (r180 #11, 문서 조율 인계):** task 1.80 체크리스트는 "CANCELING/terminal 뒤 source를 폐기"라고 적지만 구현은
+  CANCELING에서 **열린 Activity의 `activity.canceled`만** 받는다. browser-run-v1 `canceled-running`(canceling 뒤 진행 Activity만 canceled)·
+  S3, plan/21, Brain `cancellation.py` wind-down 표식과 맞춘 판단이다. task/spec 문구를 "CANCELING은 열린 Activity의 canceled 표식만 예외"로
+  정정하는 것은 문서 조율 담당(proovy-brain)에 인계한다. 표식이 유실되면(stream 단절) 열린 Activity가 남을 수 있고, replay에서 run terminal 뒤
+  열린 Activity를 끝난 것으로 그리는 것은 reducer(S08)·1.86에서 정한다.
+- **공통 테스트 `BrainContractMirrorTest` (r180 #13):** 목록 밖 파일 검사는 모든 `PIN-*.json` 소유 경로를 제외하되 manifest는 필수이고,
+  manifest 없는 pin은 명시 목록(`PIN-activity-v1.json`)만 허용한다. 1.81(PR #233)도 PIN을 추가하므로 merge 순서상 뒤쪽이 충돌을 해결한다.
 - **저장 한도:** payload `jsonb::text` 16384 byte를 넘는 Activity(예: 긴 asset ID 200 page)는 MALFORMED로 버린다.
   Brain 쪽 상한과 맞출 필요가 생기면 다음 consumer_version에서 다룬다.

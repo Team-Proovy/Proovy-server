@@ -15,6 +15,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,17 +54,21 @@ class ActivityContractMirrorTest {
     }
 
     @Test
-    @DisplayName("CATALOG가 나열한 fixture가 모두 사본에 있다")
-    void catalogEntriesExist() {
+    @DisplayName("CATALOG 표의 fixture와 사본 파일이 양방향으로 같다")
+    void catalogMatchesFixtures() throws IOException {
         String catalog = text(FIXTURES.resolve("CATALOG.md"));
+        Set<String> named = new HashSet<>();
+        Matcher matcher = Pattern.compile("[a-z0-9-]+(?:\\.browser)?\\.json").matcher(catalog);
+        while (matcher.find()) {
+            named.add(matcher.group());
+        }
+        Set<String> onDisk = new HashSet<>();
         for (String directory : new String[]{"valid", "invalid", "browser"}) {
             try (Stream<Path> files = Files.list(FIXTURES.resolve(directory))) {
-                files.forEach(path -> assertThat(catalog).as(path.toString())
-                        .contains(path.getFileName().toString()));
-            } catch (IOException e) {
-                throw new IllegalStateException(e);
+                files.forEach(path -> onDisk.add(path.getFileName().toString()));
             }
         }
+        assertThat(onDisk).isEqualTo(named);
     }
 
     private static String sha256(Path path) throws IOException, NoSuchAlgorithmException {
