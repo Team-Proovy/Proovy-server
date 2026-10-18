@@ -120,6 +120,15 @@ proovy:
       mode: ${BRAIN_AUTH_MODE:shared-token}
       audience: ${BRAIN_ID_TOKEN_AUDIENCE:}
       shared-token: ${BRAIN_SHARED_TOKEN:}
+  # 브라우저 독립 run coordinator (task 1.83). 켜면 Brain client가 필요하다. 다중 인스턴스에서도
+  # DB coordinator lease 보유자 하나만 claim한다. 전역 슬롯은 brain-capacity(인스턴스 × 인스턴스당 상한)를 넘을 수 없다.
+  run:
+    coordinator:
+      enabled: ${RUN_COORDINATOR_ENABLED:false}
+      max-concurrent-runs: ${RUN_COORDINATOR_MAX_CONCURRENT_RUNS:4}
+      brain-capacity:
+        instances: ${BRAIN_MAX_INSTANCES:3}
+        per-instance: ${BRAIN_MAX_CONCURRENT_RUNS:4}
 
 internal:
   api:

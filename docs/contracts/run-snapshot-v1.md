@@ -102,8 +102,9 @@ JWT·credit·grant·signed URL·fence는 어느 열에도 없다. V1 trigger가 
   `RunSnapshotRejectedException.getErrorCode()`가 browser-run-v1 오류(RUN4041·RUN4221)다. `create`는 Note 소유·ACTIVE를 다시 확인한다.
   같은 requestId 재전송(replay)은 `create`를 부르지 않는다. `now`는 run `created_at`과 같은 값을 넘긴다.
   admission 판정표의 `references` 단계(RUN4221)가 이 예외다.
-- **1.83 coordinator**: attempt·fence를 배정한 뒤 `RunSnapshotRestorer.delivery`로 요청을 만든다. usage 누적은 run 행 counter를
-  올리는 것으로만 한다(감소는 DB가 거부). deadline은 `request_deadline_at`에서만 읽는다.
+- **1.83 coordinator**: attempt·fence를 배정한 뒤 `RunSnapshotRestorer.delivery`로 요청을 만든다. deadline은 `request_deadline_at`에서만 읽는다.
+  usage를 누적한다면 run 행 counter를 올리는 것으로만 한다(감소는 DB가 거부, 다른 저장소 금지). 다만 Brain이 usage를 회신하는 계약이 생길 때까지
+  Server는 `used_*`를 0으로 두고 Brain record의 단조 병합에 의존한다. 새 attempt를 발급하지 않는다는 것이 전제다(r183 판정, 회신 경로 신설은 S07 밖 후속 결정).
 - **1.83 자격증명 요구 (r178 R7)**: 복원은 현재 turn 첨부의 read URL이 없을 때만 실패한다. Viewer Focus `read_url`과 corpus
   grant는 wire에서 optional이라 `RunAssetAccess.NONE`이어도 통과한다. 1.83은 `viewer_context`가 있으면 read URL을 넘길지
   (Brain이 Page Understanding cache miss에서 필요), corpus 검색이 가능한 run에 grant를 넘길지를 S10 resolver 정책과 함께 정해
