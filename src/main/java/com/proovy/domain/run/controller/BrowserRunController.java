@@ -2,7 +2,9 @@ package com.proovy.domain.run.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.proovy.domain.run.admission.RunAdmissionService;
+import com.proovy.domain.run.cancel.RunCancelService;
 import com.proovy.domain.run.contract.ConversationPage;
+import com.proovy.domain.run.contract.RunCancelResult;
 import com.proovy.domain.run.contract.RunStatus;
 import com.proovy.domain.run.stream.RunReadService;
 import com.proovy.domain.run.stream.RunStreamService;
@@ -26,7 +28,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * <p>
  * 스트림 시작 전 거부는 Accept가 {@code text/event-stream}이어도 JSON {@code ApiResponse}다
  * ({@link BrowserRunExceptionHandler}, 접수 거부는 {@code RunAdmissionExceptionHandler}). 시작 뒤에는 terminal event로 끝난다.
- * 취소({@code POST /api/ai-runs/{runId}/cancel})는 1.84가 이 controller에 추가한다.
+ * 취소({@code POST /api/ai-runs/{runId}/cancel})는 동기 JSON이다(1.84). 브라우저 연결 단절은 취소가 아니다.
  */
 @RestController
 @Tag(name = "Browser Run", description = "대화 요청 접수·SSE replay·run 상태·대화 조회 (browser-run-v1)")
@@ -38,11 +40,14 @@ public class BrowserRunController {
     private final RunAdmissionService admission;
     private final RunStreamService streams;
     private final RunReadService reads;
+    private final RunCancelService cancels;
 
-    public BrowserRunController(RunAdmissionService admission, RunStreamService streams, RunReadService reads) {
+    public BrowserRunController(RunAdmissionService admission, RunStreamService streams, RunReadService reads,
+                                RunCancelService cancels) {
         this.admission = admission;
         this.streams = streams;
         this.reads = reads;
+        this.cancels = cancels;
     }
 
     @PostMapping("/api/conversations")
@@ -71,6 +76,17 @@ public class BrowserRunController {
     public ApiResponse<RunStatus> status(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal,
                                          @PathVariable String runId) {
         return ApiResponse.success(reads.status(principal.getUserId(), runId));
+    }
+
+    @PostMapping("/api/ai-runs/{runId}/cancel")
+    @Operation(summary = "run 취소",
+            description = "body 없이 보낸다(`{}`도 RUN4001). PENDING은 즉시 CANCELED(보상), RUNNING은 CANCELING 뒤 Brain 정리 확인 "
+                    + "또는 안전 timeout에 CANCELED(차감 유지). 이미 CANCELING·terminal이면 같은 상태를 멱등으로 돌려준다.")
+    public ApiResponse<RunCancelResult> cancel(@Parameter(hidden = true) @AuthenticationPrincipal UserPrincipal principal,
+                                               @PathVariable String runId,
+                                               @RequestBody(required = false) String body) {
+        // body는 원문으로 받는다: 내용·Content-Type과 무관하게 body가 있으면 run 조회 전에 RUN4001이다.
+        return ApiResponse.success(cancels.cancel(principal.getUserId(), runId, body));
     }
 
     @GetMapping("/api/conversations/{noteId}/messages")
