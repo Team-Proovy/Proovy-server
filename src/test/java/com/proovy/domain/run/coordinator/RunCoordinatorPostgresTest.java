@@ -229,16 +229,17 @@ class RunCoordinatorPostgresTest {
     }
 
     @Test
-    void orphanedExecutionKeepsItsGlobalSlotUntilTerminalEvenWithExpiredLease() throws Exception {
+    void foreignExecutionKeepsItsGlobalSlotUntilTerminal() throws Exception {
         long user = newUser();
-        // 이전 프로세스가 claim한 뒤 사라진 run: attempt 1, lease 만료. Brain에서는 아직 돌 수 있다.
+        // 다른 인스턴스가 claim해 실행 중인 run: attempt 1, 이 coordinator 밖의 lease. Brain에서 돌고 있다.
+        // (lease가 만료된 고아는 이제 1.85 회수가 인수해 수습한다 — RunRecoveryPostgresTest)
         // PENDING으로 commit하면 coordinator가 먼저 claim할 수 있어 같은 transaction에서 RUNNING으로 만든다.
         UUID orphan = tx.execute(status -> {
             UUID runId = insertPendingRunInTransaction(user, Instant.now().plusSeconds(600));
             jdbc.update("""
                     UPDATE ai_runs SET status = 'RUNNING', attempt = 1, fence_token = 'fence-gone', started_at = now(),
-                           lease_owner = 'gone-instance', lease_expires_at = now() - interval '1 second',
-                           heartbeat_at = now() - interval '1 minute'
+                           lease_owner = 'other-instance', lease_expires_at = now() + interval '10 minutes',
+                           heartbeat_at = now()
                     WHERE run_id = ?
                     """, runId);
             return runId;
@@ -247,13 +248,13 @@ class RunCoordinatorPostgresTest {
         RunAdmission second = admit(user, Step.HOLD);
         List<RunAdmission> runs = List.of(first, second);
         try {
-            // 슬롯 2 중 1은 고아 run이 차지한다: lease가 만료됐어도 terminal 전까지 센다
+            // 슬롯 2 중 1은 다른 인스턴스의 run이 차지한다: 이 인스턴스의 permit과 무관하게 terminal 전까지 센다
             await(() -> sentCount(runs) == 1);
             Thread.sleep(800);
             assertThat(sentCount(runs)).isEqualTo(1);
             assertThat(claims.countActiveExecutions()).isEqualTo(2);
 
-            // 고아가 terminal이 되면 슬롯이 풀려 다음 run이 나간다
+            // 그 run이 terminal이 되면 슬롯이 풀려 다음 run이 나간다
             terminals.failByServer(orphan, 1, "fence-gone", RunFailureCode.INTERNAL_ERROR, true);
             await(() -> sentCount(runs) == 2);
         } finally {
@@ -332,7 +333,9 @@ class RunCoordinatorPostgresTest {
 
     @Test
     void absentRecordAfterTransportLossResendsTheSameRequest() {
-        RunAdmission run = admit(newUser(), StatusMode.ABSENT, Step.END_WITHOUT_TERMINAL, Step.COMPLETE);
+        // frame 하나 없이 끊긴 전송 + absent = 명확한 미시작. 같은 요청이 첫 START다.
+        // (frame을 받은 뒤의 absent는 실행 소실 — RunRecoveryPostgresTest)
+        RunAdmission run = admit(newUser(), StatusMode.ABSENT, Step.DROP, Step.COMPLETE);
 
         awaitStatus(run.runId(), "COMPLETED");
 
@@ -439,7 +442,7 @@ class RunCoordinatorPostgresTest {
         coordinator.stop();
         try {
             Map<String, Object> row = runRow(run.runId());
-            // terminal이 아니다: run은 진행 중 상태로 남고 lease만 즉시 만료된다(1.85 회수 대상)
+            // terminal이 아니다: run은 진행 중 상태로 남고 lease만 즉시 만료된다(재기동 뒤 1.85 회수 대상)
             assertThat(row.get("status")).isEqualTo("RUNNING");
             assertThat(row.get("completed_at")).isNull();
             assertThat(jdbc.queryForObject("SELECT lease_expires_at <= now() FROM ai_runs WHERE run_id = ?",
@@ -455,9 +458,11 @@ class RunCoordinatorPostgresTest {
             brain.release(run.requestId());
             coordinator.start();
         }
-        // 정리: 회수(1.85)가 아직 없으므로 테스트가 끝낸다. lease가 만료된 run은 슬롯을 차지하지 않는다.
+        // 재기동 뒤 회수가 인수해 terminal로 끝낸다(status absent + 저장된 activity = 실행 소실, RunRecoveryPostgresTest).
+        // 회수 주기 전에 테스트가 먼저 끝내도 결과는 terminal 하나다.
         Map<String, Object> row = runRow(run.runId());
         terminals.failByServer(run.runId(), 1, (String) row.get("fence_token"), RunFailureCode.INTERNAL_ERROR, true);
+        awaitStatus(run.runId(), "FAILED");
         await(coordinator::isLeader);
     }
 

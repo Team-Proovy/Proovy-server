@@ -56,6 +56,18 @@ class RunCoordinatorPropertiesTest {
     }
 
     @Test
+    void recoveryIsPeriodicAndBoundedPerRun() {
+        RunCoordinatorProperties.Recovery recovery = bind(Map.of()).recovery();
+        assertThat(recovery.interval()).isEqualTo(Duration.ofSeconds(5));
+        assertThat(recovery.maxRecoveries()).isEqualTo(3);
+        assertThat(recovery.batch()).isEqualTo(8);
+        assertThatThrownBy(() -> bind(Map.of("proovy.run.coordinator.recovery.max-recoveries", "0")))
+                .rootCause().hasMessageContaining("max-recoveries");
+        assertThatThrownBy(() -> bind(Map.of("proovy.run.coordinator.recovery.interval", "0s")))
+                .rootCause().hasMessageContaining("recovery.interval");
+    }
+
+    @Test
     void instanceIdIsRestrictedToLeaseOwnerCharacters() {
         assertThatThrownBy(() -> bind(Map.of("proovy.run.coordinator.instance-id", "bad owner")))
                 .rootCause().hasMessageContaining("instance-id");

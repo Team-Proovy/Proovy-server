@@ -43,6 +43,8 @@ final class FakeBrain implements AutoCloseable {
         HOLD,
         /** activity.started 뒤 terminal 없이 정상 종료 */
         END_WITHOUT_TERMINAL,
+        /** frame 하나 없이 stream 종료(요청이 Brain record에 닿기 전 끊긴 전송과 같다) */
+        DROP,
         /** 503 capacity (record 생성 전 거부) */
         CAPACITY,
         /** 400 invalid_request */
@@ -69,6 +71,7 @@ final class FakeBrain implements AutoCloseable {
     private final Map<String, List<Step>> scripts = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> cursor = new ConcurrentHashMap<>();
     private final Map<String, StatusMode> statusModes = new ConcurrentHashMap<>();
+    private final Map<String, AtomicInteger> statusFailures = new ConcurrentHashMap<>();
     private final Map<String, Delivery> lastByRun = new ConcurrentHashMap<>();
     private final Map<String, CountDownLatch> holds = new ConcurrentHashMap<>();
     private final List<Delivery> deliveries = new CopyOnWriteArrayList<>();
@@ -98,6 +101,11 @@ final class FakeBrain implements AutoCloseable {
     /** request_id별 status 응답 모드(접수 전에 건다). */
     void status(String requestId, StatusMode mode) {
         statusModes.put(requestId, mode);
+    }
+
+    /** request_id의 다음 status 조회 {@code count}번을 500으로 답한다(조회 응답 유실 주입). */
+    void failStatus(String requestId, int count) {
+        statusFailures.put(requestId, new AtomicInteger(count));
     }
 
     void release(String requestId) {
@@ -140,6 +148,12 @@ final class FakeBrain implements AutoCloseable {
             String runId = path[4];
             if ("GET".equals(exchange.getRequestMethod())) {
                 statusCalls.add(runId);
+                Delivery last = lastByRun.get(runId);
+                AtomicInteger failures = last == null ? null : statusFailures.get(last.requestId());
+                if (failures != null && failures.getAndDecrement() > 0) {
+                    json(exchange, 500, JSON.createObjectNode().put("error", "internal"));
+                    return;
+                }
                 json(exchange, 200, statusResponse(runId));
                 return;
             }
@@ -178,6 +192,10 @@ final class FakeBrain implements AutoCloseable {
             exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
             exchange.sendResponseHeaders(200, 0);
             OutputStream out = exchange.getResponseBody();
+            if (step == Step.DROP) {
+                out.flush();
+                return;
+            }
             frame(out, bind(load("activity-v1/valid/input-analysis-started.json"), delivery, "activity-1:started"));
             switch (step) {
                 case HOLD -> {
