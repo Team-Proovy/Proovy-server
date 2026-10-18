@@ -1,5 +1,7 @@
 package com.proovy.domain.run.coordinator;
 
+import com.proovy.domain.run.coordinator.RunClaimStore.StaleRun;
+import com.proovy.domain.run.coordinator.RunExecution.Mode;
 import com.proovy.domain.run.coordinator.RunExecution.StopReason;
 import com.proovy.domain.run.terminal.RunTerminalService;
 import com.proovy.domain.run.terminal.TerminalSettlement;
@@ -40,6 +42,10 @@ import org.springframework.context.SmartLifecycle;
  * 로컬 permit은 worker가 끝날 때 항상 반환한다: terminal 확정(SETTLED), 이 attempt가 현재가 아님(OBSOLETE: 다른 terminal·
  * CANCELING·fence 교체), 멈춤(STOPPED: 종료·lease 상실), 로컬 오류(LOCAL_ERROR). OBSOLETE·STOPPED·LOCAL_ERROR에서 run이
  * 아직 비terminal이면 heartbeat는 멈추지만 전역 슬롯은 DB 수로 계속 차지한다 — terminal이 되어야 풀린다.
+ * <h2>stale 회수 (1.85)</h2>
+ * lease가 만료됐고 이 인스턴스에 worker가 없는 {@code RUNNING|RETRYING} run(이전 프로세스·종료·lease 상실·로컬 오류)을
+ * 같은 attempt·fence로 인수해 status부터 수습한다({@link RunExecution.Mode#RECOVER}). 인수 worker도 로컬 permit을 잡는다.
+ * 전역 슬롯은 그 run이 이미 비terminal 수로 차지하고 있어 새로 세지 않는다. CANCELING은 취소 경로(1.84) 소유라 고르지 않는다.
  * <h2>스레드</h2>
  * 내부 executor 두 개(control: claim·heartbeat·sweep, worker: run별)이며 Spring bean으로 노출하지 않는다 — 전역 기본
  * {@code taskScheduler}·{@code applicationTaskExecutor}를 바꾸지 않기 위해서다. 스레드 이름은 {@code runCoordinator-*}.
@@ -98,6 +104,9 @@ public class RunCoordinator implements SmartLifecycle {
                 properties.pollInterval().toMillis(), TimeUnit.MILLISECONDS);
         control.scheduleWithFixedDelay(guarded("deadline", this::sweepDeadlines),
                 properties.deadlineSweepInterval().toMillis(), properties.deadlineSweepInterval().toMillis(),
+                TimeUnit.MILLISECONDS);
+        control.scheduleWithFixedDelay(guarded("recovery", this::recoverStale),
+                properties.recovery().interval().toMillis(), properties.recovery().interval().toMillis(),
                 TimeUnit.MILLISECONDS);
     }
 
@@ -307,10 +316,72 @@ public class RunCoordinator implements SmartLifecycle {
         }
     }
 
+    /**
+     * lease가 만료된 stale run을 같은 attempt·fence로 인수해 status 수습 worker를 띄운다. 살아 있는 로컬 worker가 있는 run
+     * (heartbeat만 늦은 경우)은 건너뛴다. 로컬 permit이 없으면 다음 주기로 미룬다. 인수 횟수가 한도를 넘은 run은 저장
+     * terminal 확인 한 번만 한다({@link Mode#FINAL_CHECK}). 이 작업만 비PENDING run의 worker를 띄우므로 같은 run의 로컬
+     * worker가 겹치지 않는다(주기 작업은 자기와 겹쳐 돌지 않는다).
+     */
+    void recoverStale() {
+        if (!running.get() || !leader.get()) {
+            return;
+        }
+        RunCoordinatorProperties.Recovery policy = properties.recovery();
+        // 이 인스턴스에서 아직 도는 worker의 run은 SQL에서 뺀다(앞쪽 batch가 그런 행으로 차서 뒤 후보가 가려지지 않게).
+        for (UUID runId : claims.findStale(policy.batch(), executions.keySet())) {
+            if (!running.get()) {
+                return;
+            }
+            if (executions.containsKey(runId)) {
+                continue;
+            }
+            if (!slots.tryAcquire()) {
+                metrics.recovery("NO_PERMIT");
+                return;
+            }
+            Optional<StaleRun> taken;
+            try {
+                taken = claims.takeOver(runId, owner, properties.leaseTtl());
+            } catch (RuntimeException e) {
+                slots.release();
+                metrics.error("recovery");
+                log.warn("stale run takeover failed: runId={}, cause={}", runId, e.getClass().getSimpleName());
+                continue;
+            }
+            if (taken.isEmpty()) {
+                // heartbeat 재개·terminal·취소·다른 인수자가 먼저였다.
+                slots.release();
+                metrics.recovery("NOT_TAKEN");
+                continue;
+            }
+            StaleRun stale = taken.get();
+            if (!running.get()) {
+                // 종료와 겹쳤다: 방금 갱신한 lease를 TTL 동안 쥐지 않게 즉시 만료시켜 다음 인스턴스에 넘긴다.
+                slots.release();
+                metrics.recovery("ABANDONED_STOPPING");
+                try {
+                    claims.expireLease(stale.claim(), owner);
+                } catch (RuntimeException e) {
+                    log.warn("lease expiry failed: runId={}, cause={}", runId, e.getClass().getSimpleName());
+                }
+                return;
+            }
+            Mode mode = stale.recoveryCount() > policy.maxRecoveries() ? Mode.FINAL_CHECK : Mode.RECOVER;
+            metrics.recovery(mode == Mode.RECOVER ? "TAKEN" : "LIMIT_EXCEEDED");
+            log.info("stale run taken over: runId={}, attempt={}, recoveryCount={}, mode={}", runId,
+                    stale.claim().attempt(), stale.recoveryCount(), mode);
+            launch(stale.claim(), mode);
+        }
+    }
+
     private void launch(ClaimedRun claim) {
         metrics.claimed();
         log.info("run claimed: runId={}, attempt={}", claim.runId(), claim.attempt());
-        RunExecution execution = new RunExecution(claim, dependencies, this::finished);
+        launch(claim, Mode.DISPATCH);
+    }
+
+    private void launch(ClaimedRun claim, Mode mode) {
+        RunExecution execution = new RunExecution(claim, mode, dependencies, this::finished);
         executions.put(claim.runId(), execution);
         try {
             workers.execute(execution);
@@ -320,6 +391,9 @@ public class RunCoordinator implements SmartLifecycle {
             executions.remove(claim.runId());
             slots.release();
             metrics.error("launch");
+            if (mode != Mode.DISPATCH) {
+                metrics.recoveryFinished(RunExecution.Result.STOPPED);
+            }
             log.warn("run worker not started (coordinator stopping): runId={}", claim.runId());
             try {
                 claims.expireLease(claim, owner);
@@ -332,6 +406,9 @@ public class RunCoordinator implements SmartLifecycle {
     private void finished(RunExecution execution) {
         executions.remove(execution.claim().runId(), execution);
         slots.release();
+        if (execution.mode() != Mode.DISPATCH) {
+            metrics.recoveryFinished(execution.result());
+        }
         // 반환한 슬롯을 다음 PENDING run이 poll 주기를 기다리지 않고 쓰게 한다.
         if (running.get() && dispatchQueued.compareAndSet(false, true)) {
             try {
