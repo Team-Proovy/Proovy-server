@@ -1,0 +1,320 @@
+package com.proovy.domain.run.coordinator;
+
+import com.proovy.domain.run.coordinator.RunExecution.StopReason;
+import com.proovy.domain.run.entity.RunFailureCode;
+import com.proovy.domain.run.terminal.RunTerminalService;
+import com.proovy.domain.run.terminal.TerminalSettlement;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.SmartLifecycle;
+
+/**
+ * 단일 Server run coordinator(task 1.83, docs/plan/05·09). 브라우저 연결과 독립적으로 commit된 PENDING run을 claim해
+ * 전역 유한 슬롯 안에서 Brain에 위임하고 결과를 1.80 event store·1.82 terminal 확정으로 넘긴다.
+ * <h2>단일 coordinator</h2>
+ * DB coordinator lease({@code run_coordinator_leases})를 가진 인스턴스 하나만 claim·deadline sweep을 한다. lease가 없는
+ * 인스턴스는 passive로 남아 heartbeat 주기마다 lease를 다시 시도한다. claim transaction은 lease를 {@code FOR SHARE}로
+ * 다시 확인하므로 lease가 넘어간 뒤의 claim은 없다.
+ * <h2>전역 슬롯</h2>
+ * 빈 슬롯 = min(로컬 semaphore, {@code maxConcurrentRuns} − DB의 live lease 실행 수). DB 수에는 다른 인스턴스·이전
+ * 프로세스가 lease를 가진 실행도 들어간다. worker pool은 슬롯 수와 같은 고정 크기이고 queue가 없다 — 슬롯이 없으면
+ * run은 PENDING으로 남는다(무한 in-memory queue 없음). Brain의 503 capacity는 슬롯의 대체물이 아니라 재전송 대상이다.
+ * <h2>슬롯 해제</h2>
+ * worker가 끝날 때 항상 반환한다: terminal 확정(SETTLED), 이 attempt가 현재가 아님(OBSOLETE: 다른 terminal·CANCELING·
+ * fence 교체), 멈춤(STOPPED: 종료·lease 상실), 로컬 오류(LOCAL_ERROR). STOPPED·LOCAL_ERROR의 run은 진행 중 상태로 남는다.
+ * <h2>스레드</h2>
+ * 내부 executor 두 개(control: claim·heartbeat·sweep, worker: run별)이며 Spring bean으로 노출하지 않는다 — 전역 기본
+ * {@code taskScheduler}·{@code applicationTaskExecutor}를 바꾸지 않기 위해서다. 스레드 이름은 {@code runCoordinator-*}.
+ */
+@Slf4j
+public class RunCoordinator implements SmartLifecycle {
+
+    private static final int DEADLINE_BATCH = 50;
+
+    private final RunCoordinatorProperties properties;
+    private final RunClaimStore claims;
+    private final RunTerminalService terminals;
+    private final RunExecution.Dependencies dependencies;
+    private final RunCoordinatorMetrics metrics;
+    private final String owner;
+    private final Semaphore slots;
+    private final Map<UUID, RunExecution> executions = new ConcurrentHashMap<>();
+    private final AtomicBoolean running = new AtomicBoolean();
+    private final AtomicBoolean leader = new AtomicBoolean();
+    private final AtomicBoolean dispatchQueued = new AtomicBoolean();
+
+    private ScheduledExecutorService control;
+    private ThreadPoolExecutor workers;
+
+    RunCoordinator(RunCoordinatorProperties properties, RunClaimStore claims, RunTerminalService terminals,
+            RunExecution.Dependencies dependencies, RunCoordinatorMetrics metrics) {
+        this.properties = properties;
+        this.claims = claims;
+        this.terminals = terminals;
+        this.dependencies = dependencies;
+        this.metrics = metrics;
+        this.owner = dependencies.owner();
+        this.slots = new Semaphore(properties.maxConcurrentRuns());
+        metrics.gauges(executions::size, properties.maxConcurrentRuns(), () -> leader.get() ? 1 : 0);
+    }
+
+    // ------------------------------------------------------------------
+    // lifecycle
+    // ------------------------------------------------------------------
+
+    @Override
+    public void start() {
+        if (!running.compareAndSet(false, true)) {
+            return;
+        }
+        int max = properties.maxConcurrentRuns();
+        control = Executors.newScheduledThreadPool(2, threads("runCoordinator-control-"));
+        workers = new ThreadPoolExecutor(max, max, 0, TimeUnit.MILLISECONDS, new SynchronousQueue<>(),
+                threads("runCoordinator-worker-"));
+        log.info("run coordinator starting: owner={}, maxConcurrentRuns={}, brainCapacity={}", owner, max,
+                properties.brainCapacity().total());
+        control.scheduleWithFixedDelay(guarded("heartbeat", this::heartbeat), 0,
+                properties.heartbeatInterval().toMillis(), TimeUnit.MILLISECONDS);
+        control.scheduleWithFixedDelay(guarded("dispatch", this::dispatch), properties.pollInterval().toMillis(),
+                properties.pollInterval().toMillis(), TimeUnit.MILLISECONDS);
+        control.scheduleWithFixedDelay(guarded("deadline", this::sweepDeadlines),
+                properties.deadlineSweepInterval().toMillis(), properties.deadlineSweepInterval().toMillis(),
+                TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * claim을 멈추고 worker에 멈춤 신호를 보낸 뒤 {@code shutdownTimeout}까지 기다린다. 진행 중 run은 terminal이 아니라
+     * lease만 만료된 채 남는다(transport 종료를 성공으로 보지 않는다, Brain 실행은 취소하지 않는다). 회수는 1.85다.
+     */
+    @Override
+    public void stop() {
+        if (!running.compareAndSet(true, false)) {
+            return;
+        }
+        control.shutdownNow();
+        try {
+            // 진행 중인 heartbeat·claim이 끝난 뒤에 worker를 멈춘다 — 늦은 heartbeat가 만료시킨 lease를 되살리지 않게.
+            if (!control.awaitTermination(properties.shutdownTimeout().toMillis(), TimeUnit.MILLISECONDS)) {
+                log.warn("run coordinator control tasks did not stop in time");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        executions.values().forEach(execution -> execution.stop(StopReason.SHUTDOWN));
+        workers.shutdown();
+        try {
+            if (!workers.awaitTermination(properties.shutdownTimeout().toMillis(), TimeUnit.MILLISECONDS)) {
+                log.warn("run coordinator workers did not stop in time: remaining={}", executions.size());
+                workers.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            workers.shutdownNow();
+        }
+        try {
+            claims.releaseCoordinatorLease(owner);
+        } catch (RuntimeException e) {
+            log.warn("coordinator lease release failed: cause={}", e.getClass().getSimpleName());
+        }
+        leader.set(false);
+        log.info("run coordinator stopped: owner={}", owner);
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running.get();
+    }
+
+    // ------------------------------------------------------------------
+    // 1.84·1.85 hook
+    // ------------------------------------------------------------------
+
+    /** 이 인스턴스에서 그 run의 worker가 돌고 있는지(1.85: 살아 있는 worker가 있는 run은 stale 회수 대상이 아니다). */
+    public boolean isExecuting(UUID runId) {
+        return executions.containsKey(runId);
+    }
+
+    /**
+     * 그 run의 로컬 stream 소비를 멈춘다(슬롯 반환, Brain 실행은 계속). 1.84가 CANCELING 뒤 cancel 확인을 직접 맡거나
+     * 다른 경로가 terminal을 확정한 뒤 부른다. 부르지 않아도 worker는 heartbeat 실패(lease·fence·terminal)나
+     * NOT_ACCEPTING terminal로 스스로 끝난다.
+     */
+    public boolean release(UUID runId) {
+        RunExecution execution = executions.get(runId);
+        if (execution == null) {
+            return false;
+        }
+        execution.stop(StopReason.FINISHED_ELSEWHERE);
+        return true;
+    }
+
+    /** 이 인스턴스가 coordinator lease를 가졌는지. */
+    public boolean isLeader() {
+        return leader.get();
+    }
+
+    /** 지금 이 인스턴스가 쓰는 전역 슬롯 수. */
+    public int slotsInUse() {
+        return properties.maxConcurrentRuns() - slots.availablePermits();
+    }
+
+    String owner() {
+        return owner;
+    }
+
+    Collection<RunExecution> executions() {
+        return executions.values();
+    }
+
+    // ------------------------------------------------------------------
+    // 주기 작업
+    // ------------------------------------------------------------------
+
+    /** coordinator lease 갱신 + 실행 중 run lease 갱신. lease를 잃은 run의 worker는 멈춘다. */
+    void heartbeat() {
+        boolean held = claims.acquireCoordinatorLease(owner, properties.leaseTtl());
+        if (leader.getAndSet(held) != held) {
+            if (held) {
+                log.info("run coordinator lease acquired: owner={}", owner);
+            } else {
+                log.warn("run coordinator lease held by another instance; this instance stays passive: owner={}",
+                        owner);
+            }
+        }
+        for (RunExecution execution : executions.values()) {
+            if (execution.stopReason() != null) {
+                continue;
+            }
+            try {
+                if (!claims.heartbeat(execution.claim(), owner, properties.leaseTtl())) {
+                    metrics.heartbeatLost();
+                    log.info("run lease no longer held: runId={}", execution.claim().runId());
+                    execution.stop(StopReason.LEASE_LOST);
+                }
+            } catch (RuntimeException e) {
+                // 한 번의 갱신 실패는 lease TTL이 흡수한다. 다음 주기에 다시 시도한다.
+                metrics.error("heartbeat");
+                log.warn("run heartbeat failed: runId={}, cause={}", execution.claim().runId(),
+                        e.getClass().getSimpleName());
+            }
+        }
+    }
+
+    /** 빈 슬롯만큼 PENDING run을 claim해 worker를 시작한다. 겹쳐 돌아도 로컬 semaphore가 슬롯 수를 지킨다. */
+    void dispatch() {
+        dispatchQueued.set(false);
+        if (!running.get() || !leader.get()) {
+            return;
+        }
+        int free = Math.min(slots.availablePermits(),
+                properties.maxConcurrentRuns() - claims.countLiveExecutions());
+        for (int i = 0; i < free && running.get(); i++) {
+            if (!slots.tryAcquire()) {
+                return;
+            }
+            Optional<ClaimedRun> claimed;
+            try {
+                claimed = claims.claimNext(owner, newFence(), properties.leaseTtl(),
+                        properties.minDispatchRemaining());
+            } catch (RuntimeException e) {
+                slots.release();
+                throw e;
+            }
+            if (claimed.isEmpty()) {
+                slots.release();
+                return;
+            }
+            launch(claimed.get());
+        }
+    }
+
+    /** 요청 deadline이 지난 run을 timeout 실패·보상으로 끝낸다(PENDING 대기 중 포함). */
+    void sweepDeadlines() {
+        if (!running.get() || !leader.get()) {
+            return;
+        }
+        List<UUID> expired = claims.findDeadlinePassed(DEADLINE_BATCH);
+        for (UUID runId : expired) {
+            TerminalSettlement settlement = terminals.expireDeadline(runId);
+            if (settlement.outcome() == TerminalSettlement.Outcome.COMMITTED) {
+                metrics.deadlineExpired();
+                log.info("run deadline expired: runId={}", runId);
+                claims.reserveRuntimeCleanup(runId, properties.runtimeCleanupDelay());
+                RunExecution execution = executions.get(runId);
+                if (execution != null) {
+                    execution.stop(StopReason.FINISHED_ELSEWHERE);
+                }
+            }
+        }
+    }
+
+    private void launch(ClaimedRun claim) {
+        metrics.claimed();
+        log.info("run claimed: runId={}, attempt={}", claim.runId(), claim.attempt());
+        RunExecution execution = new RunExecution(claim, dependencies, this::finished);
+        executions.put(claim.runId(), execution);
+        try {
+            workers.execute(execution);
+        } catch (RejectedExecutionException e) {
+            // 슬롯을 먼저 잡았으므로 일어나지 않아야 한다. claim했지만 Brain에 보내지 않은 run이라 실패·보상으로 끝낸다.
+            executions.remove(claim.runId());
+            slots.release();
+            metrics.error("launch");
+            log.error("run worker rejected: runId={}", claim.runId());
+            terminals.failByServer(claim.runId(), claim.attempt(), claim.fenceToken(),
+                    RunFailureCode.INTERNAL_ERROR, true);
+        }
+    }
+
+    private void finished(RunExecution execution) {
+        executions.remove(execution.claim().runId(), execution);
+        slots.release();
+        // 반환한 슬롯을 다음 PENDING run이 poll 주기를 기다리지 않고 쓰게 한다.
+        if (running.get() && dispatchQueued.compareAndSet(false, true)) {
+            try {
+                control.execute(guarded("dispatch", this::dispatch));
+            } catch (RejectedExecutionException ignored) {
+                dispatchQueued.set(false);
+            }
+        }
+    }
+
+    private Runnable guarded(String stage, Runnable task) {
+        return () -> {
+            try {
+                task.run();
+            } catch (RuntimeException e) {
+                metrics.error(stage);
+                log.warn("run coordinator {} failed: cause={}", stage, e.getClass().getSimpleName());
+            }
+        };
+    }
+
+    private static String newFence() {
+        return "fence-" + UUID.randomUUID();
+    }
+
+    private static ThreadFactory threads(String prefix) {
+        AtomicInteger sequence = new AtomicInteger();
+        return runnable -> {
+            Thread thread = new Thread(runnable, prefix + sequence.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        };
+    }
+}
