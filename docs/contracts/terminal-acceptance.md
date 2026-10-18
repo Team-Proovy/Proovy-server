@@ -84,6 +84,8 @@ str 필드는 Brain `str_strip_whitespace`처럼 strip한다. enum·Literal 값�
 
 ## 1.82 인계 — transaction 재확인 (TOCTOU)
 
+> 반영(1.82): `RunTerminalService`가 아래 항목을 잠금 뒤 DB 값으로 다시 확인한다 — [`terminal-settlement.md`](terminal-settlement.md).
+
 수락 판정은 사전 조회 scope 기준이다. 이 태스크만으로 원자성을 보장하지 않는다. 저장 transaction에서 다음을 확인한다.
 
 1. 현재 fence 조건부 terminal UPDATE가 1 row인지(run이 아직 비terminal이고 CANCELING이 아닌지).

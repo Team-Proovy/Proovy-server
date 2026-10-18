@@ -109,7 +109,7 @@ public final class SourceActivities {
      * dedup 키로 저장할 source_event_id. 128자 이하는 그대로, 더 길면 같은 입력에 항상 같은 {@code sha256:<hex>}(71자)로
      * 줄인다. 두 키 공간이 겹치지 않도록 {@code sha256:}으로 시작하는 원래 ID는 받지 않는다({@link #isDigestKey}).
      */
-    static String storedSourceEventId(String sourceEventId) {
+    public static String storedSourceEventId(String sourceEventId) {
         if (sourceEventId.length() <= MAX_STORED_SOURCE_EVENT_ID_LENGTH) {
             return sourceEventId;
         }
