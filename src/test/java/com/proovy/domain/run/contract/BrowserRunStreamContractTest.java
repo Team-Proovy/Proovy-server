@@ -23,7 +23,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** streams/·heartbeat fixture를 Java DTO와 stream 규칙 S1~S7 검사기로 재현한다. */
-class BrowserRunStreamContractTest {
+public class BrowserRunStreamContractTest {
 
     private static final Set<String> TERMINAL_TYPES = Set.of("run.completed", "run.failed", "run.canceled");
     private static final Set<String> AFTER_CANCELING = Set.of(
@@ -134,7 +134,7 @@ class BrowserRunStreamContractTest {
     }
 
     /** manifest stream_rules S1~S7 검사기. */
-    static Set<String> violations(JsonNode frames) {
+    public static Set<String> violations(JsonNode frames) {
         Set<String> found = new HashSet<>();
         int size = frames.size();
         if (size == 0 || !type(frames.get(0)).equals("run.created")) {
