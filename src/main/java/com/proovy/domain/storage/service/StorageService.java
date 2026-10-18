@@ -21,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -87,8 +89,19 @@ public class StorageService {
         // DB에서 자산 삭제
         assetRepository.deleteAllInBatch(assets);
 
-        // S3에서 파일 삭제
-        s3Service.deleteFiles(new ArrayList<>(objectKeysToDelete));
+        // 트랜잭션 커밋 후 GCS 파일 삭제 (Note 잠금을 쥔 채 네트워크를 기다리지 않는다, 단건 삭제와 같은 방식)
+        List<String> objectKeys = new ArrayList<>(objectKeysToDelete);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    s3Service.deleteFiles(objectKeys);
+                } catch (Exception e) {
+                    log.error("[Storage] GCS 파일 삭제 실패 - userId: {}, count: {}, error: {}",
+                            userId, objectKeys.size(), e.getMessage());
+                }
+            }
+        });
 
         // 스토리지 용량 반환 로깅
         log.info("[Storage] 사용자 {} - {} 개 파일 삭제, 용량 반환: {} bytes",

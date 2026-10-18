@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.proovy.domain.asset.service.AssetsService;
+import com.proovy.domain.storage.dto.request.BulkDeleteRequest;
+import com.proovy.domain.storage.service.StorageService;
 import com.proovy.domain.run.contract.PublicRunStatus;
 import com.proovy.domain.run.entity.AiRunEventType;
 import com.proovy.domain.run.event.RunEventStore;
@@ -104,6 +106,7 @@ class RunAdmissionPostgresTest {
     @Autowired RunAdmissionService admission;
     @Autowired RunEventStore eventStore;
     @Autowired AssetsService assetsService;
+    @Autowired StorageService storageService;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
 
@@ -410,6 +413,46 @@ class RunAdmissionPostgresTest {
     }
 
     @Test
+    void deterministicStorageFailureIsNotRetriedAndLeavesNothing() {
+        long user = newUser();
+        Map<String, Long> before = rows(user);
+
+        // Postgres text·jsonb는 U+0000을 받지 않는다(22P05) — 결정적 실패라 재시도하지 않는다
+        Throwable thrown = catchThrowable(() -> admission.admit(user, body(null, "NUL 포함\u0000")));
+
+        assertThat(thrown).isNotNull().isNotInstanceOf(RunAdmissionRejectedException.class);
+        assertThat(RunAdmissionService.isRetryable(thrown)).isFalse();
+        assertThat(rows(user)).isEqualTo(before);
+    }
+
+    @Test
+    void contentVersionChangedBeforeDependencyLockIsRejectedAsReferenceUnavailable() {
+        long user = newUser();
+        long note = newNote(user, "ACTIVE");
+        long pdf = newPdf(user, note);
+        // snapshot이 version 1을 읽은 뒤, 의존성 잠금 전에 재처리가 version을 올린 상황
+        jdbc.execute("""
+                CREATE FUNCTION t179_bump_version() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    UPDATE assets SET content_version = content_version + 1 WHERE id = NEW.asset_id;
+                    RETURN NEW;
+                END; $$""");
+        jdbc.execute("CREATE TRIGGER t179_bump_version BEFORE INSERT ON run_asset_dependencies "
+                + "FOR EACH ROW EXECUTE FUNCTION t179_bump_version()");
+        Map<String, Long> before = rows(user);
+        try {
+            assertThatThrownBy(() -> admission.admit(user, body(note, "재처리와 겹친 질문")))
+                    .isInstanceOfSatisfying(RunAdmissionRejectedException.class,
+                            rejected -> assertThat(rejected.getErrorCode()).isEqualTo(ErrorCode.RUN4221));
+        } finally {
+            jdbc.execute("DROP TRIGGER t179_bump_version ON run_asset_dependencies");
+            jdbc.execute("DROP FUNCTION t179_bump_version()");
+        }
+        assertThat(rows(user)).isEqualTo(before);
+        assertThat(count("SELECT content_version FROM assets WHERE id = ?", pdf)).isEqualTo(1);
+    }
+
+    @Test
     void insufficientBalanceLeavesNoNoteOrMessage() {
         long user = newUser();
         jdbc.update("UPDATE credit_balance SET daily_free_credit = 9, free_credit = 0, paid_credit = 0 WHERE user_id = ?",
@@ -498,6 +541,25 @@ class RunAdmissionPostgresTest {
         assertThat(count("SELECT count(*) FROM assets WHERE id = ?", used)).isEqualTo(1);
 
         assetsService.deleteAsset(user, unused);
+        assertThat(count("SELECT count(*) FROM assets WHERE id = ?", unused)).isZero();
+    }
+
+    @Test
+    void bulkDeletionRefusesWhenAnyAssetWasUsedByARun() {
+        long user = newUser();
+        long note = newNote(user, "ACTIVE");
+        long used = newPdf(user, note);
+        admission.admit(user, body(note, "일괄 삭제 전 질문"));
+        long otherNote = newNote(user, "ACTIVE");
+        long unused = newPdf(user, otherNote);
+
+        assertThatThrownBy(() -> storageService.bulkDeleteAssets(user, new BulkDeleteRequest(List.of(unused, used))))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ASSET4092));
+        assertThat(count("SELECT count(*) FROM assets WHERE id IN (?, ?)", used, unused)).isEqualTo(2);
+
+        // 의존 이력이 없으면 지워진다(GCS 삭제는 commit 뒤 — 테스트 endpoint 실패는 로그만 남는다)
+        storageService.bulkDeleteAssets(user, new BulkDeleteRequest(List.of(unused)));
         assertThat(count("SELECT count(*) FROM assets WHERE id = ?", unused)).isZero();
     }
 

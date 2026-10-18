@@ -24,7 +24,6 @@ import com.proovy.domain.run.snapshot.RunSnapshotFactory;
 import com.proovy.domain.run.snapshot.RunSnapshotRejectedException;
 import com.proovy.domain.usage.exception.InsufficientUsageBalanceException;
 import com.proovy.domain.usage.exception.RequestUsageConflictException;
-import com.proovy.domain.usage.repository.RequestUsageChargeRepository;
 import com.proovy.domain.usage.service.RequestUsageService;
 import com.proovy.domain.user.entity.User;
 import com.proovy.global.response.ErrorCode;
@@ -35,8 +34,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -57,7 +58,7 @@ import org.springframework.transaction.annotation.Transactional;
  * rollback되어 메시지·차감·event가 남지 않는다. Brain 호출·네트워크 대기는 이 transaction 안에 없다.
  *
  * <h2>잠금 순서</h2>
- * Note 행({@code FOR UPDATE}, asset 삭제와 같은 순서) → 사용자 잔액 행(rate limit·차감) → asset 행({@code FOR SHARE}) →
+ * Note 행({@code FOR NO KEY UPDATE}, asset 삭제와 같은 순서) → 사용자 잔액 행(rate limit·차감) → asset 행({@code FOR SHARE}) →
  * run 행(event seq). 같은 Note의 동시 접수는 Note 잠금으로 직렬화되어 뒤 transaction이 앞 run을 Active Run으로 보고,
  * 그래도 남는 경합(새 Note의 같은 requestId 등)은 {@code uq_ai_runs_request}·{@code ux_ai_runs_note_active}·binding PK가
  * 막는다(호출자가 재시도해 승자를 replay하거나 409로 답한다).
@@ -70,17 +71,23 @@ public class RunAdmissionTransaction {
     static final int AUTO_TITLE_MAX_CODE_POINTS = 30;
     static final String AUTO_TITLE_FALLBACK = "새 노트";
 
-    private static final String LOCK_NOTE = "SELECT user_id, status FROM notes WHERE note_id = ? FOR UPDATE";
+    // FOR NO KEY UPDATE: asset 삭제와는 서로 직렬화하되 Note를 참조하는 자식 insert(FK의 FOR KEY SHARE)는 막지 않는다.
+    private static final String LOCK_OWNED_NOTE = """
+            SELECT status FROM notes WHERE note_id = ? AND user_id = ? FOR NO KEY UPDATE
+            """;
+    private static final String REQUEST_ID_USED = """
+            SELECT EXISTS (SELECT 1 FROM ai_runs WHERE request_id = ?)
+                OR EXISTS (SELECT 1 FROM request_usage_charges WHERE request_id = ?)
+            """;
     private static final String NTH_RECENT_RUN = """
             SELECT created_at FROM ai_runs WHERE user_id = ? AND created_at > ?
             ORDER BY created_at DESC OFFSET ? LIMIT 1
             """;
     private static final String LOCK_ACTIVE_ASSETS = """
-            SELECT id FROM assets WHERE note_id = ? AND status = 'ACTIVE' AND id IN (%s) FOR SHARE
+            SELECT id, content_version FROM assets WHERE note_id = ? AND status = 'ACTIVE' AND id IN (%s) FOR SHARE
             """;
 
     private final RunRequestBindingRepository bindingRepository;
-    private final RequestUsageChargeRepository chargeRepository;
     private final AiRunRepository aiRunRepository;
     private final RunAssetDependencyRepository dependencyRepository;
     private final ChatMessageRepository chatMessageRepository;
@@ -93,7 +100,6 @@ public class RunAdmissionTransaction {
     private final EntityManager entityManager;
 
     public RunAdmissionTransaction(RunRequestBindingRepository bindingRepository,
-                                   RequestUsageChargeRepository chargeRepository,
                                    AiRunRepository aiRunRepository,
                                    RunAssetDependencyRepository dependencyRepository,
                                    ChatMessageRepository chatMessageRepository,
@@ -105,7 +111,6 @@ public class RunAdmissionTransaction {
                                    JdbcTemplate jdbc,
                                    EntityManager entityManager) {
         this.bindingRepository = bindingRepository;
-        this.chargeRepository = chargeRepository;
         this.aiRunRepository = aiRunRepository;
         this.dependencyRepository = dependencyRepository;
         this.chatMessageRepository = chatMessageRepository;
@@ -126,24 +131,27 @@ public class RunAdmissionTransaction {
      */
     @Transactional
     public RunAdmission admit(long userId, ConversationRunRequest request, BrowserRequestFingerprint fingerprint) {
-        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Long requestedNoteId = request.noteId() == null ? null : Long.valueOf(request.noteId());
         // Note를 먼저 잠근다: 같은 Note의 동시 재전송이 잠금을 기다린 뒤 아래 requestId 조회에서 승자를 본다.
-        Optional<LockedNote> lockedNote = requestedNoteId == null ? Optional.empty() : lockNote(requestedNoteId);
+        // 소유자 조건을 잠금 쿼리에 넣어 남의 Note는 잠그지 않는다(없음·타인·삭제 중은 같은 RUN4041).
+        Optional<NoteStatus> lockedNote = requestedNoteId == null ? Optional.empty()
+                : lockOwnedNote(requestedNoteId, userId);
 
         Optional<RunAdmission> replay = existing(userId, request.requestId(), fingerprint);
         if (replay.isPresent()) {
             return replay.get();
         }
 
-        Note note;
-        if (requestedNoteId == null) {
-            note = createNote(userId, request.text());
-        } else if (lockedNote.filter(found -> found.isActiveFor(userId)).isPresent()) {
-            note = entityManager.getReference(Note.class, requestedNoteId);
-        } else {
+        if (requestedNoteId != null && lockedNote.filter(status -> status == NoteStatus.ACTIVE).isEmpty()) {
             throw RunAdmissionRejectedException.of(ErrorCode.RUN4041);
         }
+        // 잔액 행을 잠가 같은 사용자의 접수를 직렬화한다(rate limit 판정이 경합으로 새지 않게). 차감도 같은 잠금을 쓴다.
+        creditBalanceService.lockBalanceInCurrentTransaction(userId);
+        // 접수 시각은 잠금을 얻은 뒤에 읽는다: 대기 시간만큼 created_at·deadline·rate-limit 창이 과거로 밀리지 않게.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+
+        Note note = requestedNoteId == null ? createNote(userId, request.text())
+                : entityManager.getReference(Note.class, requestedNoteId);
         long noteId = note.getId();
 
         UUID runId = UUID.randomUUID();
@@ -159,8 +167,6 @@ public class RunAdmissionTransaction {
         if (active.isPresent()) {
             throw RunAdmissionRejectedException.activeRun(active.get().getId());
         }
-        // 잔액 행을 여기서 잠가 같은 사용자의 접수를 직렬화한다(rate limit 판정이 경합으로 새지 않게). 차감도 같은 잠금을 쓴다.
-        creditBalanceService.lockBalanceInCurrentTransaction(userId);
         requireWithinRateLimit(userId, now);
 
         UUID userMessageId = UUID.randomUUID();
@@ -201,7 +207,7 @@ public class RunAdmissionTransaction {
     private Optional<RunAdmission> existing(long userId, String requestId, BrowserRequestFingerprint fingerprint) {
         Optional<RunRequestBinding> binding = bindingRepository.findById(requestId);
         if (binding.isEmpty()) {
-            if (aiRunRepository.findByRequestId(requestId).isPresent() || chargeRepository.existsById(requestId)) {
+            if (Boolean.TRUE.equals(jdbc.queryForObject(REQUEST_ID_USED, Boolean.class, requestId, requestId))) {
                 throw RunAdmissionRejectedException.of(ErrorCode.RUN4092);
             }
             return Optional.empty();
@@ -214,9 +220,9 @@ public class RunAdmissionTransaction {
         return Optional.of(RunAdmission.of(RunAdmission.Outcome.REPLAYED, run));
     }
 
-    private Optional<LockedNote> lockNote(long noteId) {
-        return jdbc.query(LOCK_NOTE, (rs, row) -> new LockedNote(rs.getLong(1),
-                NoteStatus.valueOf(rs.getString(2))), noteId).stream().findFirst();
+    private Optional<NoteStatus> lockOwnedNote(long noteId, long userId) {
+        return jdbc.query(LOCK_OWNED_NOTE, (rs, row) -> NoteStatus.valueOf(rs.getString(1)), noteId, userId)
+                .stream().findFirst();
     }
 
     private Note createNote(long userId, String text) {
@@ -231,7 +237,7 @@ public class RunAdmissionTransaction {
 
     /** 첫 질문으로 만든 Note의 제목: strip·공백 정리한 질문 앞부분. Gemini 제목 생성은 접수 transaction 밖(후속)이다. */
     static String autoTitle(String text) {
-        String normalized = BrowserRunContract.strip(text).replaceAll("\\s+", " ");
+        String normalized = collapseWhitespace(BrowserRunContract.strip(text));
         if (normalized.isEmpty()) {
             return AUTO_TITLE_FALLBACK;
         }
@@ -240,6 +246,26 @@ public class RunAdmissionTransaction {
         }
         return BrowserRunContract.strip(normalized.substring(0,
                 normalized.offsetByCodePoints(0, AUTO_TITLE_MAX_CODE_POINTS)));
+    }
+
+    /** strip 집합(BrowserRunContract) 공백 연속을 공백 하나로 접는다. */
+    private static String collapseWhitespace(String value) {
+        StringBuilder collapsed = new StringBuilder(value.length());
+        boolean inWhitespace = false;
+        for (int i = 0; i < value.length(); ) {
+            int codePoint = value.codePointAt(i);
+            i += Character.charCount(codePoint);
+            if (BrowserRunContract.isStripWhitespace(codePoint)) {
+                if (!inWhitespace) {
+                    collapsed.append(' ');
+                }
+                inWhitespace = true;
+            } else {
+                collapsed.appendCodePoint(codePoint);
+                inWhitespace = false;
+            }
+        }
+        return collapsed.toString();
     }
 
     /**
@@ -255,12 +281,13 @@ public class RunAdmissionTransaction {
             return;
         }
         Duration wait = Duration.between(now, boundary.get(0).plus(limit.window()));
-        long seconds = Math.max(1, (wait.toMillis() + 999) / 1000);
+        long seconds = Math.max(1, (wait.toNanos() + 999_999_999L) / 1_000_000_000L);
         throw RunAdmissionRejectedException.rateLimited(seconds);
     }
 
     /**
-     * snapshot은 asset을 잠그지 않고 읽었다(1.78). 의존성을 넣은 뒤 그 asset들이 아직 같은 Note의 ACTIVE인지 행을
+     * snapshot은 asset을 잠그지 않고 읽었다(1.78). 의존성을 넣은 뒤 그 asset들이 아직 같은 Note의 ACTIVE이고 content version이
+     * 같은지 행을
      * {@code FOR SHARE}로 잠가 확인한다 — 잠금은 commit까지 유지되어 그 사이 삭제·상태 변경이 끼지 못한다.
      * Viewer Focus asset은 corpus 구성원이어야 한다(둘을 따로 읽는 사이 삭제되면 어긋난다).
      */
@@ -269,22 +296,25 @@ public class RunAdmissionTransaction {
             return;
         }
         Set<Long> corpus = new HashSet<>();
-        Set<Long> required = new HashSet<>();
+        Map<Long, Integer> required = new HashMap<>();
         for (RunAssetDependency dependency : dependencies) {
-            required.add(dependency.getAssetId());
+            required.put(dependency.getAssetId(), dependency.getContentVersion());
             if (dependency.getDependencyKind() == RunAssetDependencyKind.CORPUS_SNAPSHOT) {
                 corpus.add(dependency.getAssetId());
             }
         }
-        if (!corpus.containsAll(required)) {
+        if (!corpus.containsAll(required.keySet())) {
             throw RunAdmissionRejectedException.of(ErrorCode.RUN4221);
         }
         List<Object> args = new ArrayList<>();
         args.add(noteId);
-        args.addAll(required);
+        args.addAll(required.keySet());
         String placeholders = String.join(", ", Collections.nCopies(required.size(), "?"));
-        Set<Long> active = new HashSet<>(jdbc.queryForList(LOCK_ACTIVE_ASSETS.formatted(placeholders), Long.class,
-                args.toArray()));
+        Map<Long, Integer> active = new HashMap<>();
+        jdbc.query(LOCK_ACTIVE_ASSETS.formatted(placeholders), rs -> {
+            active.put(rs.getLong(1), rs.getInt(2));
+        }, args.toArray());
+        // snapshot이 고정한 content version과 지금 값이 같아야 한다(재처리·교체가 끼면 drift)
         if (!active.equals(required)) {
             throw RunAdmissionRejectedException.of(ErrorCode.RUN4221);
         }
@@ -303,10 +333,4 @@ public class RunAdmissionTransaction {
         return values == null ? List.of() : values;
     }
 
-    private record LockedNote(long userId, NoteStatus status) {
-
-        boolean isActiveFor(long requester) {
-            return userId == requester && status == NoteStatus.ACTIVE;
-        }
-    }
 }

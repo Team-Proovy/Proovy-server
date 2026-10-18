@@ -31,12 +31,12 @@
 
 ## 저장 순서와 잠금 (한 transaction)
 
-1. noteId가 있으면 Note 행 `FOR UPDATE` (asset 삭제와 같은 순서) → binding 조회
-2. noteId가 없으면 Note 생성(제목 = strip·공백 정리한 질문 앞 30 code point, 플랜 Note 개수 한도는 적용하지 않음 — 아래 결정 1)
-3. `RunSnapshotFactory.create(runId, userId, noteId, request, now)` (1.78)
-4. Active Run 조회 → 잔액 행 잠금(`lockBalanceInCurrentTransaction`, 같은 사용자 접수 직렬화) → rate limit
+1. noteId가 있으면 소유자 조건으로 Note 행 `FOR NO KEY UPDATE`(asset 삭제와 같은 순서, Note를 참조하는 자식 insert는 막지 않음) → binding 조회
+2. Note 판정(RUN4041) → 잔액 행 잠금(`lockBalanceInCurrentTransaction`, 같은 사용자 접수 직렬화) → **잠금 뒤 `now`를 읽는다**(대기 시간이 created_at·deadline·rate-limit 창을 밀지 않게)
+3. noteId가 없으면 Note 생성(제목 = strip 집합으로 공백 정리한 질문 앞 30 code point, 플랜 Note 개수 한도는 적용하지 않음 — 아래 결정 1)
+4. `RunSnapshotFactory.create(runId, userId, noteId, request, now)` (1.78) → Active Run 조회 → rate limit
 5. user message(`created_at = now`) → assistant placeholder(`now + 1µs`) → `save(toPendingRun(..., now))`
-6. `run_asset_dependencies` insert → 그 asset이 아직 같은 Note의 ACTIVE인지 `FOR SHARE`로 재검사, VIEWER_FOCUS ⊂ CORPUS 검사(RUN4221)
+6. `run_asset_dependencies` insert → 그 asset이 아직 같은 Note의 ACTIVE이고 content_version이 snapshot 값과 같은지 `FOR SHARE`로 재검사, VIEWER_FOCUS ⊂ CORPUS 검사(RUN4221)
 7. `RequestUsageService.chargeRequest` (1.77, 부족 RUN4021)
 8. `run_request_bindings` insert
 9. `RunEventStore.appendServerEvent(runId, RUN_CREATED, RunCreatedPayload, now)` (1.80) → seq 1, `last_event_seq = 1`. store가 managed AiRun을 refresh한다
@@ -45,11 +45,13 @@
 
 ## 경합과 재시도
 
-- unique 위반(`uq_ai_runs_request`·`ux_ai_runs_note_active`·binding PK)·lock/연결 실패(`DataAccessException`·`TransactionException`)는
-  rollback 뒤 **같은 body·같은 fingerprint**로 새 transaction을 연다(최대 `max-transactions`). 새 시도는 먼저 commit된 binding을 찾아 replay하거나
+- 원인 사슬의 SQLState가 unique 위반(23505: `uq_ai_runs_request`·`ux_ai_runs_note_active`·binding PK)이나 transient
+  (40001·40P01·55P03·08xxx)면 rollback 뒤 **같은 body·같은 fingerprint**로 새 transaction을 연다(최대 `max-transactions`).
+  번역되지 않은 JPA flush 예외도 같은 기준이다. CHECK·데이터 오류 같은 결정적 실패는 재시도하지 않고 바로 던진다. 새 시도는 먼저 commit된 binding을 찾아 replay하거나
   RUN4091/RUN4092로 답하므로 잘못된 재전송이 새 run이 되지 않는다. commit 여부를 모르는 실패 뒤 재시도도 binding 조회가 먼저다.
 - noteId 없는 같은 요청 6건 동시 → Note·run·차감 1개, 모두 같은 식별자. 같은 Note 다른 요청 5건 동시 → 1건 접수, 4건 RUN4091(승자 runId), 메시지 2개.
-- 접수와 asset 삭제: 서로 Note 잠금을 기다린다. 삭제가 먼저면 접수 snapshot corpus에서 빠지고, 접수가 먼저면 삭제가 ASSET4092.
+- 접수와 asset 삭제(단건·일괄): 서로 Note 잠금을 기다린다. 삭제가 먼저면 접수 snapshot corpus에서 빠지고, 접수가 먼저면 삭제가 ASSET4092.
+  일괄 삭제의 GCS 삭제는 단건처럼 commit 뒤(`afterCommit`)라 Note 잠금을 쥔 채 네트워크를 기다리지 않는다.
 
 ## 후속 태스크 인계
 
@@ -61,9 +63,18 @@
 - **1.84 (취소)**: `cancel/cases.json` 판정표를 production 취소 판정기로 다시 돌리는 테스트는 1.84 몫이다(이 PR은 admission만).
 - **1.82**: 접수는 `RunCreatedPayload.requestedTasks/Outputs`에 요청 값을 그대로(없으면 `[]`) 싣는다.
 
-## 결정·확인 요청
+## 결정 (r179 사용자 결정)
 
-1. 자동 생성 Note에는 플랜 Note 개수 한도(NOTE4031)를 적용하지 않았다. browser-run-v1 접수 오류 집합에 해당 code가 없어서다. 한도가 필요하면 계약 변경(새 code)이 필요하다.
-2. rate limit 기본값(1분 20건)은 임시값이다(S14 운영 결정). Note 삭제로 run이 사라지면 그만큼 카운트에서 빠진다.
-3. asset 의존 이력이 있으면 S13 DELETING 전환 전까지 단건·일괄 삭제가 ASSET4092(409)다. Front 표시는 S08.
-4. Gemini 제목 생성은 접수 transaction에 넣지 않았다(네트워크 대기 금지). 필요하면 commit 뒤 별도 경로로.
+1. **자동 생성 Note에 플랜 Note 개수 한도를 적용하지 않는다(현행 유지).** FREE `noteLimit = 2`(STANDARD 10, PRO 20)를 noteId 없는 접수
+   경로가 우회한다 — S14 재검토. 적용하려면 browser-run-v1 계약 변경(새 code·fixture case)이 필요하다.
+2. rate limit 기본값(1분 20건)은 임시값이다 — S14 운영 결정. Note 삭제로 run이 사라지면 그만큼 카운트에서 빠진다.
+3. **run이 의존한 asset은 단건·일괄 삭제가 ASSET4092(409)다(임시 동작 수용).** 이전에는 같은 삭제가 commit 시 deferred FK 위반 500이었다.
+   화면 문구는 S08, 정식 삭제(DELETING 전환으로 삭제 성공)는 S13으로 인계한다.
+4. 자동 Note 제목은 질문 앞 30 code point(현행 유지). Gemini 제목 생성은 접수 transaction 밖이고, 후속 제목 생성 담당 태스크는 **미정**이다.
+
+## 후속 메모
+
+- **1.75 계약 후속 (r179 R2)**: `ConversationRunRequestValidator`는 U+0000을 거부하지 않는다. Postgres text·jsonb가 받지 않아(22P05) 접수가
+  매핑되지 않은 500으로 끝난다(재시도는 하지 않음, 부작용 없음). 다음 consumer_version에서 NUL(필요하면 다른 제어 문자)을 RUN4001로 고정한다.
+- **S09/S13 (r179 R6)**: 의존성 재검사가 content_version을 비교하므로, 재처리·교체로 version을 올리는 기능이 생기면 겹친 접수는 RUN4221로 거부된다.
+  version 변경 경로도 접수와 같은 Note 잠금 순서를 따를지 그때 정한다.
