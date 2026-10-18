@@ -8,7 +8,7 @@ import java.util.UUID;
  * terminal 확정 시도 하나의 결과({@link RunTerminalService}). {@link Outcome#COMMITTED}만 이번 호출이 run·message·
  * solution·event·usage를 바꿨고, 나머지는 아무것도 저장하지 않았다.
  *
- * @param runStatus        COMMITTED·DUPLICATE·CONFLICTING_DUPLICATE·NOT_ACCEPTING이면 지금 run 상태, 그 외 null
+ * @param runStatus        잠근 run의 지금 상태(COMMITTED면 전환 뒤 상태). run이 없거나(UNKNOWN_RUN) 거부(REJECTED)면 null
  * @param lastSeq          COMMITTED·DUPLICATE면 run의 마지막 durable seq(terminal event), 그 외 null
  * @param compensation     COMMITTED면 이번 transaction의 usage 보상 결과, 그 외 null
  * @param rejection        REJECTED면 거부 범주, 그 외 null
@@ -26,7 +26,10 @@ public record TerminalSettlement(
     public enum Outcome {
         /** 이번 transaction이 terminal을 확정했다(commit됨). commit 뒤 신호가 나갔다 */
         COMMITTED,
-        /** 같은 terminal(같은 source_event_id·같은 내용)이 이미 확정되어 있다. 아무것도 바꾸지 않았다 */
+        /**
+         * 같은 terminal이 이미 확정되어 있다 — Brain terminal은 같은 source_event_id·attempt·fence·내용, Server 실패는 같은 code
+         * (failByServer는 attempt·fence까지, expireDeadline은 timeout). 아무것도 바꾸지 않았다
+         */
         DUPLICATE,
         /** 같은 source_event_id로 다른 결과가 왔다(terminal-v2 redelivery {@code changed_outcome}). 기존 결과를 유지한다 */
         CONFLICTING_DUPLICATE,

@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -85,12 +86,13 @@ public class RunTerminalService {
             """;
     private static final String LOCK_RUN = """
             SELECT request_id, user_id, note_id, assistant_message_id, status, attempt, fence_token, request_deadline_at,
-                   terminal_source_sha256, last_event_seq, request_snapshot::text, policy_snapshot::text
+                   terminal_source_sha256, last_event_seq, request_snapshot::text, policy_snapshot::text,
+                   terminal_source_event_id, failure_code
             FROM ai_runs WHERE run_id = ? FOR UPDATE
             """;
     private static final String RELEASE = """
             completed_at = ?, lease_owner = NULL, lease_expires_at = NULL, grant_digest = NULL, grant_expires_at = NULL,
-            terminal_source_sha256 = ?, last_event_seq = last_event_seq + ?
+            terminal_source_event_id = ?, terminal_source_sha256 = ?, last_event_seq = last_event_seq + ?
             """;
 
     private final JdbcTemplate jdbc;
@@ -99,15 +101,18 @@ public class RunTerminalService {
     private final RunEventStore eventStore;
     private final RequestUsageService usageService;
     private final TerminalScopeReader scopeReader;
+    private final EntityManager entityManager;
 
     public RunTerminalService(JdbcTemplate jdbc, TransactionTemplate tx, ObjectMapper objectMapper,
-                              RunEventStore eventStore, RequestUsageService usageService) {
+                              RunEventStore eventStore, RequestUsageService usageService,
+                              EntityManager entityManager) {
         this.jdbc = jdbc;
         this.tx = tx;
         this.objectMapper = objectMapper;
         this.eventStore = eventStore;
         this.usageService = usageService;
         this.scopeReader = new TerminalScopeReader(jdbc, objectMapper);
+        this.entityManager = entityManager;
     }
 
     // ------------------------------------------------------------------
@@ -157,6 +162,10 @@ public class RunTerminalService {
                 return TerminalSettlement.of(Outcome.UNKNOWN_RUN, runId, null);
             }
             RunRow run = locked.get();
+            if (run.isServerFailure(code) && run.attempt() == attempt && Objects.equals(run.fenceToken(), fenceToken)) {
+                // 같은 Server 실패가 이미 commit됐다(연결 실패 뒤 재시도·중복 호출)
+                return TerminalSettlement.duplicate(runId, run.status(), run.lastEventSeq());
+            }
             if (run.status().isTerminal() || run.status() == AiRunStatus.CANCELING) {
                 return TerminalSettlement.of(Outcome.NOT_ACCEPTING, runId, run.status());
             }
@@ -166,7 +175,7 @@ public class RunTerminalService {
             Instant now = now();
             Failure failure = new Failure(code, PublicWording.failureClass(code), null,
                     PublicWording.failureMessage(code, null), recoverable);
-            return writeFailure(run, failure, null, null, null, now, new Guard(
+            return writeFailure(run, failure, null, null, now, new Guard(
                     "attempt = ? AND fence_token IS NOT DISTINCT FROM ? AND status IN ('PENDING', 'RUNNING', 'RETRYING')",
                     attempt, fenceToken));
         });
@@ -184,6 +193,9 @@ public class RunTerminalService {
                 return TerminalSettlement.of(Outcome.UNKNOWN_RUN, runId, null);
             }
             RunRow run = locked.get();
+            if (run.isServerFailure(RunFailureCode.TIMEOUT)) {
+                return TerminalSettlement.duplicate(runId, run.status(), run.lastEventSeq());
+            }
             if (run.status().isTerminal() || run.status() == AiRunStatus.CANCELING) {
                 return TerminalSettlement.of(Outcome.NOT_ACCEPTING, runId, run.status());
             }
@@ -194,7 +206,7 @@ public class RunTerminalService {
             RunFailureCode code = RunFailureCode.TIMEOUT;
             Failure failure = new Failure(code, PublicWording.failureClass(code), null,
                     PublicWording.failureMessage(code, null), true);
-            return writeFailure(run, failure, null, null, null, now, new Guard(
+            return writeFailure(run, failure, null, null, now, new Guard(
                     "status IN ('PENDING', 'RUNNING', 'RETRYING') AND request_deadline_at <= ?", time(now)));
         });
     }
@@ -214,8 +226,8 @@ public class RunTerminalService {
             return TerminalSettlement.of(Outcome.UNKNOWN_RUN, null, null);
         }
         UUID runId = parsed.get();
-        String digest = sourceDigest(terminal);
-        String storedSourceId = SourceActivities.storedSourceEventId(terminal.sourceEventId());
+        Source source = new Source(SourceActivities.storedSourceEventId(terminal.sourceEventId()),
+                sourceDigest(terminal));
         return inTransactions(() -> {
             Optional<RunRow> locked = lock(runId);
             if (locked.isEmpty()) {
@@ -223,7 +235,7 @@ public class RunTerminalService {
             }
             RunRow run = locked.get();
             if (run.status().isTerminal()) {
-                return redelivery(run, digest, storedSourceId);
+                return redelivery(run, source);
             }
             if (run.attempt() != terminal.attempt() || !terminal.fenceToken().equals(run.fenceToken())) {
                 return TerminalSettlement.of(Outcome.STALE_FENCE, runId, run.status());
@@ -251,7 +263,7 @@ public class RunTerminalService {
             }
             Guard guard = new Guard("attempt = ? AND fence_token = ? AND status IN ('RUNNING', 'RETRYING') "
                     + "AND request_deadline_at > ?", run.attempt(), run.fenceToken(), time(now));
-            String eventSourceId = sourceIdAvailable(runId, storedSourceId) ? terminal.sourceEventId() : null;
+            String eventSourceId = sourceIdAvailable(runId, source.key()) ? terminal.sourceEventId() : null;
             if (accepted instanceof AcceptedCompletion completion) {
                 try {
                     recheck(run, completion, scope);
@@ -259,22 +271,22 @@ public class RunTerminalService {
                     log.warn("terminal recheck failed: runId={}, reason={}, field={}", runId, e.reason(), e.field());
                     return TerminalSettlement.rejected(runId, e);
                 }
-                return writeCompletion(run, completion, digest, eventSourceId, now, guard);
+                return writeCompletion(run, completion, source, eventSourceId, now, guard);
             }
             AcceptedFailure failed = (AcceptedFailure) accepted;
             return writeFailure(run, new Failure(failed.code(), failed.failureClass(), failed.reason(),
-                    failed.message(), failed.recoverable()), digest, eventSourceId, run.attempt(), now, guard);
+                    failed.message(), failed.recoverable()), source, eventSourceId, now, guard);
         });
     }
 
-    /** 이미 terminal인 run에 다시 온 Brain terminal. */
-    private TerminalSettlement redelivery(RunRow run, String digest, String storedSourceId) {
-        List<String> committedSource = jdbc.queryForList("""
-                SELECT source_event_id FROM ai_run_events
-                WHERE run_id = ? AND event_type IN ('run.completed', 'run.failed') AND source_event_id IS NOT NULL
-                """, String.class, run.runId());
-        boolean sameSource = committedSource.contains(storedSourceId);
-        if (digest.equals(run.terminalSourceSha256())) {
+    /**
+     * 이미 terminal인 run에 다시 온 Brain terminal. 같은 source_event_id일 때만 같은 terminal로 본다 — 다른 attempt의 같은
+     * 고정 문구 실패처럼 내용이 같아도 source가 다르면 다른 terminal이다(NOT_ACCEPTING). 확정 source는 run 행에 있어
+     * event가 source ID 없이 저장된 경우에도 판정한다.
+     */
+    private TerminalSettlement redelivery(RunRow run, Source source) {
+        boolean sameSource = source.key().equals(run.terminalSourceEventId());
+        if (sameSource && source.digest().equals(run.terminalSourceSha256())) {
             return TerminalSettlement.duplicate(run.runId(), run.status(), run.lastEventSeq());
         }
         if (sameSource) {
@@ -285,8 +297,10 @@ public class RunTerminalService {
     }
 
     /**
-     * 1.81 {@link TerminalRecheck} 재확인. scope를 이미 잠금 뒤 값으로 만들었으므로 asset·참조는 같은 값이어야 하고,
-     * 정정 대상은 여기서 {@code FOR UPDATE}로 잠가 ACTIVE를 다시 확인한다(동시 정정은 하나만 이긴다).
+     * 1.81 {@link TerminalRecheck} 재확인. scope는 Note·run 잠금 뒤 같은 transaction에서 만들었다(asset {@code FOR SHARE},
+     * solution은 Note 잠금 아래 같은 Note에서만 조회). 그래서 cited asset·참조 solution 재확인은 그 자체로 충족되고, 아래
+     * cited asset 비교는 이미 읽은 값의 방어적 확인일 뿐(추가 쿼리 없음)이다. 실제로 새로 잠그는 것은 정정 대상
+     * ({@code FOR UPDATE}로 ACTIVE 확인 — 동시 정정은 하나만 이긴다)뿐이다.
      */
     private void recheck(RunRow run, AcceptedCompletion completion, Scope scope) {
         TerminalRecheck recheck = completion.recheck();
@@ -297,15 +311,6 @@ public class RunTerminalService {
                     || asset.contentVersion() != cited.contentVersion()) {
                 throw new TerminalRejection(TerminalRejectionReason.SOURCE_SCOPE, "payload",
                         "cited asset changed before the terminal transaction");
-            }
-        }
-        if (!recheck.referencedSolutions().isEmpty()) {
-            long present = recheck.referencedSolutions().stream().distinct().filter(id -> jdbc.queryForObject(
-                    "SELECT count(*) FROM verified_solutions WHERE solution_id = ? AND note_id = ?", Long.class,
-                    id, run.noteId()) > 0).count();
-            if (present != recheck.referencedSolutions().stream().distinct().count()) {
-                throw new TerminalRejection(TerminalRejectionReason.SOLUTION_REFERENCE_SCOPE,
-                        "payload.existing_solution_references", "referenced solution is not in this note");
             }
         }
         for (UUID target : recheck.revisedSolutions()) {
@@ -326,17 +331,21 @@ public class RunTerminalService {
     private record Guard(String sql, Object... args) {
     }
 
+    /** Brain terminal의 확정 식별: 저장 source_event_id 키와 {type, attempt, fence_token, payload} digest. */
+    private record Source(String key, String digest) {
+    }
+
     private record Failure(RunFailureCode code, RunFailureClass failureClass, AttachmentFailureReason reason,
                            String message, boolean recoverable) {
     }
 
-    private TerminalSettlement writeCompletion(RunRow run, AcceptedCompletion completion, String digest,
+    private TerminalSettlement writeCompletion(RunRow run, AcceptedCompletion completion, Source source,
                                                String eventSourceId, Instant now, Guard guard) {
         JsonNode pages = completion.responsePages();
         int events = pages.size() * 2 + 1;
         List<Object> args = Arrays.asList(completion.disposition().wireValue(),
                 completion.clarificationReason() == null ? null : completion.clarificationReason().wireValue(),
-                time(now), digest, events);
+                time(now), source.key(), source.digest(), events);
         long lastSeq = transition(run, "status = 'COMPLETED', response_disposition = ?, clarification_reason = ?, "
                 + RELEASE, args, guard);
 
@@ -362,10 +371,11 @@ public class RunTerminalService {
         return TerminalSettlement.committed(run.runId(), AiRunStatus.COMPLETED, lastSeq, compensation);
     }
 
-    private TerminalSettlement writeFailure(RunRow run, Failure failure, String digest, String eventSourceId,
-                                            Integer eventAttempt, Instant now, Guard guard) {
+    /** @param source Brain terminal이면 확정 source, Server 실패면 null */
+    private TerminalSettlement writeFailure(RunRow run, Failure failure, Source source, String eventSourceId,
+                                            Instant now, Guard guard) {
         List<Object> args = Arrays.asList(failure.code().wireValue(), failure.failureClass().wireValue(), time(now),
-                digest, 1);
+                source == null ? null : source.key(), source == null ? null : source.digest(), 1);
         long lastSeq = transition(run, "status = 'FAILED', failure_code = ?, failure_class = ?, " + RELEASE, args,
                 guard);
 
@@ -384,7 +394,7 @@ public class RunTerminalService {
         payload.put("recoverable", failure.recoverable());
         payload.put("assistantMessageId", run.assistantMessageId().toString());
         TerminalRunEvent event = eventSourceId == null ? TerminalRunEvent.runFailed(payload)
-                : TerminalRunEvent.runFailed(payload, eventSourceId, eventAttempt);
+                : TerminalRunEvent.runFailed(payload, eventSourceId, run.attempt());
         eventStore.appendTerminalEvents(run.runId(), lastSeq, List.of(event), now);
 
         UsageCompensationResult compensation = usageService.settle(run.userId(), run.requestId(),
@@ -470,7 +480,13 @@ public class RunTerminalService {
     private record RunRow(UUID runId, String requestId, long userId, long noteId, UUID assistantMessageId,
                           AiRunStatus status, int attempt, String fenceToken, Instant deadline,
                           String terminalSourceSha256, long lastEventSeq, JsonNode requestSnapshot,
-                          JsonNode policySnapshot) {
+                          JsonNode policySnapshot, String terminalSourceEventId, String failureCode) {
+
+        /** Server가 만든(Brain source 없는) 같은 code의 실패로 이미 끝났다. */
+        boolean isServerFailure(RunFailureCode code) {
+            return status == AiRunStatus.FAILED && terminalSourceEventId == null
+                    && code.wireValue().equals(failureCode);
+        }
     }
 
     private Optional<RunRow> lock(UUID runId) {
@@ -480,7 +496,8 @@ public class RunTerminalService {
         return jdbc.query(LOCK_RUN, (rs, row) -> new RunRow(runId, rs.getString(1), rs.getLong(2), rs.getLong(3),
                 rs.getObject(4, UUID.class), AiRunStatus.valueOf(rs.getString(5)), rs.getInt(6), rs.getString(7),
                 rs.getObject(8, OffsetDateTime.class).toInstant(), rs.getString(9), rs.getLong(10),
-                readTree(rs.getString(11)), readTree(rs.getString(12))), runId).stream().findFirst();
+                readTree(rs.getString(11)), readTree(rs.getString(12)), rs.getString(13), rs.getString(14)), runId)
+                .stream().findFirst();
     }
 
     /** 같은 키가 이미 다른 event(예: Activity)에 쓰였으면 terminal은 source ID 없이 저장한다(1.80 인계). */
@@ -497,7 +514,8 @@ public class RunTerminalService {
     private String sourceDigest(BrainTerminal terminal) {
         Object payload = objectMapper.convertValue(terminal.payload(), Object.class);
         return HashUtils.sha256(CanonicalJson.write(Map.of(
-                "type", terminal.completed() ? "run.completed" : "run.failed", "payload", payload)));
+                "type", terminal.completed() ? "run.completed" : "run.failed", "attempt", terminal.attempt(),
+                "fence_token", terminal.fenceToken(), "payload", payload)));
     }
 
     /**
@@ -506,6 +524,11 @@ public class RunTerminalService {
      */
     private TerminalSettlement inTransactions(Supplier<TerminalSettlement> work) {
         boolean outer = TransactionSynchronizationManager.isActualTransactionActive();
+        if (outer) {
+            // 호출자가 같은 transaction에서 바꾼 AiRun 등을 JDBC 잠금·읽기 전에 내보낸다(RunEventStore 관례).
+            // 그러지 않으면 아래 판정이 옛 값을 읽고, 이후 flush가 옛 상태로 전체 컬럼 UPDATE를 한다.
+            entityManager.flush();
+        }
         for (int attempt = 1; ; attempt++) {
             try {
                 return tx.execute(status -> work.get());

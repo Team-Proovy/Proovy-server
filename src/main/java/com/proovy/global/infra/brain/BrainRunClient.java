@@ -59,9 +59,9 @@ import reactor.netty.http.client.PrematureCloseException;
  *   <li>서비스 인증 header 하나만 보낸다. 사용자 JWT·쿠키·브라우저 header를 전달할 경로가 없다.</li>
  *   <li>재시도·redirect 추적·새 run 생성을 하지 않는다. 실패는 {@link BrainCallException#kind()}로 구별해 넘긴다.</li>
  *   <li>stream은 frame idle 상한과 요청의 고정 {@code request_deadline_at} + grace 상한을 지킨다. client가
- *       deadline을 늘리지 않으며, deadline + grace가 지난 요청은 보내지 않는다. deadline은 지났지만 grace 안인
- *       전송은 의도된 것이다: 같은 fingerprint 재전달은 Brain이 저장 terminal을 돌려주므로(RETURN_TERMINAL)
- *       terminal 회수에 쓸 수 있고 새 실행을 만들지 않는다. 회수만 필요하면 {@link #status}가 더 가볍다.</li>
+ *       deadline을 늘리지 않으며, deadline + grace가 지난 요청은 보내지 않는다. grace는 stream 정리·status 확인
+ *       용도다: grace 안에서 회수한 terminal(RETURN_TERMINAL·status)도 deadline 이후면 terminal 확정(1.82)이
+ *       {@code DEADLINE_PASSED}로 버리고 run은 timeout 실패로 끝난다(deadline은 도착 시각 기준 절대값, 사용자 결정).</li>
  *   <li>오류에는 본문·token·grant·URL을 담지 않는다.</li>
  * </ul>
  */

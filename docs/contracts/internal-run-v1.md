@@ -57,7 +57,7 @@ MIME별 media 사실, conversation = note, scope note, history 중복·참조 �
 | `stream-deadline-grace` | 3m | `request_deadline_at` 뒤 stream 상한(Brain tail은 deadline + 4 × lease TTL 30s) |
 | `max-response-size` | 4MB | JSON 응답·SSE frame 하나 |
 
-deadline + grace가 이미 지난 요청은 보내지 않는다(`DEADLINE_EXCEEDED`). deadline은 지났지만 grace 안인 전송은 의도된 것이다: 같은 fingerprint 재전달이면 Brain이 저장 terminal을 돌려주므로(`RETURN_TERMINAL`) terminal 회수에 쓸 수 있고 새 실행을 만들지 않는다. 회수만 필요하면 `status`가 더 가볍다.
+deadline + grace가 이미 지난 요청은 보내지 않는다(`DEADLINE_EXCEEDED`). grace는 stream 정리·status 확인 용도다: grace 안에서 회수한 terminal(`RETURN_TERMINAL`·`status`)도 deadline 이후면 1.82 terminal 확정이 `DEADLINE_PASSED`로 버리고 run은 `expireDeadline`의 timeout 실패로 끝난다(deadline은 도착 시각 기준 절대값 — 사용자 결정, r182). 같은 fingerprint 재전달이 새 실행을 만들지 않는다는 점은 그대로다.
 
 credential 발급(ID token)은 `request-timeout` 안에서 끝나야 하고 넘으면 요청 전 `CREDENTIALS_UNAVAILABLE`이다. stream idle·status 응답 시간에는 들어가지 않는다.
 

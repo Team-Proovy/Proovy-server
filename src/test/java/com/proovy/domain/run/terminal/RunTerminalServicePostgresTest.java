@@ -16,12 +16,14 @@ import com.proovy.domain.run.brain.InternalRunWire;
 import com.proovy.domain.run.brain.SourceEvent;
 import com.proovy.domain.run.brain.StoredTerminal;
 import com.proovy.domain.run.contract.ServerFrameType;
+import com.proovy.domain.run.entity.AiRun;
 import com.proovy.domain.run.entity.AiRunEventType;
 import com.proovy.domain.run.entity.AiRunStatus;
 import com.proovy.domain.run.entity.RunFailureCode;
 import com.proovy.domain.run.event.RunEventSignals;
 import com.proovy.domain.run.event.RunEventStore;
 import com.proovy.domain.run.event.StoredRunEvent;
+import com.proovy.domain.run.repository.AiRunRepository;
 import com.proovy.domain.run.terminal.TerminalSettlement.Outcome;
 import com.proovy.domain.usage.entity.UsageCompensationReason;
 import com.proovy.domain.usage.service.RequestUsageService;
@@ -70,7 +72,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * asset rename/삭제 뒤 snapshot 불변, commit 전 비공개와 신호 유실 뒤 복원.
  * <p>
  * fixture의 Brain asset ID(예: {@code note-alpha})는 테스트 Note의 실제 asset ID 문자열로, provenance content version은
- * 1.82 scope 철자(정수 문자열)로 바꿔 넣는다. 나머지 payload는 pin된 fixture 그대로다.
+ * pin 303a9e4 Brain 구현과 같은 asset content sha256으로 바꿔 넣는다. 나머지 payload는 pin된 fixture 그대로다.
  */
 @Tag("postgres")
 @ActiveProfiles("test")
@@ -91,6 +93,7 @@ class RunTerminalServicePostgresTest {
     private static final String FENCE = "fence-1";
     private static final String UNDERSTANDING = "page-understanding-v1";
     private static final int CREDITS_PER_REQUEST = 10;
+    private static final String ASSET_SHA256 = "a".repeat(64);
     private static final ObjectMapper RAW = new ObjectMapper();
 
     private static PostgresTestDatabase db;
@@ -128,6 +131,7 @@ class RunTerminalServicePostgresTest {
     @Autowired TransactionTemplate tx;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper objectMapper;
+    @Autowired AiRunRepository aiRuns;
 
     // ------------------------------------------------------------------
     // pair별 저장 결과
@@ -366,6 +370,92 @@ class RunTerminalServicePostgresTest {
         assertThat(result.rejection()).isEqualTo(TerminalRejectionReason.NOT_PUBLICATION_TERMINAL);
     }
 
+    @Test
+    @DisplayName("이전 attempt의 같은 고정 문구 실패가 다른 source_event_id로 늦게 오면 DUPLICATE가 아니라 NOT_ACCEPTING")
+    void sameFailureFromAnotherAttemptIsNotDuplicate() {
+        JsonNode source = pair("failure").get("source");
+        Run run = newRun(source, RunOptions.defaults());
+        jdbc.update("UPDATE ai_runs SET attempt = 2, fence_token = 'fence-2' WHERE run_id = ?", run.runId());
+        ObjectNode current = bind(source, run);
+        current.put("attempt", 2).put("fence_token", "fence-2").put("source_event_id", run.runId() + ":terminal:r1");
+        assertThat(service.settle(event(current)).outcome()).isEqualTo(Outcome.COMMITTED);
+
+        ObjectNode late = bind(source, run);
+        late.put("source_event_id", run.runId() + ":terminal:r0");
+        TerminalSettlement result = service.settle(event(late));
+        assertThat(result.outcome()).isEqualTo(Outcome.NOT_ACCEPTING);
+        assertThat(result.isSettled()).isFalse();
+        // 같은 attempt·source의 재전달만 DUPLICATE다
+        assertThat(service.settle(event(current)).outcome()).isEqualTo(Outcome.DUPLICATE);
+    }
+
+    @Test
+    @DisplayName("terminal source_event_id가 Activity와 겹쳐 event에 source 없이 저장돼도 재전달·바뀐 결과를 구분한다")
+    void sourceCollisionStillDetectsRedelivery() {
+        JsonNode redelivery = load("terminal-v2/redelivery.json");
+        JsonNode first = redelivery.at("/same_semantic/first");
+        Run run = newRun(first, RunOptions.defaults());
+        String sourceEventId = bind(first, run).get("source_event_id").asText();
+        ObjectNode activity = JsonNodeFactory.instance.objectNode()
+                .put("contract_version", "brain-source-v1").put("run_id", run.runId().toString()).put("attempt", 1)
+                .put("fence_token", FENCE).put("source_event_id", sourceEventId)
+                .put("occurred_at", "2026-10-01T09:00:00Z").put("type", "activity.started");
+        activity.putObject("payload").put("activity_id", "activity-1").put("kind", "input_analysis")
+                .put("label", "analyzing_input");
+        assertThat(store.appendActivity(event(activity)).isStored()).isTrue();
+
+        assertThat(service.settle(event(bind(first, run))).outcome()).isEqualTo(Outcome.COMMITTED);
+        assertThat(jdbc.queryForObject("""
+                SELECT source_event_id FROM ai_run_events WHERE run_id = ? AND event_type = 'run.completed'
+                """, String.class, run.runId())).isNull();
+        assertThat(service.settle(event(bind(redelivery.at("/same_semantic/retry"), run))).outcome())
+                .isEqualTo(Outcome.DUPLICATE);
+        assertThat(service.settle(event(bind(redelivery.at("/changed_outcome/retry"), run))).outcome())
+                .isEqualTo(Outcome.CONFLICTING_DUPLICATE);
+    }
+
+    @Test
+    @DisplayName("provenance content_version이 sha256이 아니면(예: 정수 문자열) 대조에 실패해 거부된다")
+    void integerContentVersionIsRejected() {
+        JsonNode source = pair("direct-verified").get("source");
+        Run run = newRun(source, RunOptions.defaults());
+        ObjectNode bound = bind(source, run);
+        bound.at("/payload/selected_page_provenance").forEach(item -> ((ObjectNode) item).put("content_version", "1"));
+        TerminalSettlement result = service.settle(event(bound));
+        assertThat(result.outcome()).isEqualTo(Outcome.REJECTED);
+        assertThat(result.rejection()).isIn(TerminalRejectionReason.SOURCE_SCOPE, TerminalRejectionReason.PROVENANCE);
+    }
+
+    @Test
+    @DisplayName("바깥 transaction에 참여하면 JPA로 저장 중인 run을 먼저 flush하고 판정한다")
+    void outerTransactionIsFlushedBeforeJdbcReads() {
+        long noteId = jdbc.queryForObject("""
+                INSERT INTO notes (user_id, title, created_at, updated_at) VALUES (?, 'outer', now(), now())
+                RETURNING note_id
+                """, Long.class, ALICE);
+        UUID runId = UUID.randomUUID();
+        TerminalSettlement result = tx.execute(status -> {
+            UUID userMessage = UUID.randomUUID();
+            UUID assistantMessage = UUID.randomUUID();
+            jdbc.update("""
+                    INSERT INTO chat_messages (message_id, note_id, role, status, user_input, plain_text, created_at)
+                    VALUES (?, ?, 'USER', 'COMPLETED', '{"text":"풀어줘"}', '풀어줘', now()),
+                           (?, ?, 'ASSISTANT', 'PENDING', NULL, NULL, now() + interval '1 microsecond')
+                    """, userMessage, noteId, assistantMessage, noteId);
+            // flush 전의 JPA 저장(접수 transaction과 같은 모양)
+            aiRuns.save(AiRun.pending().id(runId).requestId(UUID.randomUUID().toString()).userId(ALICE).noteId(noteId)
+                    .userMessageId(userMessage).assistantMessageId(assistantMessage).requestFingerprint("f".repeat(64))
+                    .requestSnapshot(JsonNodeFactory.instance.objectNode()).policySnapshot(JsonNodeFactory.instance
+                            .objectNode()).budgetPolicyVersion("budget-v1")
+                    .requestDeadlineAt(Instant.now().plusSeconds(600).truncatedTo(ChronoUnit.MICROS))
+                    .createdAt(Instant.now().truncatedTo(ChronoUnit.MICROS)).build());
+            return service.failByServer(runId, 0, null, RunFailureCode.INTERNAL_ERROR, true);
+        });
+        assertThat(result.outcome()).isEqualTo(Outcome.COMMITTED);
+        assertThat(jdbc.queryForObject("SELECT status FROM ai_runs WHERE run_id = ?", String.class, runId))
+                .isEqualTo("FAILED");
+    }
+
     // ------------------------------------------------------------------
     // deadline·Server 실패
     // ------------------------------------------------------------------
@@ -388,7 +478,12 @@ class RunTerminalServicePostgresTest {
         assertThat(failed.get("code").asText()).isEqualTo("timeout");
         assertThat(failed.has("reason")).isFalse();
 
-        assertThat(service.expireDeadline(run.runId()).outcome()).isEqualTo(Outcome.NOT_ACCEPTING);
+        // 같은 만료를 다시 확정하려 하면(연결 실패 뒤 재시도·중복 sweeper) 자기 결과로 알아본다
+        TerminalSettlement again = service.expireDeadline(run.runId());
+        assertThat(again.outcome()).isEqualTo(Outcome.DUPLICATE);
+        assertThat(again.lastSeq()).isEqualTo(expired.lastSeq());
+        assertThat(service.failByServer(run.runId(), 1, FENCE, RunFailureCode.INTERNAL_ERROR, true).outcome())
+                .isEqualTo(Outcome.NOT_ACCEPTING);
         // 이미 확정된 run에 늦은 Brain terminal: 다른 결과라 NOT_ACCEPTING (source_event_id도 다르다)
         assertThat(service.settle(event(bind(source, run))).outcome()).isEqualTo(Outcome.NOT_ACCEPTING);
 
@@ -412,6 +507,9 @@ class RunTerminalServicePostgresTest {
         assertThat(jdbc.queryForObject("SELECT source_event_id FROM ai_run_events WHERE run_id = ? AND event_type = 'run.failed'",
                 String.class, pending.runId())).isNull();
         assertThat(runRow(pending).get("terminal_source_sha256")).isNull();
+        assertThat(service.failByServer(pending.runId(), 0, null, RunFailureCode.INTERNAL_ERROR, true).outcome())
+                .isEqualTo(Outcome.DUPLICATE);
+        assertThat(count("SELECT count(*) FROM ai_run_events WHERE run_id = ?", pending.runId())).isEqualTo(2);
 
         Run running = newRun(source, RunOptions.defaults());
         TerminalSettlement budget = service.failByServer(running.runId(), 1, FENCE, RunFailureCode.BUDGET_EXCEEDED,
@@ -776,7 +874,7 @@ class RunTerminalServicePostgresTest {
                                             content_version, sha256, page_count, created_at, updated_at)
                         VALUES (?, ?, 'concept.pdf', 1024, 'application/pdf', 'k', 'upload', 'ACTIVE', 1, ?, ?, now(), now())
                         RETURNING id
-                        """, Long.class, ALICE, noteId, "a".repeat(64), options.pageCount() ? 20 : null));
+                        """, Long.class, ALICE, noteId, ASSET_SHA256, options.pageCount() ? 20 : null));
             }
             UUID userMessage = UUID.randomUUID();
             UUID assistantMessage = UUID.randomUUID();
@@ -835,7 +933,7 @@ class RunTerminalServicePostgresTest {
         return ids;
     }
 
-    /** fixture source를 테스트 run에 묶는다: run·attempt·fence와 asset ID·content version 철자. */
+    /** fixture source를 테스트 run에 묶는다: run·attempt·fence와 asset ID, content version = asset sha256(Brain 철자). */
     private static ObjectNode bind(JsonNode source, Run run) {
         ObjectNode bound = (ObjectNode) source.deepCopy();
         bound.put("run_id", run.runId().toString()).put("attempt", 1).put("fence_token", FENCE);
@@ -843,7 +941,7 @@ class RunTerminalServicePostgresTest {
                 ((ObjectNode) ref).put("asset_id", String.valueOf(run.assets().get(ref.get("asset_id").asText()))));
         bound.at("/payload/selected_page_provenance").forEach(item -> ((ObjectNode) item)
                 .put("asset_id", String.valueOf(run.assets().get(item.get("asset_id").asText())))
-                .put("content_version", "1"));
+                .put("content_version", ASSET_SHA256));
         return bound;
     }
 

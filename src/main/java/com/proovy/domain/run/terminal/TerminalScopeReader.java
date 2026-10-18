@@ -21,8 +21,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *       바뀌지 않는다). Brain asset ID는 1.78 snapshot과 같은 {@code String.valueOf(asset id)}.</li>
  *   <li>Page Understanding version: Viewer Focus asset은 {@code viewer_context.page_understanding_version}, 나머지는
  *       {@code policy_snapshot.asset_versions.page_understanding_version}(접수 시 고정).</li>
- *   <li>provenance content version 문자열: Brain wire 철자가 계약에 없다(terminal-acceptance "검증하지 않은 부분").
- *       잠정적으로 dependency의 정수 version을 문자열로 쓴다 — Brain 후속에서 철자를 고정하면 여기만 바꾼다.</li>
+ *   <li>provenance content version 문자열: pin 303a9e4 Brain 구현과 같은 asset content sha256이다(사용자 결정, r182).
+ *       Brain은 선언 version이 없으면 {@code source_sha256}을 쓰고 Server는 정수 version을 보내지 않으므로 wire 값은
+ *       항상 sha256이다. 정수 version 고정은 dependency·현재 version 비교(1.81)가 따로 맡는다. sha256이 없는 asset은
+ *       대조할 수 없어 데이터 미준비다.</li>
  *   <li>solution: {@code request_snapshot.verified_solution_refs}의 (source message, public ID)로 같은 Note의 row를 찾는다.
  *       public ID는 run 안에서만 unique라 message까지 함께 맞춘다. 다른 Note·없는 row는 scope에 들어가지 않는다.</li>
  * </ul>
@@ -88,29 +90,49 @@ final class TerminalScopeReader {
             }
             int dependencyVersion = rs.getInt(2);
             int currentVersion = rs.getInt(6);
+            String sha256 = rs.getString(8);
+            if (sha256 == null) {
+                throw new ScopeNotReady("dependency " + assetId + " has no content sha256");
+            }
             locked.put(assetId, new LockedAsset(assetId, status, currentVersion, rs.getLong(4)));
             assets.add(new ScopedAsset(brainId, assetId, rs.getLong(3), rs.getLong(4), status, dependencyVersion,
-                    currentVersion, String.valueOf(dependencyVersion), rs.getString(8), pageCount, understanding));
+                    currentVersion, sha256, sha256, pageCount, understanding));
         }, runId);
 
-        List<ScopedSolution> solutions = new ArrayList<>();
+        // 참조는 (source message, public ID) 쌍이다. 한 번에 읽고 쌍으로 거른다.
+        Map<String, String> wanted = new LinkedHashMap<>();
         for (JsonNode ref : requestSnapshot.path("verified_solution_refs")) {
-            String publicId = ref.path("solution_id").asText();
-            UUID messageId;
+            String messageId = ref.path("source_message_id").asText("");
             try {
-                messageId = UUID.fromString(ref.path("source_message_id").asText());
+                UUID.fromString(messageId);
             } catch (IllegalArgumentException e) {
                 continue;
             }
-            jdbc.query("""
-                    SELECT solution_id, status, revises_solution_id, solution_version, claims::text
-                    FROM verified_solutions
-                    WHERE note_id = ? AND assistant_message_id = ? AND public_solution_id = ?
-                    """, rs -> {
-                solutions.add(new ScopedSolution(publicId, rs.getObject(1, UUID.class), noteId,
-                        VerifiedSolutionStatus.valueOf(rs.getString(2)), rs.getObject(3, UUID.class), rs.getInt(4),
-                        claimCoverage(rs.getObject(1, UUID.class), rs.getString(5))));
-            }, noteId, messageId, publicId);
+            wanted.put(messageId + "/" + ref.path("solution_id").asText(), ref.path("solution_id").asText());
+        }
+        List<ScopedSolution> solutions = new ArrayList<>();
+        if (!wanted.isEmpty()) {
+            UUID[] messageIds = wanted.keySet().stream().map(key -> UUID.fromString(key.substring(0, key.indexOf('/'))))
+                    .distinct().toArray(UUID[]::new);
+            jdbc.query(connection -> {
+                var ps = connection.prepareStatement("""
+                        SELECT solution_id, status, revises_solution_id, solution_version, claims::text,
+                               assistant_message_id, public_solution_id
+                        FROM verified_solutions WHERE note_id = ? AND assistant_message_id = ANY(?)
+                        ORDER BY created_at, solution_id
+                        """);
+                ps.setLong(1, noteId);
+                ps.setArray(2, connection.createArrayOf("uuid", messageIds));
+                return ps;
+            }, rs -> {
+                String publicId = rs.getString(7);
+                if (wanted.containsKey(rs.getObject(6, UUID.class) + "/" + publicId)) {
+                    UUID solutionId = rs.getObject(1, UUID.class);
+                    solutions.add(new ScopedSolution(publicId, solutionId, noteId,
+                            VerifiedSolutionStatus.valueOf(rs.getString(2)), rs.getObject(3, UUID.class), rs.getInt(4),
+                            claimCoverage(solutionId, rs.getString(5))));
+                }
+            });
         }
 
         Map<UUID, UUID> revisionLinks = new HashMap<>();

@@ -21,7 +21,7 @@ AcceptedTerminal accepted = TerminalAcceptance.accept(storedTerminalOrSourceEven
 |---|---|
 | `runId`·`attempt`·`fenceToken` | 현재 `ai_runs` (Brain에 보낸 wire run_id) |
 | `userId`·`noteId` | run 소유자·Note |
-| `assets[]` (`ScopedAsset`) | `run_asset_dependencies` + `assets`. `brainAssetId`는 1.78 snapshot과 같은 `String.valueOf(asset id)`다. `pageUnderstandingVersion`은 snapshot `viewer_context.page_understanding_version`(또는 corpus 적용 version)이다. `brainContentVersion`은 아래 "검증하지 않은 부분"을 본다. `ScopedAsset.of(dependency, asset, …)`. PDF는 `page_count`가 있어야 한다(없으면 `of`가 `IllegalArgumentException`) |
+| `assets[]` (`ScopedAsset`) | `run_asset_dependencies` + `assets`. `brainAssetId`는 1.78 snapshot과 같은 `String.valueOf(asset id)`다. `pageUnderstandingVersion`은 snapshot `viewer_context.page_understanding_version`(또는 corpus 적용 version)이다. `brainContentVersion`은 asset content sha256이다(아래 "검증하지 않은 부분", 사용자 결정 r182). `ScopedAsset.of(dependency, asset, …)`. PDF는 `page_count`가 있어야 한다(없으면 `of`가 `IllegalArgumentException`) |
 | `solutions[]` (`ScopedSolution`) | 요청 `verified_solution_refs` + `verified_solutions` row. `ScopedSolution.of(row, publicId)`. 저장 claim이 손상됐으면(coverage가 direct·supporting 밖, claim_id 없음) `IllegalStateException` |
 | `revisionLinks` | 같은 Note의 `solution_id → revises_solution_id` (순환 검사용, 아는 만큼) |
 
@@ -101,10 +101,9 @@ str 필드는 Brain `str_strip_whitespace`처럼 strip한다. enum·Literal 값�
 - 실제 S09 업로드·GCS·page metadata 경로: asset sha256·page_count·Page Understanding version은 seeded/fake 값으로만 검사했다.
   page_count가 아직 없는 PDF는 scope를 만들 수 없다(`ScopedAsset.of` 거부). 1.82는 이 경우를 provenance 거부가 아니라
   scope 구성 실패(데이터 미준비)로 분류해야 한다.
-- provenance `content_version` 문자열: Server는 Brain에 content version 문자열을 보내지 않는다. viewer_context에는
-  sha256·understanding version만 있고, corpus snapshot에는 정수만 있다. 따라서 Brain이 provenance에 쓰는 문자열과 Server 정수의 대응이
-  계약에 없다. 지금은 호출자가 `brainContentVersion`을 넣고 이 검증은 그 값과 대조할 뿐이다.
-  **Brain 후속(S09/S10 이전에 고정 필요)**: provenance `content_version`의 철자를 계약으로 정한다(예: Server 정수의 문자열).
+- provenance `content_version` 문자열: **pin 구현과 같은 sha256으로 확정(사용자 결정, r182)**. pin 303a9e4 Brain은 선언 version이
+  없으면 `source_sha256`을 쓰고(`run_adapter.py`), Server는 정수 version을 보내지 않으므로 wire 값은 항상 asset content sha256이다.
+  그래서 `brainContentVersion` = asset sha256이다(1.82 `TerminalScopeReader`). 정수 version 고정은 dependency·현재 version 비교가 따로 맡는다.
 - SafeMarkdown CR(`\r`): Brain 규칙과 같이 `\r`을 허용하고 행 기준 검사(fenced code·link definition·indented code)는 `\n`만 본다.
   CommonMark 렌더러는 `\r`을 줄바꿈으로 보므로 `x\r~~~` 같은 우회가 가능하다. Server 단독으로 막으면 Brain parity가 깨지므로 그대로 두었다.
   **Brain 후속**: CR 금지 또는 CRLF 정규화를 계약에 넣는다. **1.86 방어**: browser 렌더러가 `\r`을 줄바꿈으로 해석하지 않게 한다
