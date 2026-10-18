@@ -59,6 +59,7 @@ public enum ErrorCode {
     ASSET4006("ASSET4006", "업로드가 완료되지 않은 파일입니다.", HttpStatus.BAD_REQUEST),
     ASSET4007("ASSET4007", "S3에 파일이 업로드되지 않았습니다.", HttpStatus.BAD_REQUEST),
     ASSET4091("ASSET4091", "이미 확인된 자산입니다.", HttpStatus.CONFLICT),
+    ASSET4092("ASSET4092", "답변 생성에 사용된 자료는 아직 삭제할 수 없습니다.", HttpStatus.CONFLICT),
     ASSET4003("ASSET4003", "PDF 파일만 미리보기가 가능합니다.", HttpStatus.BAD_REQUEST),
 
     // Conversation (Chat)

@@ -16,6 +16,7 @@ import com.proovy.domain.user.repository.UserRepository;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.response.ErrorCode;
+import com.proovy.domain.run.admission.RunAssetDeletionGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ public class StorageService {
     private final NoteRepository noteRepository;
     private final UserPlanRepository userPlanRepository;
     private final GcsService s3Service;
+    private final RunAssetDeletionGuard runAssetDeletionGuard;
 
     /**
      * 자산 일괄 삭제
@@ -63,6 +65,9 @@ public class StorageService {
         if (ownedCount != assetIds.size()) {
             throw new BusinessException(ErrorCode.STORAGE4031);
         }
+
+        // run이 의존한 asset은 hard delete할 수 없다 (S13 DELETING 전환 전, 접수와 같은 Note 잠금 순서)
+        runAssetDeletionGuard.requireNoRunDependency(assets.stream().map(Asset::getNoteId).toList(), assetIds);
 
         // GCS 키 수집 (원본 + 썸네일, 중복 제거)
         Set<String> objectKeysToDelete = new HashSet<>();
