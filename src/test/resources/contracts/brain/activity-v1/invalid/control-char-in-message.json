@@ -1,0 +1,15 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-7",
+  "source_event_id": "run-7:activity-1:r1:updated",
+  "occurred_at": "2026-10-01T09:00:01Z",
+  "type": "activity.updated",
+  "payload": {
+    "kind": "solution_generation",
+    "activity_id": "activity-1",
+    "status": "in_progress",
+    "message": "작성 중\u001b[31m이다"
+  }
+}

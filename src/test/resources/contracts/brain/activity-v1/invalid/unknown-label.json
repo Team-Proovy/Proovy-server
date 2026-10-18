@@ -1,0 +1,14 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-9f8c",
+  "source_event_id": "run-7:activity-1:r0:started",
+  "occurred_at": "2026-10-01T09:00:00Z",
+  "type": "activity.started",
+  "payload": {
+    "kind": "input_analysis",
+    "activity_id": "activity-1",
+    "label": "DO-NOT-LEAK-node_understand_v3"
+  }
+}

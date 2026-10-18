@@ -1,0 +1,16 @@
+{
+  "contractVersion": "brain-source-v1",
+  "runId": "run-7",
+  "occurredAt": "2026-10-01T09:00:10Z",
+  "type": "activity.updated",
+  "payload": {
+    "activityId": "activity-7",
+    "status": "in_progress",
+    "kind": "verification",
+    "methodLabel": "단계별 함의 검사",
+    "progress": {
+      "checked": 2,
+      "total": 5
+    }
+  }
+}

@@ -66,11 +66,33 @@ git -C <proovy-brain checkout> archive "$SHA" tests/fixtures/contracts/internal-
 consumer_version이 바뀌면 `InternalRunContract.CONSUMER_VERSION`도 올리고
 `./gradlew test --tests 'com.proovy.domain.run.brain.*' --tests 'com.proovy.global.infra.brain.*'`로 확인한다.
 
+## activity-v1 (task 1.80)
+
+- pin: `PIN-activity-v1.json` (commit·`consumer_version` `activity-fixtures-v1`). 이 artifact에는 manifest가 없고 version은
+  `CATALOG.md`에 적혀 있다. 그래서 PIN의 `manifest`는 `null`이고 `files`에 pin commit에서 복사한 직후 계산한 sha256을 적는다.
+- `ActivityContractMirrorTest`가 파일 sha256·목록 밖 파일·CATALOG version과 `SourceActivities.CONSUMER_VERSION` 일치를 검사한다.
+  `BrainContractMirrorTest`는 모든 `PIN-*.json`이 소유한 경로를 목록 밖 파일에서 제외한다.
+
+갱신 절차:
+
+```bash
+SHA=<merge commit>
+DEST=src/test/resources/contracts/brain
+rm -rf "$DEST/activity-v1"
+git -C <proovy-brain checkout> archive "$SHA" tests/fixtures/contracts/activity-v1 | tar -x --strip-components=3 -C "$DEST"
+(cd "$DEST" && find activity-v1 -type f | sort | xargs sha256sum)
+# 위 값이 Brain commit blob과 같은지 확인한 뒤 PIN-activity-v1.json의 commit·consumer_version·files를 다시 쓴다.
+```
+
+consumer_version이 바뀌면 `SourceActivities.CONSUMER_VERSION`과 Brain `contracts/activity.py` 대응 규칙을 함께 올리고
+`./gradlew test --tests 'com.proovy.domain.run.event.*'`로 확인한다.
+
 ## terminal-v2·response-v1·publication-v1 (task 1.81)
 
 - pin: `PIN-terminal-v2.json`(`terminal-fixtures-v2`, manifest sha256 포함), `PIN-response-v1.json`(`response-fixtures-v1`),
   `PIN-publication-v1.json`(`publication-fixtures-v1.2`). 세 artifact 모두 파일별 sha256이 없어 PIN의 `files`에 적는다.
-  response-v1·publication-v1은 manifest가 없어 `consumer_version`은 `CATALOG.md`의 `버전:` 줄 값이다.
+  response-v1·publication-v1은 manifest가 없다. activity-v1과 같이 PIN의 `manifest`는 `null`이고(`BrainContractMirrorTest`의
+  `MANIFESTLESS_PINS` 명시 목록), `consumer_version`은 `CATALOG.md`의 `버전:` 줄 값이다(`catalog` 키가 그 파일을 가리킨다).
 - `terminal-v2/browser.schema.json`은 `PIN.json`(browser-run-v1 dependency)과 `PIN-terminal-v2.json`이 함께 소유한다.
   갱신할 때 두 pin을 같은 commit으로 맞춘다.
 - `TerminalContractMirrorTest`가 해시·목록 밖 파일·manifest pair 존재를 검사한다. `BrainContractMirrorTest`는

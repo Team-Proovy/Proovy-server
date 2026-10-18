@@ -1,0 +1,17 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-9f8c",
+  "source_event_id": "run-7:activity-4:r1:completed",
+  "occurred_at": "2026-10-01T09:00:06Z",
+  "type": "activity.completed",
+  "payload": {
+    "kind": "note_retrieval",
+    "activity_id": "activity-4",
+    "match_status": "limited_pages_unresolved",
+    "pages": [
+      {"asset_id": "asset-9f8c", "page": 7}
+    ]
+  }
+}

@@ -41,6 +41,8 @@ class TerminalContractMirrorTest {
             assertThat(read(MIRROR.resolve(manifest)).get("consumer_version").asText()).isEqualTo(consumerVersion);
             listed.add(manifest);
         } else {
+            // manifest 없는 artifact는 BrainContractMirrorTest.MANIFESTLESS_PINS 규칙대로 명시적 null이다.
+            assertThat(pin.has("manifest") && pin.get("manifest").isNull()).isTrue();
             String catalog = Files.readString(MIRROR.resolve(pin.get("catalog").asText()));
             assertThat(catalog).contains("버전: `" + consumerVersion + "`");
         }

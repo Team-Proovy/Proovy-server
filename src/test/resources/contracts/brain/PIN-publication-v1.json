@@ -3,6 +3,7 @@
   "commit": "303a9e45943207cb22fc555452cc781fb8117d21",
   "source_path": "tests/fixtures/contracts",
   "consumer_version": "publication-fixtures-v1.2",
+  "manifest": null,
   "catalog": "publication-v1/CATALOG.md",
   "files_note": "publication-v1에는 manifest가 없다. consumer_version은 CATALOG.md의 '버전:' 줄 값이고, 파일 해시는 pin commit에서 복사한 직후 계산한 값이다.",
   "files": {

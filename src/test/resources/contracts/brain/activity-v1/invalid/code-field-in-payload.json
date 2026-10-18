@@ -1,0 +1,16 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-9f8c",
+  "source_event_id": "run-7:activity-6:r0:started",
+  "occurred_at": "2026-10-01T09:00:00Z",
+  "type": "activity.started",
+  "payload": {
+    "kind": "code_execution",
+    "activity_id": "activity-6",
+    "label": "running_check_code",
+    "method_label": "SymPy 방정식 계산",
+    "code": "DO-NOT-LEAK-print(solve(x**2-1))"
+  }
+}

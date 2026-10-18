@@ -1,0 +1,25 @@
+{
+  "contractVersion": "brain-source-v1",
+  "runId": "run-7",
+  "occurredAt": "2026-10-01T09:00:02Z",
+  "type": "activity.started",
+  "payload": {
+    "activityId": "activity-3",
+    "responsePageId": "page-1",
+    "kind": "asset_understanding",
+    "label": "reading_pages",
+    "reason": "viewer_focus",
+    "targets": [
+      {
+        "assetId": "asset-9f8c",
+        "pageStart": 3,
+        "pageEnd": 5
+      },
+      {
+        "assetId": "asset-12ab",
+        "pageStart": 1,
+        "pageEnd": 1
+      }
+    ]
+  }
+}
