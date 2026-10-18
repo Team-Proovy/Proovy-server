@@ -19,6 +19,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param deadlineSweepInterval 요청 deadline이 지난 run을 timeout으로 끝내는 주기
  * @param minDispatchRemaining  남은 deadline이 이보다 짧으면 새로 claim하지 않는다(deadline sweep이 끝낸다)
  * @param redelivery            살아 있는 실행의 같은 attempt 재전달·status 조회 한도
+ * @param recovery              lease가 만료된 stale 실행의 회수(1.85) 주기·한도
  * @param runtimeCleanupDelay   terminal 확정 뒤 Brain runtime cleanup 예약 시각({@code runtime_cleanup_at}) 지연
  * @param shutdownTimeout       종료 전체 대기 예산(control·worker 합계, Cloud Run 종료 유예 10초 안)
  */
@@ -34,6 +35,7 @@ public record RunCoordinatorProperties(
         @DefaultValue("5s") Duration deadlineSweepInterval,
         @DefaultValue("5s") Duration minDispatchRemaining,
         @DefaultValue Redelivery redelivery,
+        @DefaultValue Recovery recovery,
         @DefaultValue("0s") Duration runtimeCleanupDelay,
         @DefaultValue("8s") Duration shutdownTimeout) {
 
@@ -119,6 +121,30 @@ public record RunCoordinatorProperties(
                 delay = delay.multipliedBy(2);
             }
             return delay.compareTo(maxBackoff) > 0 ? maxBackoff : delay;
+        }
+    }
+
+    /**
+     * stale 실행 회수(task 1.85). lease가 만료되고 이 인스턴스에 worker가 없는 {@code RUNNING|RETRYING} run을 같은
+     * attempt·fence로 인수해 status부터 본다. 인수 횟수는 run 행({@code recovery_count})에 누적돼 재시작으로 초기화되지 않는다.
+     *
+     * @param interval      회수 후보 조회 주기
+     * @param maxRecoveries run 하나의 인수 허용 횟수. 넘으면 status 한 번으로 저장 terminal만 확인하고, 없으면 실패·보상한다
+     * @param batch         한 주기에 인수를 시도하는 최대 run 수(빈 로컬 permit 수가 먼저 막는다)
+     */
+    public record Recovery(
+            @DefaultValue("5s") Duration interval,
+            @DefaultValue("3") int maxRecoveries,
+            @DefaultValue("8") int batch) {
+
+        public Recovery {
+            positive(interval, "recovery.interval");
+            if (maxRecoveries < 1 || maxRecoveries > 20) {
+                throw new IllegalArgumentException(PREFIX + "recovery.max-recoveries must be within 1..20");
+            }
+            if (batch < 1 || batch > 64) {
+                throw new IllegalArgumentException(PREFIX + "recovery.batch must be within 1..64");
+            }
         }
     }
 

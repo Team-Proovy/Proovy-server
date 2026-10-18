@@ -15,6 +15,9 @@ import java.util.function.Supplier;
  *   <li>{@code proovy.run.coordinator.executions{result}}: worker 종료 사유({@link RunExecution.Result})</li>
  *   <li>{@code proovy.run.coordinator.server_failures{code}}: coordinator가 확정한 Server 실패</li>
  *   <li>{@code proovy.run.coordinator.deadline_expired}·{@code .heartbeat.lost}·{@code .errors{stage}}</li>
+ *   <li>{@code proovy.run.coordinator.recoveries{result}}: stale run 인수 시도(TAKEN·LIMIT_EXCEEDED·NOT_TAKEN·NO_PERMIT)</li>
+ *   <li>{@code proovy.run.coordinator.recoveries.finished{result}}: 인수 worker 종료 사유(슬롯 반환 시점)</li>
+ *   <li>{@code proovy.run.coordinator.execution_lost}: Brain이 시작했던 실행의 record가 사라져 실패 수습한 run</li>
  * </ul>
  */
 class RunCoordinatorMetrics {
@@ -59,6 +62,18 @@ class RunCoordinatorMetrics {
 
     void heartbeatLost() {
         counter("heartbeat.lost").increment();
+    }
+
+    void recovery(String result) {
+        counter("recoveries", "result", result).increment();
+    }
+
+    void recoveryFinished(RunExecution.Result result) {
+        counter("recoveries.finished", "result", result.name()).increment();
+    }
+
+    void executionLost() {
+        counter("execution_lost").increment();
     }
 
     void error(String stage) {
