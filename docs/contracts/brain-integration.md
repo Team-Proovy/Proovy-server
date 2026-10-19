@@ -18,6 +18,7 @@ PG_CONTAINER=proovy-postgres-brain-it GRADLE_IN_DOCKER=1 scripts/brain-integrati
   `Report real-Brain integration tests NOT EXECUTED` step의 warning이 남는다. skip은 통과가 아니다.
 - 한 database에 빈 제품 baseline(`proovy_server`가 Flyway 실행)과 Brain schema(`brain_migration`·`brain_runtime`, Brain bootstrap·migrate)를 두고
   `db/provisioning/role-boundary.sql`을 적용한다(운영 형태). Server datasource는 `proovy_server`다.
+- 스크립트는 `test --rerun`으로 항상 실제 실행하고, 끝에 `TEST-com.proovy.integration.brain.*.xml`이 이번 실행에서 생겼고 tests > 0·skipped·failures·errors = 0인지 검사해 아니면 실패한다(UP-TO-DATE·skip 위장 방지). 정리 때 supervisor에 `/brain/stop`을 보내고 프로세스 그룹 전체를 끈다.
 - 공용 호스트 부하 대응: supervisor의 child readiness 대기는 60초 고정이라, 스크립트가 child를 미리 한 번 띄워 page cache를 데우고
   Java client는 `did not become ready`일 때만 start·restart를 최대 3번 다시 보낸다(후속 메모: Brain readiness 대기 설정화).
 
@@ -27,7 +28,7 @@ PG_CONTAINER=proovy-postgres-brain-it GRADLE_IN_DOCKER=1 scripts/brain-integrati
 | --- | --- | --- |
 | 1. 빈 DB·ChatSession/thread 없음, noteId 없는 중복·같은 Note 동시 전송이 하나만 남고 거부는 메시지 없음 | `firstTextQuestion…`, `concurrentDuplicateNotelessRequests…`, `concurrentSameNoteRequests…` (+ 단계 3 `RunPathEndToEndPostgresTest`·`LegacyExecutionPathGuardTest`) | HTTP 접수 → coordinator → Brain graph 1회 → terminal transaction. 409 RUN4091 + activeRunId, 메시지·run·차감 없음 |
 | 2. SSE 단절·재접속 seq·canonical 복원, replay/live 무유실 | `firstTextQuestion…`(POST live = GET replay 바이트), `browserDisconnectAndInternalSseLoss…`, `storedTerminalLostInDelivery…` | 브라우저 Last-Event-ID 재접속, Brain 내부 SSE 첫 frame 직전 abort → status executing → 같은 attempt·fence OBSERVE 재부착, terminal 전 abort → status terminal 회수 |
-| 3. 완료·취소·deadline·이전 attempt 경합에서 확정과 보상이 동시에 일어나지 않음 | `runningCancelBlocks…`, `pendingCancel…`, `deadlineRace…`, `brainSideDeadline…`(fake clock), `staleFenceTerminal…`, `serverRestart…`, `brainLostBeforeStorage…` | terminal event 1개·보상 ≤ 1·재실행 0을 run마다 검사 |
+| 3. 완료·취소·deadline·이전 attempt 경합에서 확정과 보상이 동시에 일어나지 않음 | `runningCancelBlocks…`, `pendingCancel…`, `deadlineRace…`, `brainSideDeadline…`(fake clock), `staleFenceTerminal…`, `serverRestart…`, `brainLostBeforeStorage…` | terminal event 1개·보상 ≤ 1·재실행 0을 run마다 단언. deadline 경합은 승자를 고정하지 않는다(실측: Server sweep). Brain fake clock은 Brain timeout terminal 확정을 단언. `serverRestart`는 같은 JVM의 coordinator `stop()/start()`(프로세스 재시작 아님) |
 | 4. clarification·unsupported_only·혼합·no-match·최종 실패·PENDING/RUNNING 취소 순사용량 | `outcomeMatrix…`, `explainFollowUp…`, 취소 2종 | 정상 solve·check·explain 1, 미검증 공개 1, clarification 0, unsupported_only 0, 혼합 1, 자료 부재(scripted) 1, verification_failed 0, provider_error 0, PENDING 취소 0, RUNNING 취소 1, deadline 0, 저장 전 소실 0 |
 | 5. Java DTO·fingerprint·source 변환이 공용 fixture와 일치, scope/provenance 위반 거부 | `javaAndPythonAgree…`, `outOfScopeSource…`, `forgedRunEnvelope…`, `staleFenceTerminal…` | Brain record fingerprint = `ai_runs.request_fingerprint`, Brain fixture sha256 = Server PIN 전부, scope 밖 asset(scripted) → FAILED internal_error·출처/solution 없음, 다른 run envelope(stream+status, scripted) → FAILED, 이전 fence(stream, scripted) → 버리고 저장 terminal 회수 |
 
@@ -57,9 +58,9 @@ token 없음·사용자 JWT·틀린 token은 Brain이 401/403으로 거부한다
 
 - `RunClaimStore.findStale`·`takeOver`(같은 attempt·fence 인수), `RunExecution` RECOVER/FINAL_CHECK(status 먼저 → `settle(StoredTerminal)`·`failByServer`·`expireDeadline`),
   `hasBrainEvents`(미시작 vs 실행 소실). 실제 Brain에서 확인한 결과:
-  - Server 정지 중 Brain이 저장한 terminal → 재시작 뒤 같은 epoch로 회수, graph 1회.
+  - coordinator 정지 중(같은 JVM `stop()`) Brain이 저장한 terminal → `start()` 뒤 같은 epoch로 회수, graph 1회. Cloud Run 프로세스 교체는 S14.
   - Brain이 terminal 저장 전 SIGKILL → 재시작한 Brain record는 `executing`(terminal 없음, 재개·재실행 0). Server는 같은 요청 OBSERVE·status 수습 뒤
-    infrastructure 실패로 한 번 보상한다. **Brain record는 executing으로 남는다** — Brain lease 만료 sweep·`cleanup` 호출은 S13.
+    `provider_error`(infrastructure, 실행 소실)로 한 번 보상한다(단언). **Brain record는 executing으로 남는다** — Brain lease 만료 sweep·`cleanup` 호출은 S13.
 - `runtime_cleanup_at` 예약까지가 Server 범위이고 Brain `cleanup` 호출·retention은 S13이다.
 
 ## 후속 메모

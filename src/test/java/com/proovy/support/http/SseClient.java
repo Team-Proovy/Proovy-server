@@ -48,6 +48,8 @@ public final class SseClient implements AutoCloseable {
     private final InputStream body;
     private final Duration wait;
     private final BlockingQueue<Block> blocks = new LinkedBlockingQueue<>();
+    /** reader thread에서 난 판독 오류 — 다음 frame 요청에서 test thread로 다시 던진다. */
+    private volatile Throwable readerFailure;
 
     private SseClient(int status, String contentType, String errorBody, InputStream body, Duration wait) {
         this.status = status;
@@ -92,6 +94,8 @@ public final class SseClient implements AutoCloseable {
             }
         } catch (IOException closed) {
             // close()로 끊음
+        } catch (RuntimeException | AssertionError e) {
+            readerFailure = e;
         } finally {
             blocks.add(END);
         }
@@ -107,7 +111,8 @@ public final class SseClient implements AutoCloseable {
             } else if (line.startsWith("id: ")) {
                 id = line.substring(4);
             } else if (line.startsWith("data: ")) {
-                data = line.substring(6);
+                // 여러 data 줄은 SSE 규칙대로 줄바꿈으로 잇는다
+                data = data == null ? line.substring(6) : data + "\n" + line.substring(6);
             } else if (!line.startsWith(":")) {
                 throw new AssertionError("unexpected SSE line: " + line);
             }
@@ -124,6 +129,9 @@ public final class SseClient implements AutoCloseable {
             }
             if (block == END) {
                 blocks.add(END);
+                if (readerFailure != null) {
+                    throw new AssertionError("SSE reader failed", readerFailure);
+                }
                 return null;
             }
             if (block.event() != null) {

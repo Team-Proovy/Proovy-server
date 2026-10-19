@@ -36,9 +36,13 @@ cleanup() {
     return
   fi
   if [[ -n "$SUPERVISOR_PID" ]]; then
-    kill "$SUPERVISOR_PID" 2>/dev/null || true
+    # Brain API child는 supervisor가 새 session으로 띄운다 — 먼저 supervisor에게 멈추게 하고, supervisor 프로세스 그룹 전체를 정리한다
+    curl -s -m 20 -X POST -H "X-Testkit-Control-Token: $CONTROL_TOKEN" -H "Content-Type: application/json" \
+      -d '{"signal": "kill"}' "http://127.0.0.1:$SUPERVISOR_PORT/brain/stop" >/dev/null 2>&1 || true
+    kill -- "-$SUPERVISOR_PID" 2>/dev/null || kill "$SUPERVISOR_PID" 2>/dev/null || true
     wait "$SUPERVISOR_PID" 2>/dev/null || true
   fi
+  pkill -f "testkit.integration serve --host 127.0.0.1 --port $BRAIN_API_PORT" 2>/dev/null || true
   docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
   rm -rf "${LOG_DIR:?}"
 }
@@ -78,26 +82,33 @@ echo "[brain-it] postgres $PG_CONTAINER on 127.0.0.1:$PG_PORT (tmpfs)"
 docker run -d --name "$PG_CONTAINER" --tmpfs /var/lib/postgresql/data:rw,size=600m --memory 384m \
   -e POSTGRES_USER="$PG_USER" -e POSTGRES_PASSWORD="$PG_PASSWORD" -e POSTGRES_DB=postgres \
   -p "127.0.0.1:$PG_PORT:5432" postgres:15-alpine >/dev/null
-for _ in $(seq 1 60); do
-  docker exec "$PG_CONTAINER" pg_isready -U "$PG_USER" -d postgres >/dev/null 2>&1 && break
-  sleep 1
-done
+wait_for() {  # wait_for <what> <command...> — 60초 안에 성공하지 못하면 실패
+  local what=$1
+  shift
+  for _ in $(seq 1 60); do
+    "$@" >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  echo "[brain-it] $what did not become ready in 60s" >&2
+  return 1
+}
+wait_for postgres docker exec "$PG_CONTAINER" pg_isready -U "$PG_USER" -d postgres
 
 echo "[brain-it] brain testkit supervisor 127.0.0.1:$SUPERVISOR_PORT (api $BRAIN_API_PORT)"
-(
-  cd "$BRAIN_DIR"
+export PG_USER PG_PASSWORD PG_PORT CONTROL_TOKEN SHARED_TOKEN RUNTIME_PASSWORD MIGRATION_PASSWORD \
+  SUPERVISOR_PORT BRAIN_API_PORT
+setsid bash -c '
+  cd "$0"
   env -i PATH="$PATH" HOME="$HOME" \
     TESTKIT_PG_ADMIN_URL="postgresql://$PG_USER:$PG_PASSWORD@127.0.0.1:$PG_PORT/postgres" \
     TESTKIT_CONTROL_TOKEN="$CONTROL_TOKEN" TESTKIT_SHARED_TOKEN="$SHARED_TOKEN" \
     TESTKIT_BRAIN_RUNTIME_PASSWORD="$RUNTIME_PASSWORD" TESTKIT_BRAIN_MIGRATION_PASSWORD="$MIGRATION_PASSWORD" \
     uv run --locked python -m testkit.integration supervise \
       --port "$SUPERVISOR_PORT" --api-port "$BRAIN_API_PORT"
-) >"$LOG_DIR/supervisor.log" 2>&1 &
-SUPERVISOR_PID=$!
-for _ in $(seq 1 60); do
-  curl -sf -H "X-Testkit-Control-Token: $CONTROL_TOKEN" "http://127.0.0.1:$SUPERVISOR_PORT/brain/status" >/dev/null && break
-  sleep 1
-done
+' "$BRAIN_DIR" >"$LOG_DIR/supervisor.log" 2>&1 &
+SUPERVISOR_PID=$!   # setsid → 이 PID가 프로세스 그룹 ID다
+wait_for supervisor curl -sf -H "X-Testkit-Control-Token: $CONTROL_TOKEN" \
+  "http://127.0.0.1:$SUPERVISOR_PORT/brain/status"
 
 # Brain child 기동은 supervisor의 고정 readiness 대기(60s) 안에 끝나야 한다. 부하가 큰 호스트에서도 넘지 않게
 # import·bytecode를 미리 데운다(같은 checkout, 같은 venv).
@@ -116,7 +127,9 @@ TESTS=("$@")
 if [[ ${#TESTS[@]} -eq 0 ]]; then
   TESTS=("com.proovy.integration.brain.*")
 fi
-GRADLE_ARGS=(test)
+# --rerun: 환경변수(testkit 주소·token)는 test task 입력이 아니라서, 이전 결과(예: testkit 없이 돈 18 skipped)가 남아 있으면
+# UP-TO-DATE로 테스트 0건이 "통과"한다. 항상 실제로 실행하게 강제한다.
+GRADLE_ARGS=(test --rerun)
 for pattern in "${TESTS[@]}"; do
   GRADLE_ARGS+=(--tests "$pattern")
 done
@@ -130,10 +143,40 @@ TEST_ENV=(
   "PROOVY_BRAIN_EXPECTED_COMMIT=$BRAIN_HEAD" "PROOVY_REQUIRE_BRAIN_IT=true"
 )
 
+STARTED_AT="$(date +%s)"
 set +e
 gradle "${GRADLE_ARGS[@]}"
 STATUS=$?
 set -e
+
+# 결과 검증: 이번 실행이 만든 연동 테스트 결과가 있고, 실제로 돌았고(tests > 0), skip이 0이어야 한다
+verify_results() {
+  local found=0 file tests skipped failures errors
+  shopt -s nullglob
+  for file in "$ROOT"/build/test-results/test/TEST-com.proovy.integration.brain.*.xml; do
+    if [[ "$(stat -c %Y "$file")" -lt "$STARTED_AT" ]]; then
+      echo "[brain-it] stale result (not produced by this run): $file" >&2
+      return 1
+    fi
+    tests=$(grep -o 'tests="[0-9]*"' "$file" | head -1 | tr -dc '0-9')
+    skipped=$(grep -o 'skipped="[0-9]*"' "$file" | head -1 | tr -dc '0-9')
+    failures=$(grep -o 'failures="[0-9]*"' "$file" | head -1 | tr -dc '0-9')
+    errors=$(grep -o 'errors="[0-9]*"' "$file" | head -1 | tr -dc '0-9')
+    echo "[brain-it] $(basename "$file" .xml): tests=$tests skipped=$skipped failures=$failures errors=$errors"
+    if [[ "${tests:-0}" -eq 0 || "${skipped:-1}" -ne 0 || "${failures:-1}" -ne 0 || "${errors:-1}" -ne 0 ]]; then
+      return 1
+    fi
+    found=$((found + 1))
+  done
+  if [[ $found -eq 0 ]]; then
+    echo "[brain-it] no real-Brain integration result was produced" >&2
+    return 1
+  fi
+}
+if [[ $STATUS -eq 0 ]] && ! verify_results; then
+  echo "[brain-it] FAILED: the real-Brain integration did not actually run green (skip or zero tests)" >&2
+  STATUS=1
+fi
 
 echo "[brain-it] server=$SERVER_HEAD brain=$BRAIN_HEAD gradle exit=$STATUS"
 echo "[brain-it] reports: $ROOT/build/reports/tests/test/index.html"

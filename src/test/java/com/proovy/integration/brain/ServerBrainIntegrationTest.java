@@ -45,6 +45,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -64,6 +65,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @Tag("postgres")
 @Tag("brain-integration")
 @ActiveProfiles("test")
+@DirtiesContext
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "gcs.project-id=proovy-test",
         "gcs.endpoint=http://127.0.0.1:1",
@@ -317,7 +319,7 @@ class ServerBrainIntegrationTest {
             assertThat(row.get("response_disposition")).as(label).isEqualTo(expected.disposition);
             assertThat(row.get("failure_code")).as(label).isEqualTo(expected.failureCode);
             assertThat(netUsage(requestId)).as(label).isEqualTo(expected.netUsage);
-            assertThat(credits(user)).as(label).isEqualTo(DAILY_CREDITS - expected.netUsage * creditsPerUnit());
+            assertThat(credits(user)).as(label).isEqualTo(DAILY_CREDITS - expected.netUsage * creditsCharged(requestId));
             assertThat(singleTerminal(run.runId)).as(label).isEqualTo(expected.terminal);
             assertThat(brain.executions(requestId)).as(label).hasSize(1);
             if (expected.firstBlock != null) {
@@ -434,7 +436,7 @@ class ServerBrainIntegrationTest {
     // ==================================================================
 
     @Test
-    @DisplayName("Server 재시작: 멈춘 동안 Brain이 저장한 terminal을 재시작 뒤 같은 attempt·fence로 회수하고 graph를 다시 돌리지 않는다")
+    @DisplayName("Server coordinator 재시작(같은 JVM stop/start): 멈춘 동안 Brain이 저장한 terminal을 재시작 뒤 같은 attempt·fence로 회수하고 graph를 다시 돌리지 않는다")
     void serverRestartRecoversTheStoredTerminalWithoutRerun() throws Exception {
         User user = newUser();
         String requestId = requestId();
@@ -442,16 +444,20 @@ class ServerBrainIntegrationTest {
         SseClient post = browser.post(user.token, body(requestId, null, "재시작 문제를 풀어줘"));
         UUID runId = UUID.fromString(post.nextFrame().json().get("runId").asText());
         post.close();
-        await(() -> !brain.executions(requestId).isEmpty());
-        Map<String, Object> before = row(runId);
-
-        coordinator.stop();
+        Map<String, Object> before;
         try {
-            brain.release(requestId, null);
-            await(() -> "terminal".equals(brain.internalRunStatus(runId.toString(),
-                    (Integer) before.get("attempt"), (String) before.get("fence_token")).path("state").asText()));
+            await(() -> !brain.executions(requestId).isEmpty());
+            before = row(runId);
+            coordinator.stop();
+            try {
+                brain.release(requestId, null);
+                await(() -> "terminal".equals(brain.internalRunStatus(runId.toString(),
+                        (Integer) before.get("attempt"), (String) before.get("fence_token")).path("state").asText()));
+            } finally {
+                coordinator.start();
+            }
         } finally {
-            coordinator.start();
+            brain.release(requestId, null);
         }
 
         awaitStatus(runId, "COMPLETED");
@@ -471,23 +477,28 @@ class ServerBrainIntegrationTest {
         String requestId = requestId();
         brain.plan(requestId, "default", BrainTestkit.faults().put("hold_terminal_write", true));
         SseClient post = browser.post(user.token, body(requestId, null, "저장 전 소실 문제를 풀어줘"));
-        UUID runId = UUID.fromString(post.nextFrame().json().get("runId").asText());
-        await(() -> count("SELECT count(*) FROM ai_run_events WHERE run_id = ? AND event_type = 'activity.completed'",
-                runId) >= 2);
-        Map<String, Object> epoch = row(runId);
+        UUID runId;
+        try {
+            runId = UUID.fromString(post.nextFrame().json().get("runId").asText());
+            await(() -> count("SELECT count(*) FROM ai_run_events WHERE run_id = ? "
+                    + "AND event_type = 'activity.completed'", runId) >= 2);
+            Map<String, Object> epoch = row(runId);
 
-        brain.restart("kill");
+            brain.restart("kill");
 
-        // 새 Brain process: plan·실행 기록이 없고 record는 terminal 없이 executing이다(재개·재실행 없음)
-        JsonNode lost = brain.internalRunStatus(runId.toString(), (Integer) epoch.get("attempt"),
-                (String) epoch.get("fence_token"));
-        assertThat(lost.get("state").asText()).isEqualTo("executing");
-        assertThat(lost.has("terminal") && !lost.get("terminal").isNull()).isFalse();
-        awaitStatus(runId, "FAILED");
-        post.close();
+            // 새 Brain process: plan·실행 기록이 없고 record는 terminal 없이 executing이다(재개·재실행 없음)
+            JsonNode lost = brain.internalRunStatus(runId.toString(), (Integer) epoch.get("attempt"),
+                    (String) epoch.get("fence_token"));
+            assertThat(lost.get("state").asText()).isEqualTo("executing");
+            assertThat(lost.has("terminal") && !lost.get("terminal").isNull()).isFalse();
+            awaitStatus(runId, "FAILED");
+        } finally {
+            post.close();
+        }
         Map<String, Object> row = row(runId);
+        // 같은 요청 재부착·status 수습 뒤 실행 소실(Brain 시작 증거 + 진행 없음)로 확정된다 — 1.85 결정표
         assertThat(row.get("failure_class")).isEqualTo("infrastructure");
-        System.err.println("[brain-integration] lost-before-storage outcome: failure_code=" + row.get("failure_code"));
+        assertThat(row.get("failure_code")).isEqualTo("provider_error");
         assertThat(brain.executions(requestId)).isEmpty();
         assertThat(netUsage(requestId)).isZero();
         assertThat(singleTerminal(runId)).isEqualTo("run.failed");
@@ -505,18 +516,24 @@ class ServerBrainIntegrationTest {
         String requestId = requestId();
         brain.plan(requestId, "default", BrainTestkit.faults().put("hold_at", "solve"));
         SseClient post = browser.post(user.token, body(requestId, null, "취소할 문제"));
-        UUID runId = UUID.fromString(post.nextFrame().json().get("runId").asText());
-        await(() -> !brain.executions(requestId).isEmpty());
-        awaitStatus(runId, "RUNNING");
+        UUID runId;
+        List<Block> frames;
+        try {
+            runId = UUID.fromString(post.nextFrame().json().get("runId").asText());
+            await(() -> !brain.executions(requestId).isEmpty());
+            awaitStatus(runId, "RUNNING");
 
-        BrowserRunHttp.Response canceled = browser.cancel(user.token, runId);
-        assertThat(canceled.status()).isEqualTo(200);
-        assertThat(canceled.body().toString()).contains("CANCELING");
-        brain.release(requestId, null);
+            BrowserRunHttp.Response canceled = browser.cancel(user.token, runId);
+            assertThat(canceled.status()).isEqualTo(200);
+            assertThat(canceled.body().toString()).contains("CANCELING");
+            brain.release(requestId, null);
 
-        awaitStatus(runId, "CANCELED");
-        List<Block> frames = post.framesUntilEnd();
-        post.close();
+            awaitStatus(runId, "CANCELED");
+            frames = post.framesUntilEnd();
+        } finally {
+            brain.release(requestId, null);
+            post.close();
+        }
         assertThat(frames.stream().map(Block::event)).contains("run.canceling", "run.canceled")
                 .doesNotContain("run.completed");
         assertThat(singleTerminal(runId)).isEqualTo("run.canceled");
@@ -575,17 +592,22 @@ class ServerBrainIntegrationTest {
         String requestId = requestId();
         brain.plan(requestId, "default", BrainTestkit.faults().put("hold_at", "solve"));
         SseClient post = browser.post(user.token, body(requestId, null, "deadline 문제"));
-        UUID runId = UUID.fromString(post.nextFrame().json().get("runId").asText());
-
-        // request-timeout 40s: hold를 풀지 않고 deadline을 넘긴다
-        awaitStatus(runId, Duration.ofSeconds(70), "FAILED");
-        brain.release(requestId, null);
-        Thread.sleep(3000);
-        post.close();
+        UUID runId;
+        try {
+            runId = UUID.fromString(post.nextFrame().json().get("runId").asText());
+            // request-timeout 40s: hold를 풀지 않고 deadline을 넘긴다
+            awaitStatus(runId, Duration.ofSeconds(70), "FAILED");
+            brain.release(requestId, null);
+            Thread.sleep(3000);
+        } finally {
+            brain.release(requestId, null);
+            post.close();
+        }
 
         Map<String, Object> row = row(runId);
         assertThat(row.get("status")).isEqualTo("FAILED");
         assertThat(row.get("failure_code")).isEqualTo("timeout");
+        // 어느 쪽(Server sweep·Brain timeout terminal)이 이기는지는 고정하지 않는다 — 결과 하나·보상 한 번만 단언하고 승자는 실측으로 남긴다
         System.err.println("[brain-integration] deadline race settled by "
                 + (row.get("terminal_source_event_id") == null ? "server deadline sweep" : "brain timeout terminal"));
         assertThat(singleTerminal(runId)).isEqualTo("run.failed");
@@ -872,9 +894,10 @@ class ServerBrainIntegrationTest {
         return charged - compensated;
     }
 
-    private long creditsPerUnit() {
-        Long amount = jdbc.queryForObject("SELECT max(credit_amount) FROM request_usage_charges", Long.class);
-        return amount == null ? 0 : amount;
+    /** 그 요청의 차감 credit 양(request당 ledger 한 줄). */
+    private long creditsCharged(String requestId) {
+        return jdbc.queryForObject("SELECT credit_amount FROM request_usage_charges WHERE request_id = ?", Long.class,
+                requestId);
     }
 
     private long credits(User user) {

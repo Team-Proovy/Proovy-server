@@ -56,6 +56,17 @@ class LegacyExecutionPathGuardTest {
     }
 
     @Test
+    void securityHasNoInternalPathCarveOut() {
+        // 구형 agent → Server 내부 API는 없다. /internal 경로를 인증에서 빼는 예외가 남으면 나중에 생긴 endpoint의 JWT가 조용히 무시된다
+        // (Server → Brain client의 /internal/v1/runs 호출 경로는 security 밖이라 대상이 아니다)
+        List<String> violations = files(MAIN.resolve("java/com/proovy/global/security")).stream()
+                .filter(file -> read(file).contains("\"/internal"))
+                .map(Path::toString)
+                .toList();
+        assertThat(violations).isEmpty();
+    }
+
+    @Test
     void onlyRequestUsageDeductsBalance() {
         List<String> callers = mainFiles().stream()
                 .filter(file -> file.toString().endsWith(".java"))
