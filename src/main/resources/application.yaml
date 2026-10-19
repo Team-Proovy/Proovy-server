@@ -130,11 +130,6 @@ proovy:
         instances: ${BRAIN_MAX_INSTANCES:3}
         per-instance: ${BRAIN_MAX_CONCURRENT_RUNS:4}
 
-internal:
-  api:
-    token: ${INTERNAL_API_TOKEN}
-    port: 8081
-
 # ===============================
 # OpenRouter API (Gemini 2.5 Flash 경유)
 # ===============================
@@ -160,10 +155,6 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
-internal:
-  api:
-    token: ${INTERNAL_API_TOKEN:local-dev-token}
 
 ---
 # ===============================
