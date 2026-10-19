@@ -1,0 +1,92 @@
+{
+  "publication_request": {
+    "schema_version": "publication-v1",
+    "disposition": "clarification_only",
+    "disclosure": {
+      "scope": "full",
+      "judgment_completed": true
+    },
+    "pages": [],
+    "clarification": {
+      "reason": "ambiguous_target",
+      "draft": {
+        "text": "어떤 문제의 풀이를 원하는지 알려 주세요.",
+        "withheld": []
+      }
+    }
+  },
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "response_disposition": "clarification_only",
+      "clarification_reason": "ambiguous_target",
+      "assistant_response": {
+        "schema_version": "assistant-response-v1",
+        "response_pages": [
+          {
+            "response_page_id": "page-1",
+            "presentation": "main",
+            "result_blocks": [
+              {
+                "block_id": "block-1",
+                "body": "어떤 문제의 풀이를 원하는지 알려 주세요.",
+                "kind": "rich_text"
+              }
+            ]
+          }
+        ],
+        "source_references": []
+      },
+      "verified_solutions": [],
+      "selected_page_provenance": [],
+      "model": "fake/main-model",
+      "tier": "main",
+      "verification_summary": [],
+      "source_labels": []
+    }
+  },
+  "server": {
+    "assistant_message_id": "message-7",
+    "seq": 9,
+    "display_labels": {},
+    "availability": {}
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "responseDisposition": "clarification_only",
+      "clarificationReason": "ambiguous_target",
+      "assistantResponse": {
+        "responsePages": [
+          {
+            "responsePageId": "page-1",
+            "presentation": "main",
+            "resultBlocks": [
+              {
+                "blockId": "block-1",
+                "body": "어떤 문제의 풀이를 원하는지 알려 주세요.",
+                "kind": "rich_text"
+              }
+            ]
+          }
+        ],
+        "sourceReferences": [],
+        "plainText": "어떤 문제의 풀이를 원하는지 알려 주세요."
+      },
+      "model": "fake/main-model",
+      "tier": "main",
+      "verificationSummary": [],
+      "assistantMessageId": "message-7"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "clarification_only",
+  "disclosure": {
+    "scope": "full",
+    "judgment_completed": true
+  },
+  "pages": [],
+  "clarification": {
+    "reason": "missing_input",
+    "draft": {
+      "text": "무엇을 풀지 알려 주세요.",
+      "withheld": []
+    }
+  },
+  "source_references": [
+    {
+      "source_ref_id": "sref-1",
+      "asset_id": "note-a",
+      "page_start": 1,
+      "page_end": 1
+    }
+  ],
+  "source_labels": [
+    {
+      "source_ref_id": "sref-1",
+      "label": "노트"
+    }
+  ]
+}

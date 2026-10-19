@@ -1,0 +1,65 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "title": "오류 설명과 수정 방향",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "두 번째 단계의 변형이 틀렸다.",
+            "kind": "check",
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "failed",
+                "reason": "이 단계가 성립하지 않는다고 확인됐다"
+              }
+            ],
+            "first_error_step_id": "step-1",
+            "quoted_spans": []
+          },
+          {
+            "block_id": "block-2",
+            "body": "양변에 3을 더해 정리한다.",
+            "kind": "solution",
+            "verification": "verified",
+            "solution_id": "solution-4",
+            "claim_ids": [
+              "claim-1"
+            ],
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "anchor": {
+                  "start": 0,
+                  "end": 15
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [
+    {
+      "solution_id": "solution-4",
+      "overall_coverage": "direct",
+      "claims": [
+        {
+          "claim_id": "claim-1",
+          "coverage": "direct",
+          "method_label": "모든 단계를 실행 검사로 확인",
+          "unconfirmed_steps": []
+        }
+      ]
+    }
+  ],
+  "source_labels": {}
+}

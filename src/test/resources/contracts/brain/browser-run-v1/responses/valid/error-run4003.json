@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 400,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4003",
+    "message": "이벤트 재개 위치가 올바르지 않습니다."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "모든 단계가 확인됐다.\n\n확인되지 않은 범위: 이 결과의 답 전체(요청한 답의 완전성 포함)는 확인되지 않았다. 단계별 확인은 답 검증을 뜻하지 않는다.",
+            "kind": "solution",
+            "verification": "unverified",
+            "claim_ids": [],
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [],
+  "source_labels": {}
+}

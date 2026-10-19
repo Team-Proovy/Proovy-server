@@ -1,0 +1,15 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [
+        {
+          "kind": "video",
+          "block_id": "block-1",
+          "body": "a"
+        }
+      ]
+    }
+  ]
+}

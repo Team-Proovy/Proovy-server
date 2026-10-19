@@ -1,0 +1,45 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "title": "검산",
+      "result_blocks": [
+        {
+          "kind": "check",
+          "block_id": "block-1",
+          "body": "제출한 풀이의 아래 구간이 처음 틀린 곳이다.\n\n> $\\int x^2 dx$를 $1/x^2$로 선택\n\n정적분값은 $\\int_1^2 x^{-2}dx=1/2$이다.",
+          "step_marks": [
+            {
+              "step_id": "step-1",
+              "status": "verified",
+              "anchor": {
+                "start": 0,
+                "end": 24
+              }
+            },
+            {
+              "step_id": "step-2",
+              "status": "failed",
+              "reason": "원시함수를 잘못 선택했다",
+              "anchor": {
+                "start": 29,
+                "end": 55
+              }
+            }
+          ],
+          "first_error_step_id": "step-2",
+          "quoted_spans": [
+            {
+              "anchor": {
+                "start": 27,
+                "end": 55
+              },
+              "origin": "user_submission"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -48,6 +48,22 @@ public class CreditBalanceCreator {
         return creditBalanceRepository.save(balance);
     }
 
+    /**
+     * 호출자 transaction 안에서 초기 잔액 row를 만든다(가입 보너스 없음). 이미 있으면 그대로 둔다.
+     * 요청 사용량 차감처럼 독립 선commit이 허용되지 않는 경로에서 쓴다.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void insertInitialBalanceIfAbsent(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new BusinessException(ErrorCode.USER4041);
+        }
+        PlanType planType = userPlanRepository.findActivePlanTypeByUserId(userId)
+                .orElse(PlanType.FREE);
+        // created_at/updated_at은 JPA auditing과 같은 JVM 기본 시계, 일일 만료는 과금 zone(Asia/Seoul) 기준이다.
+        creditBalanceRepository.insertInitialIfAbsent(
+                userId, planType.getDailyCreditLimit(), nextDailyResetAt(nowInBillingZone()), LocalDateTime.now());
+    }
+
     private LocalDateTime nowInBillingZone() {
         return ZonedDateTime.now(BILLING_ZONE).toLocalDateTime();
     }

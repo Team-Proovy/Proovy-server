@@ -1,0 +1,15 @@
+{
+  "rationale": "variant는 v1 wire enum이 아니다(자연어 의도와 구분).",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "requestedTasks": [
+      "variant"
+    ]
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

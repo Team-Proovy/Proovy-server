@@ -1,0 +1,32 @@
+{
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.failed",
+    "payload": {
+      "code": "invalid_attachment",
+      "message": "암호로 보호된 PDF는 처리할 수 없습니다. 암호를 해제한 PDF를 다시 올려주세요.",
+      "failure_class": "attachment",
+      "recoverable": false
+    }
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.failed",
+    "payload": {
+      "code": "invalid_attachment",
+      "message": "암호로 보호된 PDF는 처리할 수 없습니다. 암호를 해제한 PDF를 다시 올려주세요.",
+      "recoverable": false,
+      "assistantMessageId": "message-7"
+    }
+  },
+  "source_outcome": "reject",
+  "browser_outcome": "reject"
+}

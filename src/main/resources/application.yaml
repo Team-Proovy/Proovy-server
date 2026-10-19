@@ -18,9 +18,10 @@ spring:
         jdbc:
           time_zone: Asia/Seoul
 
+  # 신규 제품 baseline(V1)은 빈 DB에서만 시작한다. 과거 migration history가 있거나
+  # history 없이 테이블이 있는 DB는 baseline하지 않고 기동을 실패시킨다 (ADR 0015).
   flyway:
-    baseline-on-migrate: true
-    baseline-version: '0'
+    baseline-on-migrate: false
     locations: classpath:db/migration
 
   data:
@@ -108,28 +109,26 @@ jwt:
   refresh-token-expiration: 604800         # 7일 (초)
   signup-token-expiration: 600             # 10분 (초)
 
-# ===============================
-# Proovy-ai (FastAPI Agent)
-# ===============================
 proovy:
-  ai:
-    host: ${PROOVY_AI_HOST:https://api.proovy.ai.kr/ai}
   api:
     public-base-url: ${PROOVY_API_BASE_URL:}
-
-internal:
-  api:
-    token: ${INTERNAL_API_TOKEN}
-    port: 8081
-
-embedding:
-  redis:
-    stream:
-      key: embedding_jobs
-      consumer-group: spring-publisher
-    lock:
-      prefix: emb:lock
-      ttl: 3600
+  # Brain 내부 실행 API client (task 1.76). base-url이 비어 있으면 client bean을 만들지 않는다.
+  # 인증은 한 모드만: production은 id-token(고정 audience), local/test는 shared-token.
+  brain:
+    base-url: ${BRAIN_BASE_URL:}
+    auth:
+      mode: ${BRAIN_AUTH_MODE:shared-token}
+      audience: ${BRAIN_ID_TOKEN_AUDIENCE:}
+      shared-token: ${BRAIN_SHARED_TOKEN:}
+  # 브라우저 독립 run coordinator (task 1.83). 켜면 Brain client가 필요하다. 다중 인스턴스에서도
+  # DB coordinator lease 보유자 하나만 claim한다. 전역 슬롯은 brain-capacity(인스턴스 × 인스턴스당 상한)를 넘을 수 없다.
+  run:
+    coordinator:
+      enabled: ${RUN_COORDINATOR_ENABLED:false}
+      max-concurrent-runs: ${RUN_COORDINATOR_MAX_CONCURRENT_RUNS:4}
+      brain-capacity:
+        instances: ${BRAIN_MAX_INSTANCES:3}
+        per-instance: ${BRAIN_MAX_CONCURRENT_RUNS:4}
 
 # ===============================
 # OpenRouter API (Gemini 2.5 Flash 경유)
@@ -148,17 +147,14 @@ spring:
     activate:
       on-profile: local
 
+  # schema는 Flyway만 관리한다. Hibernate는 엔티티와 baseline 정합성만 검증한다.
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-
-internal:
-  api:
-    token: ${INTERNAL_API_TOKEN:local-dev-token}
 
 ---
 # ===============================
@@ -182,3 +178,6 @@ spring:
 proovy:
   api:
     public-base-url: ${PROOVY_API_BASE_URL:https://api.proovy.ai.kr}
+  brain:
+    auth:
+      mode: id-token

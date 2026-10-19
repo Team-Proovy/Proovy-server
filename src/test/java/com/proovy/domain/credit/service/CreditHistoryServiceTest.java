@@ -1,7 +1,6 @@
 package com.proovy.domain.credit.service;
 
 import com.proovy.domain.credit.dto.response.CreditHistoryResponse;
-import com.proovy.domain.credit.entity.CreditBalance;
 import com.proovy.domain.credit.entity.CreditHistory;
 import com.proovy.domain.credit.entity.CreditChangeType;
 import com.proovy.domain.credit.entity.CreditEventType;
@@ -45,13 +44,7 @@ class CreditHistoryServiceTest {
         Long userId = 1L;
         User user = User.builder().build();
 
-        CreditBalance balance = CreditBalance.builder()
-                .user(user)
-                .dailyFreeCredit(45)
-                .dailyFreeLimit(100)
-                .freeCredit(0)
-                .paidCredit(1500)
-                .build();
+        CreditBalanceSnapshot balance = new CreditBalanceSnapshot(45, 100, null, 0, 1500, null);
 
         CreditHistory history = CreditHistory.builder()
                 .user(user)
@@ -68,14 +61,14 @@ class CreditHistoryServiceTest {
 
         Page<CreditHistory> historyPage = new PageImpl<>(List.of(history));
 
-        when(creditBalanceService.getOrCreateBalance(userId)).thenReturn(balance);
+        when(creditBalanceService.getBalanceSnapshot(userId)).thenReturn(balance);
         when(creditHistoryRepository.findAll(
                 org.mockito.ArgumentMatchers.<Specification<CreditHistory>>any(), any(Pageable.class)
         )).thenReturn(historyPage);
 
         when(creditHistoryRepository.calculatePeriodSummary(
                 eq(userId), any(CreditChangeType.class), any(CreditChangeType.class),
-                any(CreditChangeType.class), any(), any()
+                any(CreditChangeType.class), eq(CreditEventType.LLM_QUERY_COMPENSATION), any(), any()
         )).thenReturn(new CreditHistoryRepository.CreditPeriodSummary() {
             @Override
             public Long getTotalEarned() { return 2100L; }

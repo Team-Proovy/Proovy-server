@@ -1,0 +1,13 @@
+{
+  "rationale": "브라우저는 attempt를 결정·전달하지 않는다.",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "attempt": "x"
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "rationale": "wire 상한 10개 초과(policy 한도와 별개).",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "turnAttachmentIds": [
+      "27cc5620-1310-5105-9dad-9087fad8e0dc",
+      "b6123deb-5da4-57ef-a95d-cd83d91accab",
+      "073b5f90-ced1-5c0d-8ab0-d181489b3acb",
+      "cd0d02bd-9a62-5247-a1ca-0396755fe50d",
+      "a4f87dde-52b3-516b-abb9-4acbeefceb1f",
+      "0a8ecf87-1e52-52f7-9dad-3f5b4428fd95",
+      "4bfd2e9a-d13e-59a5-8d97-0f67b8ba7f48",
+      "99c3261e-e8f2-58ea-936f-75c96473dc65",
+      "e3d2eb55-105b-56a0-828b-e35117c6084e",
+      "25007c91-b8a8-541e-adc9-f0de6bb0da20",
+      "127d8494-ad2b-5864-a9c3-a0ae870b805e"
+    ]
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

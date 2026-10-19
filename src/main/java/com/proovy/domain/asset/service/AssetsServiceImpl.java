@@ -16,6 +16,7 @@ import com.proovy.global.exception.BusinessException;
 import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.infra.thumbnail.ThumbnailService;
 import com.proovy.global.response.ErrorCode;
+import com.proovy.domain.run.admission.RunAssetDeletionGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +44,7 @@ public class AssetsServiceImpl implements AssetsService {
     private final GcsService s3Service;
     private final UserPlanRepository userPlanRepository;
     private final ThumbnailService thumbnailService;
+    private final RunAssetDeletionGuard runAssetDeletionGuard;
 
     private static final int PRESIGNED_URL_DURATION_MINUTES = 15;
     private static final long BYTES_PER_MB = 1024L * 1024L;
@@ -137,7 +139,7 @@ public class AssetsServiceImpl implements AssetsService {
     }
 
     private void validateStorageCapacity(Long noteId, Long fileSize) {
-        Long uploadedSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.UPLOADED);
+        Long uploadedSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.ACTIVE);
         Long pendingSize = assetRepository.sumFileSizeByNoteIdAndStatus(noteId, AssetStatus.PENDING);
 
         long currentUsage = (uploadedSize != null ? uploadedSize : 0L) + (pendingSize != null ? pendingSize : 0L);
@@ -165,7 +167,7 @@ public class AssetsServiceImpl implements AssetsService {
         }
 
         // 3. 업로드 완료 상태 검증
-        if (asset.getStatus() != AssetStatus.UPLOADED) {
+        if (asset.getStatus() != AssetStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ASSET4006);
         }
 
@@ -195,7 +197,7 @@ public class AssetsServiceImpl implements AssetsService {
         }
 
         // 3. 이미 확인된 자산인지 확인 (중복 호출 방지)
-        if (asset.getStatus() == AssetStatus.UPLOADED) {
+        if (asset.getStatus() == AssetStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ASSET4091);
         }
 
@@ -204,7 +206,7 @@ public class AssetsServiceImpl implements AssetsService {
             throw new BusinessException(ErrorCode.ASSET4007);
         }
 
-        // 5. Asset 상태 업데이트 (PENDING → UPLOADED, ocrStatus → processing)
+        // 5. Asset 상태 업데이트 (PENDING → ACTIVE, ocrStatus → processing)
         // Optimistic Locking으로 동시 요청 처리
         try {
             asset.markAsUploaded();
@@ -291,6 +293,9 @@ public class AssetsServiceImpl implements AssetsService {
         if (!asset.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.ASSET4031);
         }
+
+        // run이 의존한 asset은 hard delete할 수 없다 (S13 DELETING 전환 전, 접수와 같은 Note 잠금 순서)
+        runAssetDeletionGuard.requireNoRunDependency(List.of(asset.getNoteId()), List.of(assetId));
 
         // GCS 키 저장 (트랜잭션 커밋 후 삭제를 위해)
         final String objectKey = asset.getObjectKey();

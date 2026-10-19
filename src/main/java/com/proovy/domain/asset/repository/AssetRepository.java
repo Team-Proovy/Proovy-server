@@ -80,10 +80,10 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     Long sumFileSizeByNoteIdAndStatus(@Param("noteId") Long noteId, @Param("status") AssetStatus status);
 
     /**
-     * 특정 사용자의 UPLOADED 상태 자산 파일 크기 합계 조회
+     * 특정 사용자의 ACTIVE 상태 자산 파일 크기 합계 조회
      * (PENDING, FAILED 상태는 실제 S3에 저장되지 않으므로 제외)
      */
-    @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.userId = :userId AND a.status = 'UPLOADED'")
+    @Query("SELECT COALESCE(SUM(a.fileSize), 0) FROM Asset a WHERE a.userId = :userId AND a.status = com.proovy.domain.asset.entity.AssetStatus.ACTIVE")
     Long sumFileSizeByUserId(@Param("userId") Long userId);
 
     /**

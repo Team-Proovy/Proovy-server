@@ -1,0 +1,15 @@
+{
+  "name": "cleanup-noop",
+  "kind": "cleanup",
+  "rationale": "레코드가 없으면 cleanup 은 아무것도 하지 않는다.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "outcome": "noop",
+    "state": "absent"
+  }
+}

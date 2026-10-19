@@ -1,0 +1,52 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "title": "제출 풀이 검토",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "제출한 풀이의 첫 오류입니다.\n\n> 양변을 $x$로 나누었다\n\n$x=0$이면 나눌 수 없어 성립하지 않습니다.",
+            "kind": "check",
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "anchor": {
+                  "start": 0,
+                  "end": 16
+                }
+              },
+              {
+                "step_id": "step-2",
+                "status": "failed",
+                "reason": "이 단계가 성립하지 않는다고 확인됐다",
+                "anchor": {
+                  "start": 20,
+                  "end": 33
+                }
+              }
+            ],
+            "first_error_step_id": "step-2",
+            "quoted_spans": [
+              {
+                "anchor": {
+                  "start": 20,
+                  "end": 33
+                },
+                "origin": "user_submission"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [],
+  "source_labels": {}
+}

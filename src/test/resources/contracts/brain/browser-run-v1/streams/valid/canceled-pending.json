@@ -1,0 +1,42 @@
+{
+  "rationale": "PENDING 취소 — run.canceling 없이 run.canceled.",
+  "finalStatus": "CANCELED",
+  "runId": "5118a0ec-5b14-5dc8-aead-81da16123ee1",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5118a0ec-5b14-5dc8-aead-81da16123ee1",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "e7380af3-85cb-521a-a30b-77761495827b",
+        "noteId": "123",
+        "userMessageId": "df777a3a-c744-59f5-bb8b-2bf64e874b9c",
+        "assistantMessageId": "c505a965-c220-58e1-9ec0-f48018f1262d",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "5118a0ec-5b14-5dc8-aead-81da16123ee1",
+      "seq": 2,
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "run.canceled",
+      "payload": {
+        "assistantMessageId": "c505a965-c220-58e1-9ec0-f48018f1262d",
+        "status": "CANCELED",
+        "cause": "user_requested",
+        "message": "답변 생성을 중단했습니다."
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: 5118a0ec-5b14-5dc8-aead-81da16123ee1:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"5118a0ec-5b14-5dc8-aead-81da16123ee1\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"e7380af3-85cb-521a-a30b-77761495827b\",\"noteId\":\"123\",\"userMessageId\":\"df777a3a-c744-59f5-bb8b-2bf64e874b9c\",\"assistantMessageId\":\"c505a965-c220-58e1-9ec0-f48018f1262d\",\"status\":\"PENDING\",\"requestedTasks\":[\"solve\"],\"requestedOutputs\":[\"text\"]}}\n\nevent: run.canceled\nid: 5118a0ec-5b14-5dc8-aead-81da16123ee1:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"5118a0ec-5b14-5dc8-aead-81da16123ee1\",\"seq\":2,\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"run.canceled\",\"payload\":{\"assistantMessageId\":\"c505a965-c220-58e1-9ec0-f48018f1262d\",\"status\":\"CANCELED\",\"cause\":\"user_requested\",\"message\":\"답변 생성을 중단했습니다.\"}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

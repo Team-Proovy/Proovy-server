@@ -1,0 +1,12 @@
+{
+  "schema": "ErrorResponse",
+  "http": 409,
+  "body": {
+    "isSuccess": false,
+    "code": "RUN4091",
+    "message": "이 노트에서 진행 중인 답변이 있습니다.",
+    "result": {
+      "activeRunId": "eeff258f-0aa4-5728-a27a-3c05ac927a57"
+    }
+  }
+}

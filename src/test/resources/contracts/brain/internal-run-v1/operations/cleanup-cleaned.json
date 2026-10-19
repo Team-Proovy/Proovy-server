@@ -1,0 +1,15 @@
+{
+  "name": "cleanup-cleaned",
+  "kind": "cleanup",
+  "rationale": "terminal 저장 확인 뒤 runtime 레코드 제거 — 멱등.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "outcome": "cleaned",
+    "state": "terminal"
+  }
+}

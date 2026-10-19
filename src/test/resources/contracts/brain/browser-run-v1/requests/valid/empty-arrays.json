@@ -1,0 +1,13 @@
+{
+  "rationale": "빈 requestedTasks/Outputs·turnAttachmentIds — Brain이 문장에서 추론한다.",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "noteId": "123",
+    "requestedTasks": [],
+    "requestedOutputs": [],
+    "turnAttachmentIds": []
+  },
+  "expected_canonical": "{\"noteId\":\"123\",\"text\":\"이 문제를 풀어줘\"}",
+  "expected_fingerprint": "3a0a7f634a91d0faa3359ab4f7a4df58677f25a195c2c9c95c67fb20f538fbb2"
+}

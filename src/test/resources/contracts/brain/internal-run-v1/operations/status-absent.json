@@ -1,0 +1,16 @@
+{
+  "name": "status-absent",
+  "kind": "status",
+  "rationale": "레코드 없음 — 조회만으로 실행이 시작되지 않는다.",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "attempt": 2,
+    "fence_token": "fence-c3d4"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "state": "absent"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "rationale": "viewerFocus.noteAssetId 끝 줄바꿈.",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "viewerFocus": {
+      "noteAssetId": "asset-9f8c\n",
+      "page": 1
+    }
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

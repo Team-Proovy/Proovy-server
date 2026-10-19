@@ -13,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import jakarta.persistence.EntityManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDateTime;
@@ -41,6 +42,9 @@ class CreditBalanceServiceTest {
 
     @Mock
     private PlatformTransactionManager transactionManager;
+
+    @Mock
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("같은 userPlanId로 월간 크레딧 재지급 요청 시 중복 지급하지 않는다")
@@ -98,8 +102,8 @@ class CreditBalanceServiceTest {
     }
 
     @Test
-    @DisplayName("만료된 일일 크레딧은 조회 시 즉시 초기화된다")
-    void refreshExpiredDailyCreditWhenBalanceRequested() {
+    @DisplayName("만료된 일일 크레딧은 조회 시 리셋된 값으로 계산하되 잔액 row에 쓰지 않는다")
+    void snapshotShowsResetDailyCreditWithoutWriting() {
         Long userId = 1L;
         User user = User.builder().build();
 
@@ -114,10 +118,12 @@ class CreditBalanceServiceTest {
 
         given(creditBalanceRepository.findByUserId(userId)).willReturn(Optional.of(balance));
 
-        CreditBalance result = creditBalanceService.getOrCreateBalance(userId);
+        CreditBalanceSnapshot result = creditBalanceService.getBalanceSnapshot(userId);
 
-        assertThat(result.getDailyFreeCredit()).isEqualTo(100);
-        assertThat(result.getDailyExpiresAt()).isAfter(LocalDateTime.now());
-        then(creditBalanceRepository).should().save(balance);
+        assertThat(result.dailyFreeCredit()).isEqualTo(100);
+        assertThat(result.dailyExpiresAt()).isAfter(LocalDateTime.now());
+        // 잠그지 않은 조회는 엔티티를 바꾸거나 저장하지 않는다 (lost update 방지)
+        assertThat(balance.getDailyFreeCredit()).isZero();
+        then(creditBalanceRepository).should(never()).save(any(CreditBalance.class));
     }
 }

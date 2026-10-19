@@ -1,0 +1,15 @@
+{
+  "rationale": "selection 없는 Viewer Focus(page 전체).",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627",
+    "text": "이 문제를 풀어줘",
+    "noteId": "123",
+    "viewerFocus": {
+      "noteAssetId": "asset-9f8c",
+      "page": 1,
+      "selection": null
+    }
+  },
+  "expected_canonical": "{\"noteId\":\"123\",\"text\":\"이 문제를 풀어줘\",\"viewerFocus\":{\"noteAssetId\":\"asset-9f8c\",\"page\":1}}",
+  "expected_fingerprint": "9e9a19d6a2a1195ed20cb10703869626eff748e75b1d63c8fcf4864cac4c5ee4"
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "substantive",
+  "disclosure": {
+    "scope": "full",
+    "judgment_completed": true
+  },
+  "pages": [
+    {
+      "presentation": "main",
+      "blocks": [
+        {
+          "kind": "rich_text",
+          "draft": {
+            "text": "결과다.",
+            "withheld": []
+          }
+        }
+      ]
+    }
+  ],
+  "source_references": [
+    {
+      "source_ref_id": "sref-1",
+      "asset_id": "note-a",
+      "page_start": 1,
+      "page_end": 1
+    }
+  ]
+}

@@ -1,3 +1,6 @@
 /gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
+
+# proovy-brain 계약 fixture 사본: manifest sha256과 byte 단위로 같아야 한다
+/src/test/resources/contracts/brain/** -text

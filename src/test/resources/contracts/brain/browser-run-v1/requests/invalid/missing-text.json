@@ -1,0 +1,11 @@
+{
+  "rationale": "text 필수.",
+  "request": {
+    "requestId": "7f460a7b-bf54-570e-a3af-b63a26435627"
+  },
+  "schema_rejects": true,
+  "expected": {
+    "http": 400,
+    "code": "RUN4001"
+  }
+}

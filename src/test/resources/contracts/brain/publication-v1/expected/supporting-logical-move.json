@@ -1,0 +1,64 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다.",
+            "kind": "solution",
+            "verification": "partially_verified",
+            "solution_id": "solution-2",
+            "claim_ids": [
+              "claim-1"
+            ],
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "anchor": {
+                  "start": 0,
+                  "end": 13
+                }
+              },
+              {
+                "step_id": "step-2",
+                "status": "unconfirmed",
+                "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다",
+                "anchor": {
+                  "start": 14,
+                  "end": 24
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [
+    {
+      "solution_id": "solution-2",
+      "overall_coverage": "supporting",
+      "claims": [
+        {
+          "claim_id": "claim-1",
+          "coverage": "supporting",
+          "method_label": "일부 단계를 논리 수사 검토로 확인",
+          "unconfirmed_steps": [
+            {
+              "step_id": "step-2",
+              "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "source_labels": {}
+}

@@ -1,0 +1,15 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "thread_like",
+      "result_blocks": [
+        {
+          "kind": "rich_text",
+          "block_id": "block-1",
+          "body": "a"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "RunStatusResponse",
+  "http": 200,
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+      "requestId": "55b4391b-641b-5215-a623-08de00aa6e2a",
+      "noteId": "123",
+      "userMessageId": "8379c874-d4a1-5e0b-bdd9-fdf454af4b2a",
+      "assistantMessageId": "226bd09a-cabc-5931-b606-886969510979",
+      "status": "FAILED",
+      "cancelable": false,
+      "lastSeq": 8,
+      "responseDisposition": null,
+      "failure": {
+        "code": "verification_failed",
+        "reason": null,
+        "recoverable": true
+      },
+      "createdAt": "2026-10-17T09:00:00Z",
+      "completedAt": "2026-10-17T09:00:30Z"
+    }
+  },
+  "stream": "failed-verification"
+}

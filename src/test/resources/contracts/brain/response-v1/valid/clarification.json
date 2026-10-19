@@ -1,0 +1,16 @@
+{
+  "response_pages": [
+    {
+      "response_page_id": "page-1",
+      "presentation": "main",
+      "result_blocks": [
+        {
+          "kind": "rich_text",
+          "block_id": "block-1",
+          "body": "요약할 페이지 범위를 알려 주세요. 예: 3~5쪽"
+        }
+      ]
+    }
+  ],
+  "source_references": []
+}

@@ -1,0 +1,121 @@
+{
+  "rationale": "clarification_only — 1 page, source 없음, completed(보상은 Server 정책).",
+  "finalStatus": "COMPLETED",
+  "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "8a6ec0b9-9527-5acc-b5d2-377c0b941fa3",
+        "noteId": "123",
+        "userMessageId": "21ad9a28-9c45-5b78-8306-02bf85ca83cd",
+        "assistantMessageId": "0b3e1480-dcc0-50d5-aed1-9f8fb77cb955",
+        "status": "PENDING",
+        "requestedTasks": [],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+      "seq": 5,
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "0b3e1480-dcc0-50d5-aed1-9f8fb77cb955",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+      "seq": 6,
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "0b3e1480-dcc0-50d5-aed1-9f8fb77cb955",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+      "seq": 7,
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "clarification_only",
+        "clarificationReason": "ambiguous_target",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "어떤 문제의 풀이를 원하는지 알려 주세요.",
+                  "kind": "rich_text"
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "어떤 문제의 풀이를 원하는지 알려 주세요."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [],
+        "assistantMessageId": "0b3e1480-dcc0-50d5-aed1-9f8fb77cb955"
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: ff0a2b52-ef43-5731-821f-39293ffbcd52:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"ff0a2b52-ef43-5731-821f-39293ffbcd52\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"8a6ec0b9-9527-5acc-b5d2-377c0b941fa3\",\"noteId\":\"123\",\"userMessageId\":\"21ad9a28-9c45-5b78-8306-02bf85ca83cd\",\"assistantMessageId\":\"0b3e1480-dcc0-50d5-aed1-9f8fb77cb955\",\"status\":\"PENDING\",\"requestedTasks\":[],\"requestedOutputs\":[\"text\"]}}\n\nevent: activity.started\nid: ff0a2b52-ef43-5731-821f-39293ffbcd52:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"ff0a2b52-ef43-5731-821f-39293ffbcd52\",\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-1\",\"responsePageId\":\"page-1\",\"kind\":\"input_analysis\",\"label\":\"analyzing_input\"},\"seq\":2}\n\nevent: activity.updated\nid: ff0a2b52-ef43-5731-821f-39293ffbcd52:3\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"ff0a2b52-ef43-5731-821f-39293ffbcd52\",\"occurredAt\":\"2026-10-17T09:00:02Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-1\",\"status\":\"in_progress\",\"message\":\"입력을 읽고 있다\",\"kind\":\"input_analysis\"},\"seq\":3}\n\nevent: activity.completed\nid: ff0a2b52-ef43-5731-821f-39293ffbcd52:4\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"ff0a2b52-ef43-5731-821f-39293ffbcd52\",\"occurredAt\":\"2026-10-17T09:00:03Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-1\",\"kind\":\"input_analysis\"},\"seq\":4}\n\nevent: response.page.started\nid: ff0a2b52-ef43-5731-821f-39293ffbcd52:5\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"ff0a2b52-ef43-5731-821f-39293ffbcd52\",\"seq\":5,\"occurredAt\":\"2026-10-17T09:00:04Z\",\"type\":\"response.page.started\",\"payload\":{\"assistantMessageId\":\"0b3e1480-dcc0-50d5-aed1-9f8fb77cb955\",\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"pageIndex\":0}}\n\nevent: response.page.completed\nid: ff0a2b52-ef43-5731-821f-39293ffbcd52:6\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"ff0a2b52-ef43-5731-821f-39293ffbcd52\",\"seq\":6,\"occurredAt\":\"2026-10-17T09:00:05Z\",\"type\":\"response.page.completed\",\"payload\":{\"assistantMessageId\":\"0b3e1480-dcc0-50d5-aed1-9f8fb77cb955\",\"responsePageId\":\"page-1\",\"pageIndex\":0}}\n\nevent: run.completed\nid: ff0a2b52-ef43-5731-821f-39293ffbcd52:7\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"ff0a2b52-ef43-5731-821f-39293ffbcd52\",\"seq\":7,\"occurredAt\":\"2026-10-17T09:00:06Z\",\"type\":\"run.completed\",\"payload\":{\"responseDisposition\":\"clarification_only\",\"clarificationReason\":\"ambiguous_target\",\"assistantResponse\":{\"responsePages\":[{\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"resultBlocks\":[{\"blockId\":\"block-1\",\"body\":\"어떤 문제의 풀이를 원하는지 알려 주세요.\",\"kind\":\"rich_text\"}]}],\"sourceReferences\":[],\"plainText\":\"어떤 문제의 풀이를 원하는지 알려 주세요.\"},\"model\":\"fake/main-model\",\"tier\":\"main\",\"verificationSummary\":[],\"assistantMessageId\":\"0b3e1480-dcc0-50d5-aed1-9f8fb77cb955\"}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

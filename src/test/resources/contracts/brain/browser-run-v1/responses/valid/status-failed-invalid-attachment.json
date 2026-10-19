@@ -1,0 +1,28 @@
+{
+  "schema": "RunStatusResponse",
+  "http": 200,
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "runId": "f07dd0f9-7f55-5a71-ab9e-3fbd76c76b43",
+      "requestId": "bd11ae21-62dd-500e-a78f-470a561c758b",
+      "noteId": "123",
+      "userMessageId": "5da1fcb0-2d5f-51b4-89ed-2dcfa85d37a8",
+      "assistantMessageId": "718010cc-f456-57b4-a937-e520a2cc4c6d",
+      "status": "FAILED",
+      "cancelable": false,
+      "lastSeq": 2,
+      "responseDisposition": null,
+      "failure": {
+        "code": "invalid_attachment",
+        "reason": "pdf_encrypted",
+        "recoverable": false
+      },
+      "createdAt": "2026-10-17T09:00:00Z",
+      "completedAt": "2026-10-17T09:00:30Z"
+    }
+  },
+  "stream": "failed-invalid-attachment"
+}

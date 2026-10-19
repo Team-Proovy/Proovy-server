@@ -59,6 +59,7 @@ public enum ErrorCode {
     ASSET4006("ASSET4006", "업로드가 완료되지 않은 파일입니다.", HttpStatus.BAD_REQUEST),
     ASSET4007("ASSET4007", "S3에 파일이 업로드되지 않았습니다.", HttpStatus.BAD_REQUEST),
     ASSET4091("ASSET4091", "이미 확인된 자산입니다.", HttpStatus.CONFLICT),
+    ASSET4092("ASSET4092", "답변 생성에 사용된 자료는 아직 삭제할 수 없습니다.", HttpStatus.CONFLICT),
     ASSET4003("ASSET4003", "PDF 파일만 미리보기가 가능합니다.", HttpStatus.BAD_REQUEST),
 
     // Conversation (Chat)
@@ -68,6 +69,19 @@ public enum ErrorCode {
     CONV4001("CONV4001", "잘못된 기능 값이 포함되어 있습니다.", HttpStatus.BAD_REQUEST),
     CONV5001("CONV5001", "Proovy-ai 통신 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     CONV5002("CONV5002", "Proovy-ai 스트리밍 중 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // Run (브라우저 run API browser-run-v1 — 문구는 계약 fixture와 같아야 한다)
+    RUN4001("RUN4001", "요청 형식이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
+    RUN4002("RUN4002", "지원하지 않는 요청 항목이 포함되어 있습니다.", HttpStatus.BAD_REQUEST),
+    RUN4003("RUN4003", "이벤트 재개 위치가 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
+    RUN4004("RUN4004", "다른 실행의 이벤트 재개 위치입니다.", HttpStatus.BAD_REQUEST),
+    RUN4021("RUN4021", "사용 가능한 잔여 사용량이 부족합니다.", HttpStatus.PAYMENT_REQUIRED),
+    RUN4041("RUN4041", "대상을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    RUN4091("RUN4091", "이 노트에서 진행 중인 답변이 있습니다.", HttpStatus.CONFLICT),
+    RUN4092("RUN4092", "이미 사용된 요청 ID입니다.", HttpStatus.CONFLICT),
+    RUN4221("RUN4221", "첨부 또는 참조한 자료를 사용할 수 없습니다.", HttpStatus.UNPROCESSABLE_ENTITY),
+    RUN4291("RUN4291", "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.", HttpStatus.TOO_MANY_REQUESTS),
+
     // Note
     NOTE4001("NOTE4001", "노트 제목은 30자 이내로 입력해주세요.", HttpStatus.BAD_REQUEST),
     NOTE4002("NOTE4002", "노트 제목을 입력해주세요.", HttpStatus.BAD_REQUEST),

@@ -1,0 +1,172 @@
+{
+  "schema": "ConversationPageResponse",
+  "http": 200,
+  "body": {
+    "isSuccess": true,
+    "code": "COMMON200",
+    "message": "요청에 성공했습니다.",
+    "result": {
+      "noteId": "123",
+      "activeRun": null,
+      "messages": [
+        {
+          "messageId": "21ad9a28-9c45-5b78-8306-02bf85ca83cd",
+          "role": "user",
+          "status": "COMPLETED",
+          "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+          "createdAt": "2026-10-17T09:00:00Z",
+          "user": {
+            "text": "이거 풀어줘",
+            "latex": null,
+            "requestedTasks": [
+              "solve"
+            ],
+            "requestedOutputs": [
+              "text"
+            ],
+            "turnAttachments": [
+              {
+                "attachmentId": "d99f9829-981e-5da9-a3fe-b3bed3b7439e",
+                "mime": "image/png",
+                "displayName": "문제.png"
+              }
+            ],
+            "viewerFocus": {
+              "noteAssetId": "asset-9f8c",
+              "page": 3,
+              "selection": null
+            }
+          }
+        },
+        {
+          "messageId": "0b3e1480-dcc0-50d5-aed1-9f8fb77cb955",
+          "role": "assistant",
+          "status": "COMPLETED",
+          "runId": "ff0a2b52-ef43-5731-821f-39293ffbcd52",
+          "createdAt": "2026-10-17T09:00:01Z",
+          "assistant": {
+            "responseDisposition": "clarification_only",
+            "clarificationReason": "ambiguous_target",
+            "assistantResponse": {
+              "responsePages": [
+                {
+                  "responsePageId": "page-1",
+                  "presentation": "main",
+                  "resultBlocks": [
+                    {
+                      "blockId": "block-1",
+                      "body": "어떤 문제의 풀이를 원하는지 알려 주세요.",
+                      "kind": "rich_text"
+                    }
+                  ]
+                }
+              ],
+              "sourceReferences": [],
+              "plainText": "어떤 문제의 풀이를 원하는지 알려 주세요."
+            },
+            "verificationSummary": [],
+            "failure": null,
+            "cancel": null
+          }
+        },
+        {
+          "messageId": "8379c874-d4a1-5e0b-bdd9-fdf454af4b2a",
+          "role": "user",
+          "status": "COMPLETED",
+          "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+          "createdAt": "2026-10-17T09:01:00Z",
+          "user": {
+            "text": "첨부한 문제를 풀어줘",
+            "latex": null,
+            "requestedTasks": [
+              "solve"
+            ],
+            "requestedOutputs": [
+              "text"
+            ],
+            "turnAttachments": [
+              {
+                "attachmentId": "d99f9829-981e-5da9-a3fe-b3bed3b7439e",
+                "mime": "image/png",
+                "displayName": "문제.png"
+              }
+            ],
+            "viewerFocus": {
+              "noteAssetId": "asset-9f8c",
+              "page": 3,
+              "selection": null
+            }
+          }
+        },
+        {
+          "messageId": "226bd09a-cabc-5931-b606-886969510979",
+          "role": "assistant",
+          "status": "FAILED",
+          "runId": "2475aad4-7c4f-57d1-827e-f049be9e9675",
+          "createdAt": "2026-10-17T09:01:01Z",
+          "assistant": {
+            "responseDisposition": null,
+            "clarificationReason": null,
+            "assistantResponse": null,
+            "verificationSummary": [],
+            "failure": {
+              "code": "verification_failed",
+              "reason": null,
+              "message": "풀이의 오류를 수정하지 못했습니다. 새 요청으로 다시 시도할 수 있습니다.",
+              "recoverable": true
+            },
+            "cancel": null
+          }
+        },
+        {
+          "messageId": "df777a3a-c744-59f5-bb8b-2bf64e874b9c",
+          "role": "user",
+          "status": "COMPLETED",
+          "runId": "5118a0ec-5b14-5dc8-aead-81da16123ee1",
+          "createdAt": "2026-10-17T09:02:00Z",
+          "user": {
+            "text": "다시 풀어줘",
+            "latex": null,
+            "requestedTasks": [
+              "solve"
+            ],
+            "requestedOutputs": [
+              "text"
+            ],
+            "turnAttachments": [
+              {
+                "attachmentId": "d99f9829-981e-5da9-a3fe-b3bed3b7439e",
+                "mime": "image/png",
+                "displayName": "문제.png"
+              }
+            ],
+            "viewerFocus": {
+              "noteAssetId": "asset-9f8c",
+              "page": 3,
+              "selection": null
+            }
+          }
+        },
+        {
+          "messageId": "c505a965-c220-58e1-9ec0-f48018f1262d",
+          "role": "assistant",
+          "status": "CANCELED",
+          "runId": "5118a0ec-5b14-5dc8-aead-81da16123ee1",
+          "createdAt": "2026-10-17T09:02:01Z",
+          "assistant": {
+            "responseDisposition": null,
+            "clarificationReason": null,
+            "assistantResponse": null,
+            "verificationSummary": [],
+            "failure": null,
+            "cancel": {
+              "cause": "user_requested",
+              "message": "답변 생성을 중단했습니다."
+            }
+          }
+        }
+      ],
+      "nextBefore": null
+    }
+  }
+}

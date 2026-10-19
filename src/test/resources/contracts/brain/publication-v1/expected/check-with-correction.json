@@ -1,0 +1,76 @@
+{
+  "assistant_response": {
+    "schema_version": "assistant-response-v1",
+    "response_pages": [
+      {
+        "response_page_id": "page-1",
+        "presentation": "main",
+        "result_blocks": [
+          {
+            "block_id": "block-1",
+            "body": "세 번째 단계에서 부호가 틀렸다.",
+            "kind": "check",
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified"
+              },
+              {
+                "step_id": "step-2",
+                "status": "verified"
+              },
+              {
+                "step_id": "step-3",
+                "status": "failed",
+                "reason": "이 단계가 성립하지 않는다고 확인됐다",
+                "anchor": {
+                  "start": 10,
+                  "end": 17
+                }
+              }
+            ],
+            "first_error_step_id": "step-3",
+            "quoted_spans": []
+          },
+          {
+            "block_id": "block-2",
+            "body": "부호를 바로잡으면 $x=2$가 맞다.",
+            "kind": "solution",
+            "verification": "verified",
+            "solution_id": "solution-3",
+            "claim_ids": [
+              "claim-1"
+            ],
+            "step_marks": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "anchor": {
+                  "start": 0,
+                  "end": 9
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "source_references": []
+  },
+  "response_disposition": "substantive",
+  "verification_summary": [
+    {
+      "solution_id": "solution-3",
+      "overall_coverage": "direct",
+      "claims": [
+        {
+          "claim_id": "claim-1",
+          "coverage": "direct",
+          "method_label": "모든 단계를 실행 검사로 확인",
+          "unconfirmed_steps": []
+        }
+      ]
+    }
+  ],
+  "source_labels": {}
+}

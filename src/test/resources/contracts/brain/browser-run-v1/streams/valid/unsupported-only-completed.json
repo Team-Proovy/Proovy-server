@@ -1,0 +1,120 @@
+{
+  "rationale": "자연어 변형 요청의 unsupported_only 완료.",
+  "finalStatus": "COMPLETED",
+  "runId": "706e2f9a-7925-52d5-b8e3-6b3e21e860e5",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "706e2f9a-7925-52d5-b8e3-6b3e21e860e5",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "9790af06-f601-5a8d-b531-0f997a4945af",
+        "noteId": "123",
+        "userMessageId": "30a61a56-4ff4-5d7d-84fa-fe199e73ad41",
+        "assistantMessageId": "1126798e-6431-5a68-a3db-8bed73cf8a79",
+        "status": "PENDING",
+        "requestedTasks": [],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "706e2f9a-7925-52d5-b8e3-6b3e21e860e5",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "706e2f9a-7925-52d5-b8e3-6b3e21e860e5",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "706e2f9a-7925-52d5-b8e3-6b3e21e860e5",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "706e2f9a-7925-52d5-b8e3-6b3e21e860e5",
+      "seq": 5,
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "1126798e-6431-5a68-a3db-8bed73cf8a79",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "706e2f9a-7925-52d5-b8e3-6b3e21e860e5",
+      "seq": 6,
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "1126798e-6431-5a68-a3db-8bed73cf8a79",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "706e2f9a-7925-52d5-b8e3-6b3e21e860e5",
+      "seq": 7,
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "unsupported_only",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "변형·연습문제 생성은 아직 지원하지 않는다. 기존 문제의 풀이·검산·설명을 요청해 주세요.",
+                  "kind": "rich_text"
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "변형·연습문제 생성은 아직 지원하지 않는다. 기존 문제의 풀이·검산·설명을 요청해 주세요."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [],
+        "assistantMessageId": "1126798e-6431-5a68-a3db-8bed73cf8a79"
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: 706e2f9a-7925-52d5-b8e3-6b3e21e860e5:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"706e2f9a-7925-52d5-b8e3-6b3e21e860e5\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"9790af06-f601-5a8d-b531-0f997a4945af\",\"noteId\":\"123\",\"userMessageId\":\"30a61a56-4ff4-5d7d-84fa-fe199e73ad41\",\"assistantMessageId\":\"1126798e-6431-5a68-a3db-8bed73cf8a79\",\"status\":\"PENDING\",\"requestedTasks\":[],\"requestedOutputs\":[\"text\"]}}\n\nevent: activity.started\nid: 706e2f9a-7925-52d5-b8e3-6b3e21e860e5:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"706e2f9a-7925-52d5-b8e3-6b3e21e860e5\",\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-1\",\"responsePageId\":\"page-1\",\"kind\":\"input_analysis\",\"label\":\"analyzing_input\"},\"seq\":2}\n\nevent: activity.updated\nid: 706e2f9a-7925-52d5-b8e3-6b3e21e860e5:3\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"706e2f9a-7925-52d5-b8e3-6b3e21e860e5\",\"occurredAt\":\"2026-10-17T09:00:02Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-1\",\"status\":\"in_progress\",\"message\":\"입력을 읽고 있다\",\"kind\":\"input_analysis\"},\"seq\":3}\n\nevent: activity.completed\nid: 706e2f9a-7925-52d5-b8e3-6b3e21e860e5:4\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"706e2f9a-7925-52d5-b8e3-6b3e21e860e5\",\"occurredAt\":\"2026-10-17T09:00:03Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-1\",\"kind\":\"input_analysis\"},\"seq\":4}\n\nevent: response.page.started\nid: 706e2f9a-7925-52d5-b8e3-6b3e21e860e5:5\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"706e2f9a-7925-52d5-b8e3-6b3e21e860e5\",\"seq\":5,\"occurredAt\":\"2026-10-17T09:00:04Z\",\"type\":\"response.page.started\",\"payload\":{\"assistantMessageId\":\"1126798e-6431-5a68-a3db-8bed73cf8a79\",\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"pageIndex\":0}}\n\nevent: response.page.completed\nid: 706e2f9a-7925-52d5-b8e3-6b3e21e860e5:6\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"706e2f9a-7925-52d5-b8e3-6b3e21e860e5\",\"seq\":6,\"occurredAt\":\"2026-10-17T09:00:05Z\",\"type\":\"response.page.completed\",\"payload\":{\"assistantMessageId\":\"1126798e-6431-5a68-a3db-8bed73cf8a79\",\"responsePageId\":\"page-1\",\"pageIndex\":0}}\n\nevent: run.completed\nid: 706e2f9a-7925-52d5-b8e3-6b3e21e860e5:7\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"706e2f9a-7925-52d5-b8e3-6b3e21e860e5\",\"seq\":7,\"occurredAt\":\"2026-10-17T09:00:06Z\",\"type\":\"run.completed\",\"payload\":{\"responseDisposition\":\"unsupported_only\",\"assistantResponse\":{\"responsePages\":[{\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"resultBlocks\":[{\"blockId\":\"block-1\",\"body\":\"변형·연습문제 생성은 아직 지원하지 않는다. 기존 문제의 풀이·검산·설명을 요청해 주세요.\",\"kind\":\"rich_text\"}]}],\"sourceReferences\":[],\"plainText\":\"변형·연습문제 생성은 아직 지원하지 않는다. 기존 문제의 풀이·검산·설명을 요청해 주세요.\"},\"model\":\"fake/main-model\",\"tier\":\"main\",\"verificationSummary\":[],\"assistantMessageId\":\"1126798e-6431-5a68-a3db-8bed73cf8a79\"}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

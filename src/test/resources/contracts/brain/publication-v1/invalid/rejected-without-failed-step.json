@@ -1,0 +1,40 @@
+{
+  "schema_version": "publication-v1",
+  "disposition": "substantive",
+  "disclosure": {
+    "scope": "full",
+    "judgment_completed": true
+  },
+  "pages": [
+    {
+      "presentation": "main",
+      "blocks": [
+        {
+          "kind": "check",
+          "draft": {
+            "text": "틀렸다고만 한다.",
+            "withheld": []
+          },
+          "report": {
+            "status": "reject",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "verdict": "reject",
+                "basis": "chain"
+              }
+            ],
+            "requested_claim_count": 1,
+            "steps": [
+              {
+                "step_id": "step-1",
+                "status": "verified",
+                "level": "direct"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

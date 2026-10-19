@@ -1,0 +1,9 @@
+{
+  "schema": "ErrorResponse",
+  "http": 401,
+  "body": {
+    "isSuccess": false,
+    "code": "AUTH4010",
+    "message": "인증 토큰이 필요합니다."
+  }
+}

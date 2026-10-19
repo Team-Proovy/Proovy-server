@@ -10,9 +10,10 @@ public enum CreditEventType {
     MONTHLY_GRANT("구독 크레딧 지급"),
     MONTHLY_EXPIRE("유료 크레딧 소멸"),
     SIGNUP_BONUS("가입 보너스"),
+    /** 일반 AI 요청 사용량 차감 (request_id당 한 번, RequestUsageService) */
     LLM_QUERY("AI 질의"),
-    OCR("OCR 처리"),
-    CODE_EXECUTION("코드 실행");
+    /** 일반 AI 요청 사용량 보상 (request_id당 최대 한 번, RequestUsageService) */
+    LLM_QUERY_COMPENSATION("AI 질의 사용량 보상");
 
     private final String description;
 }

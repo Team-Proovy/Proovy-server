@@ -1,0 +1,31 @@
+{
+  "name": "status-terminal-canceled",
+  "kind": "status",
+  "rationale": "취소된 run 의 terminal 조회 — 저장된 run.canceled 를 재전달한다. 저장 전용 variant 이므로 brain-source-v1 SourceEvent union 에는 들어가지 않는다 (task 1.47, internal-run-v1 additive 확장).",
+  "request": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "attempt": 2,
+    "fence_token": "fence-c3d4"
+  },
+  "response": {
+    "contract_version": "internal-run-v1",
+    "run_id": "run-441",
+    "state": "terminal",
+    "attempt": 1,
+    "fence_token": "fence-a1b2",
+    "request_fingerprint": "ffdab4450529177f156f533aec051dbaad13f164e2f65ee9648ce75ef3d68749",
+    "terminal": {
+      "contract_version": "brain-source-v1",
+      "run_id": "run-441",
+      "attempt": 1,
+      "fence_token": "fence-a1b2",
+      "source_event_id": "run-441:terminal:r0:9f8c4d2e",
+      "occurred_at": "2026-10-02T09:29:00Z",
+      "type": "run.canceled",
+      "payload": {
+        "cause": "user_requested"
+      }
+    }
+  }
+}
