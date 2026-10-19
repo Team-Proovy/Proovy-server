@@ -71,6 +71,18 @@ jobs:
           PROOVY_TEST_PG_PASSWORD: proovy123
           PROOVY_REQUIRE_DB_TESTS: "true"
 
+      # 실제 Brain 연동(task 1.87)은 proovy-brain이 private이라 CI에서 실행하지 않는다(사용자 결정). 통과로 보이지 않게 skip을 드러낸다.
+      - name: Report real-Brain integration tests NOT EXECUTED
+        if: always()
+        run: |
+          shopt -s nullglob
+          files=(build/test-results/test/TEST-com.proovy.integration.brain.*.xml)
+          if [ ${#files[@]} -eq 0 ]; then echo "real-Brain integration: no result file"; exit 0; fi
+          for f in "${files[@]}"; do
+            summary=$(grep -o 'tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' "$f" | head -1)
+            echo "::warning title=Real Brain integration NOT EXECUTED::$(basename "$f" .xml) $summary — run scripts/brain-integration/run-local.sh locally (README)"
+          done
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
