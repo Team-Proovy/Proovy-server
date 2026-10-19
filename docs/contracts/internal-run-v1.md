@@ -101,7 +101,7 @@ proovy:
 - `id-token`: ADC(Cloud Run 서비스 계정)로 고정 audience의 Google ID token을 발급·캐시한다. base-url은 https만.
   Brain은 audience와 서비스 계정 email을 검증한다(`internal_api_auth_mode=oidc`).
 - `shared-token`: Brain `internal_api_shared_token`과 같은 값. prod profile에서는 기동이 실패한다.
-- 기존 `internal.api.token`은 Server로 들어오는 내부 API용이고 이 client와 무관하다.
+- 구형 agent → Server 내부 API token(`internal.api.token`, `X-Internal-Token`)은 1.87에서 제거됐다(이 client와 무관).
 - **미확인(S14)**: 실제 Cloud Run 서비스 계정의 ID token 발급, Brain의 audience·email 검증 통과, IAM invoker, ingress는
   배포 환경에서 확인해야 한다. 이 태스크는 fake provider·fake Brain으로 동작만 검사했다.
 

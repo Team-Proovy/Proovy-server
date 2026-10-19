@@ -154,7 +154,7 @@ proovy-api/
 - Note가 유일한 대화 단위 (`conversationId = noteId`), 메시지는 Note에 직접 연결
 - 캔버스 이미지 업로드
 - 대화 검색
-- 신규 run 접수·SSE·취소는 S07 후속 작업 (구형 `/stream/v2` 경로는 제거됨)
+- 신규 run 접수·SSE·취소는 `POST /api/conversations`·`/api/ai-runs/*`(browser-run-v1). 구형 `/stream/v2`·ChatSession 경로는 없다
 
 ### 8. Credit 도메인
 - 크레딧 잔액 조회
@@ -189,6 +189,24 @@ PROOVY_REQUIRE_DB_TESTS=true ./gradlew test
 
 **전용 일회용 Postgres 클러스터에서만 실행한다.** role 경계 테스트는 cluster 단위 role(`proovy_server`, `brain_*`)을
 만들고 비밀번호를 덮어쓰며, database를 지워도 role은 남는다. 공유·운영 클러스터를 `PROOVY_TEST_PG_URL`로 지정하지 않는다.
+
+### 실제 Brain 연동 테스트 (task 1.87) — **CI에서는 실행되지 않는다**
+
+`com.proovy.integration.brain.ServerBrainIntegrationTest`는 proovy-brain `testkit/`이 띄운 실제 Python 내부 API·runtime과
+Server 전체 경로를 연결해 spec 07 Verification을 검사한다. proovy-brain이 private이라 Server CI는 Brain을 checkout할 수 없고,
+사용자 결정으로 **CI에서는 skip**한다. skip은 통과가 아니다 — 테스트 로그에 `NOT EXECUTED — real Brain integration …` 이유가
+남고 JUnit 보고서에는 skipped로 집계된다. 결과는 아래 로컬 명령으로 만들고 이슈·PR에 Server·Brain commit과 함께 기록한다.
+
+```bash
+# proovy-brain checkout(uv sync --locked 완료)을 원하는 commit에 맞춘 뒤
+BRAIN_DIR=../proovy-brain PG_CONTAINER=proovy-postgres-brain-it scripts/brain-integration/run-local.sh
+# JDK가 없으면 GRADLE_IN_DOCKER=1 (eclipse-temurin:21-jdk 임시 컨테이너, --network host)
+```
+
+스크립트는 격리 Postgres(tmpfs) → Brain testkit supervisor → Gradle(`PROOVY_REQUIRE_BRAIN_IT=true`라 미구성 시 실패) → 정리 순서로
+돌고, Brain fixture sha256이 `src/test/resources/contracts/brain/PIN*.json`과 같은지·Brain commit이 checkout과 같은지도 검사한다.
+모델·Daytona는 offline fake seat이고 일부 결과(자료 부재 안내·scope 밖 출처·변조 envelope)는 testkit scripted다 — 수학 품질·실제
+provider·Cloud Run identity는 이 테스트가 인증하지 않는다(S14).
 
 ## API 문서
 

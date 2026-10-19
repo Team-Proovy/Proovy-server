@@ -12,7 +12,3 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
-internal:
-  api:
-    token: test-internal-token
