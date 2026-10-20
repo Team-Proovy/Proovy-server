@@ -11,7 +11,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -20,7 +22,8 @@ import org.springframework.web.filter.CorsFilter;
 
 /**
  * 실제 application.yaml을 profile별로 읽어 CORS 허용 origin을 확인한다. local profile만 개발 Front(localhost, 포트 무관)를
- * 허용하고, 운영(prod)·CI(test) profile은 https://proovy.ai.kr만 허용한다.
+ * 허용하고, 운영(prod)·CI(test) profile은 https://proovy.ai.kr만 허용한다. 실행 환경의 OS 환경변수
+ * (SPRING_PROFILES_ACTIVE·PROOVY_CORS_ALLOWED_ORIGIN_PATTERNS 등)는 결과에 섞이지 않게 뺀다.
  */
 class CorsConfigurationTest {
 
@@ -32,14 +35,19 @@ class CorsConfigurationTest {
     static class Properties {
     }
 
-    private final ApplicationContextRunner context = new ApplicationContextRunner()
+    private final ApplicationContextRunner context = new ApplicationContextRunner(() -> {
+        AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
+        ctx.setEnvironment(environment);
+        return ctx;
+    })
             .withInitializer(new ConfigDataApplicationContextInitializer())
             .withUserConfiguration(Properties.class);
 
     @Test
     @DisplayName("local profile은 서비스 도메인과 localhost의 모든 포트를 허용한다")
     void localProfileAllowsLocalhostOrigins() {
-        // 활성 profile은 명시한다 — CI는 SPRING_PROFILES_ACTIVE=test 환경변수로 application.yaml 기본(local)을 덮는다
         context.withPropertyValues("spring.profiles.active=local").run(ctx -> {
             assertThat(ctx.getEnvironment().getActiveProfiles()).containsExactly("local");
             CorsConfigurationSource source = SecurityConfig.corsConfigurationSource(ctx.getBean(CorsProperties.class));
@@ -68,13 +76,27 @@ class CorsConfigurationTest {
     }
 
     @Test
-    @DisplayName("credentials 허용이라 빈 목록·전체 허용(*)은 기동에서 거부한다")
+    @DisplayName("credentials 허용이라 빈 목록·host wildcard(쉼표로 숨긴 항목 포함)는 기동에서 거부한다")
     void rejectsEmptyOrWildcardOrigins() {
         assertThatThrownBy(() -> new CorsProperties(List.of())).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new CorsProperties(List.of(SERVICE_ORIGIN, "*")))
-                .isInstanceOf(IllegalArgumentException.class);
+        for (String unsafe : List.of("*", "https://*", "http://*:[*]", "https://*.example.com", SERVICE_ORIGIN + ", *",
+                "", "proovy.ai.kr", "https://proovy.ai.kr/")) {
+            assertThatThrownBy(() -> new CorsProperties(List.of(SERVICE_ORIGIN, unsafe)))
+                    .as(unsafe)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
         context.withPropertyValues("spring.profiles.active=prod", "proovy.cors.allowed-origin-patterns=*")
                 .run(ctx -> assertThat(ctx).hasFailed());
+        context.withPropertyValues("spring.profiles.active=prod", "proovy.cors.allowed-origin-patterns[0]=https://*")
+                .run(ctx -> assertThat(ctx).hasFailed());
+    }
+
+    @Test
+    @DisplayName("명시 origin과 포트 wildcard, 쉼표로 나열한 명시 origin은 받는다")
+    void acceptsExplicitOrigins() {
+        CorsProperties properties = new CorsProperties(List.of(SERVICE_ORIGIN, "http://localhost:[*]",
+                "http://localhost:5173, http://127.0.0.1:8080"));
+        assertThat(properties.allowedOriginPatterns()).hasSize(3);
     }
 
     /** Origin을 단 POST가 CORS filter를 통과하면(chain 진행) 200, 거부되면 403. */
