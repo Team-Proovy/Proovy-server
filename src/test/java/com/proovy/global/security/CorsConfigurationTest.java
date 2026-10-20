@@ -37,9 +37,10 @@ class CorsConfigurationTest {
             .withUserConfiguration(Properties.class);
 
     @Test
-    @DisplayName("local profile(application.yaml 기본 활성)은 서비스 도메인과 localhost의 모든 포트를 허용한다")
+    @DisplayName("local profile은 서비스 도메인과 localhost의 모든 포트를 허용한다")
     void localProfileAllowsLocalhostOrigins() {
-        context.run(ctx -> {
+        // 활성 profile은 명시한다 — CI는 SPRING_PROFILES_ACTIVE=test 환경변수로 application.yaml 기본(local)을 덮는다
+        context.withPropertyValues("spring.profiles.active=local").run(ctx -> {
             assertThat(ctx.getEnvironment().getActiveProfiles()).containsExactly("local");
             CorsConfigurationSource source = SecurityConfig.corsConfigurationSource(ctx.getBean(CorsProperties.class));
 
