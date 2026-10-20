@@ -3,6 +3,7 @@ package com.proovy.global.security;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,6 +23,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(CorsProperties.class)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -31,6 +33,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final JwtAuthenticationEntryPoint jwtAuthEntryPoint;
+    private final CorsProperties corsProperties;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -73,8 +76,13 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        return corsConfigurationSource(corsProperties);
+    }
+
+    /** 허용 origin은 {@code proovy.cors.allowed-origin-patterns}(기본·운영 https://proovy.ai.kr, local profile은 localhost 추가). */
+    static CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("https://proovy.ai.kr"));
+        configuration.setAllowedOriginPatterns(properties.allowedOriginPatterns());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

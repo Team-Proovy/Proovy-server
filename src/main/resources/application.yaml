@@ -112,6 +112,9 @@ jwt:
 proovy:
   api:
     public-base-url: ${PROOVY_API_BASE_URL:}
+  # 브라우저 CORS 허용 origin. 기본·운영은 서비스 도메인만 허용한다(local profile만 개발 Front origin 추가).
+  cors:
+    allowed-origin-patterns: https://proovy.ai.kr
   # Brain 내부 실행 API client (task 1.76). base-url이 비어 있으면 client bean을 만들지 않는다.
   # 인증은 한 모드만: production은 id-token(고정 audience), local/test는 shared-token.
   brain:
@@ -155,6 +158,13 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+# 로컬 Front(Vite dev server, 포트 무관)가 로컬 Server에 POST할 수 있게 localhost origin을 더한다.
+proovy:
+  cors:
+    allowed-origin-patterns:
+      - https://proovy.ai.kr
+      - http://localhost:[*]
 
 ---
 # ===============================
