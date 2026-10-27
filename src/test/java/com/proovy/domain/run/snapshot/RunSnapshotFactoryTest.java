@@ -86,7 +86,7 @@ class RunSnapshotFactoryTest {
         assertThat(snapshot.dependencies()).isEmpty();
         assertThat(snapshot.policySnapshot().at("/history/max_tokens").asInt()).isEqualTo(24_000);
         assertThat(snapshot.policySnapshot().at("/history/messages").asInt()).isZero();
-        assertThat(snapshot.policySnapshot().at("/limits/max_llm_calls").asLong()).isEqualTo(40);
+        assertThat(snapshot.policySnapshot().at("/limits/max_llm_calls").asLong()).isEqualTo(80);
         assertThat(snapshot.policySnapshot().get("snapshot_version").asText()).isEqualTo("run-snapshot-v1");
     }
 
@@ -117,7 +117,7 @@ class RunSnapshotFactoryTest {
         InternalRunRequest after = firstDelivery(stored, RunAssetAccess.NONE);
         assertThat(after).isEqualTo(before);
         assertThat(after.input().locale()).isEqualTo("ko-KR");
-        assertThat(after.executionOptions().limits().maxLlmCalls()).isEqualTo(40);
+        assertThat(after.executionOptions().limits().maxLlmCalls()).isEqualTo(80);
         assertThat(after.fingerprint().sha256()).isEqualTo(stored.requestFingerprint());
     }
 
@@ -470,7 +470,7 @@ class RunSnapshotFactoryTest {
     }
 
     static RunSnapshotProperties defaults() {
-        return properties("ko-KR", 24_000, Duration.ofMinutes(3), "budget-v1", 40);
+        return properties("ko-KR", 24_000, Duration.ofMinutes(3), "budget-v1", 80);
     }
 
     static RunSnapshotProperties properties(String locale, int historyTokens, Duration timeout, String budgetVersion,
