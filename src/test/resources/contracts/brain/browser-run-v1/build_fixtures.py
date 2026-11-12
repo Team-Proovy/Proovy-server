@@ -21,7 +21,27 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from proovy_brain.contracts.activity import read_back_problem
+from proovy_brain.contracts.browser_solution_check import (
+    MAX_SOLUTION_CHECKS,
+    DescriptionFormat,
+    ResponseKind,
+    completion_extension,
+)
 from proovy_brain.contracts.internal_run_fingerprint import canonical_json_dumps
+from proovy_brain.contracts.publication import DisclosureScope
+from proovy_brain.contracts.solution_verification import (
+    ALLOWED_CHECK_RESULTS,
+    MAX_ATTEMPTS,
+    MAX_STEPS,
+    REQUIRED_FOR_VERIFIED,
+    AssuranceScope,
+    SolutionVerification,
+    StepCheckResult,
+    StepKind,
+    VerificationStrategy,
+    parse_solution_verification,
+)
 from proovy_brain.contracts.source_progress import (
     SourceEventType,
     derive_source_event_id,
@@ -33,8 +53,10 @@ ROOT = Path(__file__).resolve().parent
 CONTRACTS = ROOT.parent
 TERMINAL = CONTRACTS / "terminal-v2"
 ACTIVITY = CONTRACTS / "activity-v1/valid"
+SOLUTIONS = CONTRACTS / "solution-verification-v1/valid"
 
-CONSUMER_VERSION = "browser-run-fixtures-v1"
+CONSUMER_VERSION = "browser-run-fixtures-v1.1"
+INITIAL_CONSUMER_VERSION = "browser-run-fixtures-v1"
 CONTRACT_VERSION = "browser-run-v1"
 FRAME_CONTRACT_VERSION = "brain-source-v1"
 FINGERPRINT_ALGORITHM = "browser-request-sha256-canonical-json-v1"
@@ -87,6 +109,57 @@ NON_BLANK_PATTERN = (
     "[^\\t\\n\\u000b\\f\\r\\u001c-\\u001f \\u0085\\u00a0\\u1680"
     "\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]"
 )
+# Phase 2 additive extension (task 2.07).  Keys of the 2.06 record that stay
+# internal (docs/plan/27 "화면 노출 정책") and must never appear on a solution
+# check or a step, in either spelling.
+SOLUTION_INTERNAL_KEYS = (
+    "checkReason",
+    "check_reason",
+    "evidence",
+    "evidenceCode",
+    "evidence_code",
+    "independentAnswer",
+    "independentAnswers",
+    "failureReason",
+    "failure_reason",
+    "problemId",
+    "problem_id",
+    "candidate",
+)
+# A Read-back is shown before verification: no solution, step, formula or
+# answer may ride on it (CONTEXT.md *Read-back*).
+READ_BACK_FORBIDDEN_PAYLOAD_KEYS = (
+    "answer",
+    "finalAnswer",
+    "steps",
+    "checkableSteps",
+    "solutionChecks",
+    "sympyStatement",
+    "assuranceScope",
+    "candidate",
+)
+READ_BACK_FORBIDDEN_PROBLEM_KEYS = (
+    "answer",
+    "finalAnswer",
+    "answerType",
+    "answer_type",
+    "problemId",
+    "problem_id",
+    "steps",
+    "checkableSteps",
+    "sympyStatement",
+    "candidate",
+)
+EXTENSION_KEYS = ("responseKind", "assuranceScope", "solutionChecks")
+ACTIVITY_TYPES = (
+    "activity.started",
+    "activity.updated",
+    "activity.completed",
+    "activity.failed",
+    "activity.canceled",
+)
+STATEMENT_TEXT_FIELDS = ("value", "cond", "covers", "lhs", "rhs")
+
 FORBIDDEN_PUBLIC_KEYS = (
     "attempt",
     "fenceToken",
@@ -288,6 +361,398 @@ def _when(prop: str, values: list[str], then: dict[str, Any]) -> dict[str, Any]:
     return {
         "if": {"required": [prop], "properties": {prop: {"enum": values}}},
         "then": then,
+    }
+
+
+def _scope_is(value: str) -> dict[str, Any]:
+    return {"properties": {"assuranceScope": {"const": value}}}
+
+
+def _contains_scope(value: str) -> dict[str, Any]:
+    return {"properties": {"solutionChecks": {"contains": _scope_is(value)}}}
+
+
+def _all_scopes(value: str) -> dict[str, Any]:
+    return {"properties": {"solutionChecks": {"items": _scope_is(value)}}}
+
+
+def _steps_withheld(*, withheld: bool) -> dict[str, Any]:
+    return {
+        "properties": {
+            "checkableSteps": {
+                "minItems": 1,
+                "items": {"properties": {"withheld": {"const": withheld}}},
+            }
+        }
+    }
+
+
+def _phase2_defs() -> dict[str, Any]:
+    """browser-run-fixtures-v1.1 additive definitions (task 2.07, spec 04).
+
+    Mirrors the 2.06 model rules (``ALLOWED_CHECK_RESULTS``,
+    ``REQUIRED_FOR_VERIFIED``, strategy/scope conditions) so consumers can
+    reject an inconsistent step or badge with the schema alone.
+    """
+
+    withheld_step = {
+        "properties": {
+            "description": {"type": "null"},
+            "descriptionFormat": {"type": "null"},
+            "sympyStatement": {"type": "null"},
+        }
+    }
+    public_step = {
+        "properties": {
+            "description": {"type": "string"},
+            "descriptionFormat": {"enum": [f.value for f in DescriptionFormat]},
+        }
+    }
+    step_rules: list[dict[str, Any]] = [
+        _forbid(SOLUTION_INTERNAL_KEYS),
+        {
+            "if": {
+                "required": ["withheld"],
+                "properties": {"withheld": {"const": True}},
+            },
+            "then": withheld_step,
+            "else": public_step,
+        },
+    ]
+    for kind in StepKind:
+        allowed = [r.value for r in StepCheckResult if r in ALLOWED_CHECK_RESULTS[kind]]
+        then: dict[str, Any] = {"properties": {"checkResult": {"enum": allowed}}}
+        if kind is StepKind.ARGUE:
+            then["properties"]["sympyStatement"] = {"type": "null"}
+        step_rules.append(
+            {
+                "if": {
+                    "required": ["stepKind"],
+                    "properties": {"stepKind": {"const": kind.value}},
+                },
+                "then": then,
+            }
+        )
+    for kind, fields in REQUIRED_FOR_VERIFIED.items():
+        step_rules.append(
+            {
+                "if": {
+                    "required": ["stepKind", "checkResult", "withheld"],
+                    "properties": {
+                        "stepKind": {"const": kind.value},
+                        "checkResult": {"const": StepCheckResult.VERIFIED.value},
+                        "withheld": {"const": False},
+                    },
+                },
+                "then": {
+                    "properties": {
+                        "sympyStatement": {"type": "object", "required": list(fields)}
+                    }
+                },
+            }
+        )
+    falsified = {
+        "contains": {
+            "properties": {"checkResult": {"const": StepCheckResult.FALSIFIED.value}}
+        }
+    }
+    cross = VerificationStrategy.ANSWER_CROSS_CHECK.value
+    return {
+        "AssuranceScope": {
+            "description": "Response/solution badge (ADR 0017 §2): 검증됨·미검증·검증 대상 아님.",
+            "enum": [scope.value for scope in AssuranceScope],
+        },
+        "ResponseKind": {
+            "description": "re_explanation = 기존 풀이 재설명(검증 없이 스트리밍, Front는 "
+            "'추가 설명' 표시). 부재는 이 확장 이전 응답이다.",
+            "enum": [kind.value for kind in ResponseKind],
+        },
+        "StepKind": {"enum": [kind.value for kind in StepKind]},
+        "Disclosure": {
+            "description": "The turn's answer-disclosure scope (Brain "
+            "DisclosureScope; the same one assistantResponse was published under).",
+            "enum": [scope.value for scope in DisclosureScope],
+        },
+        "StepCheckResult": {
+            "description": "verified=✓, falsified=✗, unparseable=검산 안 됨, "
+            "not_checked=검산 대상 아님.",
+            "enum": [result.value for result in StepCheckResult],
+        },
+        "SympyStatement": {
+            "description": "The formula the deterministic checker checked; which "
+            "fields matter depends on stepKind (define: name+value, given: cond, "
+            "case: cond(+covers), claim: lhs+rhs(+name), choose: value(+choice)).",
+            "type": "object",
+            "additionalProperties": True,
+            "anyOf": [
+                {"required": [f]} for f in ("name", *STATEMENT_TEXT_FIELDS, "choice")
+            ],
+            "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": 64},
+                **{
+                    f: {"type": "string", "minLength": 1, "maxLength": 2_000}
+                    for f in STATEMENT_TEXT_FIELDS
+                },
+                "choice": {"type": "integer", "minimum": 1, "maximum": 5},
+            },
+        },
+        "CheckableStep": {
+            "description": "One rendered solution step: the screen shows "
+            "description (SafeMarkdown without source markers, or literal text when "
+            "descriptionFormat is plain_text) with its ✓·✗ mark. withheld=true "
+            "(disclosure hide_answer): kind and mark only — description, "
+            "descriptionFormat and sympyStatement are null. checkReason never "
+            "appears.",
+            "type": "object",
+            "additionalProperties": True,
+            "required": [
+                "stepIndex",
+                "withheld",
+                "description",
+                "descriptionFormat",
+                "sympyStatement",
+                "stepKind",
+                "checkResult",
+            ],
+            "properties": {
+                "stepIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": MAX_STEPS - 1,
+                },
+                "withheld": {"type": "boolean"},
+                "description": _nullable(
+                    {"type": "string", "minLength": 1, "maxLength": 10_000}
+                ),
+                "descriptionFormat": _nullable(
+                    {"enum": [f.value for f in DescriptionFormat]}
+                ),
+                "sympyStatement": _nullable(_ref("SympyStatement")),
+                "stepKind": _ref("StepKind"),
+                "checkResult": _ref("StepCheckResult"),
+            },
+            "allOf": step_rules,
+        },
+        "CrossCheckSummary": {
+            "description": "Agreement flags only — the independent answer and "
+            "its program stay internal (docs/plan/27).",
+            "type": "object",
+            "additionalProperties": True,
+            "required": ["independentAnswerAgrees", "stepCheckCompleted"],
+            "properties": {
+                "independentAnswerAgrees": {"type": "boolean"},
+                "stepCheckCompleted": {"type": "boolean"},
+            },
+            "allOf": [_forbid(SOLUTION_INTERNAL_KEYS)],
+        },
+        "SolutionCheck": {
+            "type": "object",
+            "additionalProperties": True,
+            "description": "One verified solution. Order = Read-back problems order "
+            "= response order (problemNumber may be null for text input). "
+            "disclosure is the turn's answer-disclosure scope: full = steps public; "
+            "hide_answer = every step withheld (kind and mark only); hide_solution "
+            "= no steps.",
+            "required": [
+                "problemNumber",
+                "assuranceScope",
+                "strategy",
+                "attempts",
+                "crossCheck",
+                "disclosure",
+                "checkableSteps",
+            ],
+            "properties": {
+                "problemNumber": _nullable(
+                    {"type": "string", "minLength": 1, "maxLength": 32}
+                ),
+                "assuranceScope": _ref("AssuranceScope"),
+                "strategy": {"enum": [s.value for s in VerificationStrategy]},
+                "attempts": {"type": "integer", "minimum": 1, "maximum": MAX_ATTEMPTS},
+                "crossCheck": _nullable(_ref("CrossCheckSummary")),
+                "disclosure": _ref("Disclosure"),
+                "checkableSteps": {
+                    "type": "array",
+                    "maxItems": MAX_STEPS,
+                    "items": _ref("CheckableStep"),
+                },
+            },
+            "allOf": [
+                _forbid(SOLUTION_INTERNAL_KEYS),
+                _when(
+                    "disclosure",
+                    [DisclosureScope.FULL.value],
+                    _steps_withheld(withheld=False),
+                ),
+                _when(
+                    "disclosure",
+                    [DisclosureScope.HIDE_ANSWER.value],
+                    _steps_withheld(withheld=True),
+                ),
+                _when(
+                    "disclosure",
+                    [DisclosureScope.HIDE_SOLUTION.value],
+                    {"properties": {"checkableSteps": {"maxItems": 0}}},
+                ),
+                _when(
+                    "strategy",
+                    [VerificationStrategy.NONE.value],
+                    {
+                        "properties": {
+                            "assuranceScope": {"const": "not_applicable"},
+                            "crossCheck": {"type": "null"},
+                        }
+                    },
+                ),
+                _when(
+                    "strategy",
+                    [cross],
+                    {
+                        "properties": {
+                            "assuranceScope": {"enum": ["verified", "unverified"]},
+                            "crossCheck": {"type": "object"},
+                        }
+                    },
+                ),
+                {
+                    "if": {
+                        "required": ["assuranceScope", "strategy"],
+                        "properties": {
+                            "assuranceScope": {"const": "verified"},
+                            "strategy": {"const": cross},
+                        },
+                    },
+                    "then": {
+                        "properties": {
+                            "crossCheck": {
+                                "properties": {
+                                    "independentAnswerAgrees": {"const": True},
+                                    "stepCheckCompleted": {"const": True},
+                                }
+                            },
+                            "checkableSteps": {"not": falsified},
+                        }
+                    },
+                },
+                {
+                    "if": {
+                        "required": ["assuranceScope", "strategy"],
+                        "properties": {
+                            "assuranceScope": {"const": "unverified"},
+                            "strategy": {"const": cross},
+                        },
+                    },
+                    "then": {
+                        "anyOf": [
+                            {
+                                "properties": {
+                                    "crossCheck": {
+                                        "properties": {
+                                            "independentAnswerAgrees": {"const": False}
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "properties": {
+                                    "crossCheck": {
+                                        "properties": {
+                                            "stepCheckCompleted": {"const": False}
+                                        }
+                                    }
+                                }
+                            },
+                            {"properties": {"checkableSteps": falsified}},
+                            {
+                                "properties": {
+                                    "disclosure": {
+                                        "const": DisclosureScope.HIDE_SOLUTION.value
+                                    }
+                                }
+                            },
+                        ]
+                    },
+                },
+            ],
+        },
+        "CompletionExtension": {
+            "description": "browser-run-fixtures-v1.1 additive fields of run.completed "
+            "payload and conversation AssistantMessageContent. All three appear "
+            "together or not at all (absent = response from before this extension). "
+            "Badge (not_applicable solutions are left out of the count): unverified "
+            "iff any solution is unverified; else verified iff any is verified; "
+            "else not_applicable (all not_applicable, or none). "
+            "solutionChecks order = Read-back problems order = response order.",
+            "type": "object",
+            "properties": {
+                "responseKind": _ref("ResponseKind"),
+                "assuranceScope": _ref("AssuranceScope"),
+                "solutionChecks": {
+                    "type": "array",
+                    "maxItems": MAX_SOLUTION_CHECKS,
+                    "items": _ref("SolutionCheck"),
+                },
+            },
+            "dependentRequired": {
+                key: [other for other in EXTENSION_KEYS if other != key]
+                for key in EXTENSION_KEYS
+            },
+            "allOf": [
+                _when(
+                    "responseKind",
+                    [ResponseKind.RE_EXPLANATION.value],
+                    {
+                        "properties": {
+                            "assuranceScope": {"const": "not_applicable"},
+                            "solutionChecks": {"maxItems": 0},
+                        }
+                    },
+                ),
+                _when(
+                    "assuranceScope",
+                    ["verified"],
+                    {
+                        "allOf": [
+                            _contains_scope("verified"),
+                            {
+                                "properties": {
+                                    "solutionChecks": {
+                                        "not": {"contains": _scope_is("unverified")}
+                                    }
+                                }
+                            },
+                        ]
+                    },
+                ),
+                _when(
+                    "assuranceScope", ["not_applicable"], _all_scopes("not_applicable")
+                ),
+                _when(
+                    "assuranceScope",
+                    ["unverified"],
+                    _contains_scope("unverified"),
+                ),
+            ],
+        },
+        "ReadBackCompletedPayload": {
+            "description": "Activity Kind read_back (Phase 2 Read-back, '이렇게 "
+            "읽었어요'): the activity.completed payload with problems[] of "
+            "problemNumber/questionText/choices/figureDescription. Defined in "
+            "terminal-v2 browser schema (generated from Brain activity.py).",
+            "$ref": f"{TERMINAL_REF}#/$defs/ReadBackCompleted",
+        },
+        "ReadBackGuard": {
+            "description": "A read-back precedes verification: no solution, step, "
+            "formula, answer or internal problem id on it.",
+            "allOf": [
+                _forbid(READ_BACK_FORBIDDEN_PAYLOAD_KEYS),
+                {
+                    "properties": {
+                        "problems": {"items": _forbid(READ_BACK_FORBIDDEN_PROBLEM_KEYS)}
+                    }
+                },
+            ],
+        },
     }
 
 
@@ -628,6 +1093,7 @@ def schema() -> dict[str, Any]:
                 "failure": _nullable(_ref("AssistantFailure")),
                 "cancel": _nullable(_ref("AssistantCancel")),
             },
+            "allOf": [_ref("CompletionExtension")],
         },
         "ConversationMessage": {
             "type": "object",
@@ -860,8 +1326,29 @@ def schema() -> dict[str, Any]:
                 _ref("NoInternalKeys"),
                 {"properties": {"payload": _ref("NoInternalKeys")}},
                 {"oneOf": [_ref("ServerOwnedFrame"), {"$ref": TERMINAL_REF}]},
+                {
+                    "if": {
+                        "required": ["type"],
+                        "properties": {"type": {"const": "run.completed"}},
+                    },
+                    "then": {"properties": {"payload": _ref("CompletionExtension")}},
+                },
+                {
+                    "if": {
+                        "required": ["type", "payload"],
+                        "properties": {
+                            "type": {"enum": list(ACTIVITY_TYPES)},
+                            "payload": {
+                                "required": ["kind"],
+                                "properties": {"kind": {"const": "read_back"}},
+                            },
+                        },
+                    },
+                    "then": {"properties": {"payload": _ref("ReadBackGuard")}},
+                },
             ],
         },
+        **_phase2_defs(),
     }
     defs["NoInternalKeys"] = {
         "description": "Internal run keys never appear on a public frame, "
@@ -1660,13 +2147,23 @@ class StreamBuilder:
         self.frames.append({**browser, "seq": seq})
         return self
 
-    def terminal_pair(self, name: str) -> StreamBuilder:
-        """Append page boundaries + the terminal-v2 browser frame of ``name``."""
+    def terminal_pair(
+        self, name: str, extension: dict[str, Any] | None = None
+    ) -> StreamBuilder:
+        """Append page boundaries + the terminal-v2 browser frame of ``name``.
+
+        ``extension`` adds the browser-run-fixtures-v1.1 fields
+        (``completion_extension`` output) to the run.completed payload; every
+        other payload byte stays the terminal-v2 pair's.
+        """
 
         pair = json.loads((TERMINAL / "pairs" / f"{name}.json").read_text())
         browser = deepcopy(pair["browser"])
         payload = browser["payload"]
         payload["assistantMessageId"] = self.ids["assistantMessageId"]
+        if extension is not None:
+            assert browser["type"] == "run.completed"
+            payload.update(deepcopy(extension))
         if browser["type"] == "run.completed":
             pages = payload["assistantResponse"]["responsePages"]
             for index, page in enumerate(pages):
@@ -1768,6 +2265,71 @@ def _solve(builder: StreamBuilder) -> StreamBuilder:
     )
 
 
+def _solution(name: str) -> SolutionVerification:
+    """A 2.06 solution-verification-v1 valid record (synthetic problems)."""
+
+    return parse_solution_verification(
+        json.loads((SOLUTIONS / f"{name}.json").read_text())
+    )
+
+
+def _with_unsafe_description(record: SolutionVerification) -> SolutionVerification:
+    """Same record, first step described with inline code — SafeMarkdown rejects
+    it, so the boundary sends that one step as ``plain_text``."""
+
+    steps = list(record.steps)
+    steps[0] = steps[0].model_copy(
+        update={"description": "`x = 4` 를 대입하면 성립한다"}
+    )
+    return record.model_copy(update={"steps": tuple(steps)})
+
+
+def _with_falsified_step(record: SolutionVerification) -> SolutionVerification:
+    """Same unverified record with its last ✓ claim step marked ✗ — re-validated
+    through the 2.06 model, so the ✗ display has a valid example."""
+
+    data = record.model_dump(mode="json")
+    step = [s for s in data["steps"] if s["step_kind"] == "claim"][-1]
+    step["check_result"] = "falsified"
+    return SolutionVerification.model_validate(data)
+
+
+_VARIANTS = {
+    "text-input-short-answer": _with_unsafe_description,
+    "disagreement-unverified": _with_falsified_step,
+}
+
+
+def _extension(
+    kind: ResponseKind,
+    *names: str,
+    disclosure: DisclosureScope = DisclosureScope.FULL,
+) -> dict[str, Any]:
+    records = [_VARIANTS.get(name, lambda r: r)(_solution(name)) for name in names]
+    return completion_extension(kind, records, disclosure=disclosure).browser_payload()
+
+
+def _read_back(builder: StreamBuilder, *names: str) -> StreamBuilder:
+    """Read-back as the first progress Activity — what was read, no solution."""
+
+    problems = [
+        read_back_problem(_solution(name).problem).model_dump(
+            mode="json", exclude_none=True
+        )
+        for name in names
+    ]
+    return builder.activity(
+        _activity(
+            "read_back",
+            "activity-9",
+            "activity.started",
+            label="reading_back_problems",
+        )
+    ).activity(
+        _activity("read_back", "activity-9", "activity.completed", problems=problems)
+    )
+
+
 SSE_NOTE = (
     "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
 )
@@ -1859,6 +2421,135 @@ def streams() -> dict[str, dict[str, Any]]:
             _analysis(StreamBuilder("asset-deleting").created())
             .canceling()
             .canceled("asset_deleting"),
+        ),
+        # --- browser-run-fixtures-v1.1 (task 2.07): Phase 2 additive fields ---
+        "verified-multiple-choice-with-read-back": (
+            "COMPLETED",
+            "[v1.1] Read-back(read_back Activity, 첫 단계) → 객관식 검증됨. "
+            "solutionChecks 1건·단계별 ✓, assuranceScope=verified. "
+            "assistantResponse 본문은 terminal-v2 direct-verified 재사용(예시).",
+            _solve(
+                _analysis(
+                    _read_back(
+                        StreamBuilder("phase2-verified").created(),
+                        "multiple-choice-verified",
+                    )
+                )
+            ).terminal_pair(
+                "direct-verified",
+                _extension(ResponseKind.STANDARD, "multiple-choice-verified"),
+            ),
+        ),
+        "unverified-disagreement": (
+            "COMPLETED",
+            "[v1.1] 독립 답 불일치 + ✗ 단계(falsified) → 미검증. "
+            "crossCheck.independentAnswerAgrees=false, assuranceScope=unverified.",
+            _solve(
+                _analysis(
+                    _read_back(
+                        StreamBuilder("phase2-unverified").created(),
+                        "disagreement-unverified",
+                    )
+                )
+            ).terminal_pair(
+                "inconclusive-unverified",
+                _extension(ResponseKind.STANDARD, "disagreement-unverified"),
+            ),
+        ),
+        "mixed-scope-completed": (
+            "COMPLETED",
+            "[v1.1] 여러 문제: 단답형 검증됨·검산 안 됨 단계가 있는 검증됨·텍스트 입력"
+            "(번호 없음)·증명 검증 대상 아님 → not_applicable은 집계에서 빠지므로 전체 "
+            "assuranceScope=verified(문제별 배지는 solutionChecks[].assuranceScope).",
+            _solve(
+                _analysis(
+                    _read_back(
+                        StreamBuilder("phase2-mixed").created(),
+                        "short-answer-verified",
+                        "unparseable-step-verified",
+                        "text-input-short-answer",
+                        "proof-not-applicable",
+                    )
+                )
+            ).terminal_pair(
+                "multi-page",
+                _extension(
+                    ResponseKind.STANDARD,
+                    "short-answer-verified",
+                    "unparseable-step-verified",
+                    "text-input-short-answer",
+                    "proof-not-applicable",
+                ),
+            ),
+        ),
+        "not-applicable-proof": (
+            "COMPLETED",
+            "[v1.1] 증명 답(strategy=none) → assuranceScope=not_applicable, "
+            "crossCheck=null.",
+            _solve(
+                _analysis(
+                    _read_back(
+                        StreamBuilder("phase2-proof").created(),
+                        "proof-not-applicable",
+                    )
+                )
+            ).terminal_pair(
+                "supporting-logical-move",
+                _extension(ResponseKind.STANDARD, "proof-not-applicable"),
+            ),
+        ),
+        "re-explanation-completed": (
+            "COMPLETED",
+            "[v1.1] 기존 풀이 재설명 — 검증·Read-back 없이 바로 스트리밍. "
+            "responseKind=re_explanation, assuranceScope=not_applicable, "
+            "solutionChecks=[]. Front는 '추가 설명' 표시.",
+            _analysis(
+                StreamBuilder("phase2-re-explanation").created(tasks=["explain"])
+            ).terminal_pair(
+                "explain-existing", _extension(ResponseKind.RE_EXPLANATION)
+            ),
+        ),
+        "hide-answer-completed": (
+            "COMPLETED",
+            "[v1.1] 정답 숨김 요청(disclosure=hide_answer) → 배지·✓ 표시는 남고 모든 "
+            "단계의 description·descriptionFormat·sympyStatement가 null(withheld=true). "
+            "assistantResponse 본문은 terminal-v2 hide-answer 재사용(예시).",
+            _solve(
+                _analysis(
+                    _read_back(
+                        StreamBuilder("phase2-hide-answer").created(),
+                        "multiple-choice-verified",
+                    )
+                )
+            ).terminal_pair(
+                "hide-answer",
+                _extension(
+                    ResponseKind.STANDARD,
+                    "multiple-choice-verified",
+                    disclosure=DisclosureScope.HIDE_ANSWER,
+                ),
+            ),
+        ),
+        "hide-solution-completed": (
+            "COMPLETED",
+            "[v1.1] 풀이 숨김 요청(disclosure=hide_solution) → solutionChecks에 배지·"
+            "crossCheck만 남고 checkableSteps=[]. assistantResponse 본문은 "
+            "terminal-v2 hide-answer 재사용(예시).",
+            _solve(
+                _analysis(
+                    _read_back(
+                        StreamBuilder("phase2-hide-solution").created(),
+                        "short-answer-verified",
+                    )
+                )
+            ).terminal_pair(
+                "hide-answer",
+                _extension(
+                    ResponseKind.STANDARD,
+                    "short-answer-verified",
+                    disclosure=DisclosureScope.HIDE_SOLUTION,
+                ),
+            ),
         ),
     }
     result = {}
@@ -2086,6 +2777,7 @@ def invalid_streams(valid: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any
             True,
         ),
     }
+    cases.update(_phase2_invalid_streams(valid, mutate))
     return {
         name: {
             "rationale": rationale,
@@ -2094,6 +2786,248 @@ def invalid_streams(valid: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any
             "frames": frames,
         }
         for name, (rule, rationale, frames, schema_rejects) in sorted(cases.items())
+    }
+
+
+def _phase2_invalid_streams(
+    valid: dict[str, dict[str, Any]], mutate
+) -> dict[str, tuple[str, str, list[dict[str, Any]], bool]]:
+    """browser-run-fixtures-v1.1 negatives: each breaks one S7 schema rule."""
+
+    verified = valid["verified-multiple-choice-with-read-back"]["frames"]
+    unverified = valid["unverified-disagreement"]["frames"]
+    mixed = valid["mixed-scope-completed"]["frames"]
+    re_explanation = valid["re-explanation-completed"]["frames"]
+    hide_answer = valid["hide-answer-completed"]["frames"]
+    hide_solution = valid["hide-solution-completed"]["frames"]
+
+    def last(change):
+        return lambda frames: change(frames[-1]["payload"])
+
+    def first_check(change):
+        return last(lambda payload: change(payload["solutionChecks"][0]))
+
+    def read_back_completed(change):
+        def apply(frames: list[dict[str, Any]]) -> None:
+            frame = next(
+                f
+                for f in frames
+                if f["type"] == "activity.completed"
+                and f["payload"]["kind"] == "read_back"
+            )
+            change(frame["payload"])
+
+        return apply
+
+    def set_step(index: int, **values: Any):
+        return first_check(lambda check: check["checkableSteps"][index].update(values))
+
+    def falsify_claim(check: dict[str, Any]) -> None:
+        step = next(s for s in check["checkableSteps"] if s["stepKind"] == "claim")
+        step["checkResult"] = "falsified"
+
+    def drop(key: str):
+        return last(lambda payload: payload.pop(key))
+
+    return {
+        "re-explanation-verified-scope": (
+            "S7",
+            "재설명은 검증 대상 아님 — assuranceScope=verified 거부.",
+            mutate(re_explanation, last(lambda p: p.update(assuranceScope="verified"))),
+            True,
+        ),
+        "re-explanation-with-solution-checks": (
+            "S7",
+            "재설명은 solutionChecks가 비어 있어야 한다(검증 없이 스트리밍).",
+            mutate(
+                re_explanation,
+                last(
+                    lambda p: p.update(
+                        solutionChecks=deepcopy(
+                            mixed[-1]["payload"]["solutionChecks"][-1:]
+                        )
+                    )
+                ),
+            ),
+            True,
+        ),
+        "extension-without-response-kind": (
+            "S7",
+            "responseKind·assuranceScope·solutionChecks는 함께 오거나 모두 없다.",
+            mutate(verified, drop("responseKind")),
+            True,
+        ),
+        "unknown-assurance-scope": (
+            "S7",
+            "AssuranceScope는 verified·unverified·not_applicable 세 값뿐.",
+            mutate(verified, last(lambda p: p.update(assuranceScope="partial"))),
+            True,
+        ),
+        "overall-unverified-without-unverified-solution": (
+            "S7",
+            "not_applicable은 집계에서 빠진다 — 검증 대상이 모두 verified인데 "
+            "전체 unverified 거부.",
+            mutate(mixed, last(lambda p: p.update(assuranceScope="unverified"))),
+            True,
+        ),
+        "overall-not-applicable-with-verified": (
+            "S7",
+            "verified 풀이가 하나라도 있으면(unverified 없이) 전체는 verified — "
+            "not_applicable 거부.",
+            mutate(mixed, last(lambda p: p.update(assuranceScope="not_applicable"))),
+            True,
+        ),
+        "verified-solution-with-falsified-step": (
+            "S7",
+            "✗ 단계가 있는 solution은 verified일 수 없다.",
+            mutate(verified, first_check(falsify_claim)),
+            True,
+        ),
+        "unverified-without-cause": (
+            "S7",
+            "불일치·검산기 실패·✗ 단계가 없는데 unverified — 2.06 조건 위반.",
+            mutate(
+                verified,
+                last(
+                    lambda p: (
+                        p.update(assuranceScope="unverified"),
+                        p["solutionChecks"][0].update(assuranceScope="unverified"),
+                    )
+                ),
+            ),
+            True,
+        ),
+        "proof-with-verified-scope": (
+            "S7",
+            "strategy=none(증명·서술)은 항상 not_applicable.",
+            mutate(
+                mixed,
+                last(
+                    lambda p: p["solutionChecks"][-1].update(assuranceScope="verified")
+                ),
+            ),
+            True,
+        ),
+        "argue-step-with-statement": (
+            "S7",
+            "argue 단계는 수식이 없고 검산 대상 아님뿐이다.",
+            mutate(verified, set_step(0, stepKind="argue")),
+            True,
+        ),
+        "verified-step-without-formula": (
+            "S7",
+            "✓ 단계는 검산한 수식(claim: lhs·rhs)을 그대로 가진다.",
+            mutate(
+                unverified,
+                first_check(
+                    lambda c: next(
+                        s
+                        for s in c["checkableSteps"]
+                        if s["stepKind"] == "claim" and s["checkResult"] == "verified"
+                    ).update(sympyStatement={"lhs": "x"})
+                ),
+            ),
+            True,
+        ),
+        "check-reason-exposed": (
+            "S7",
+            "검산기 사유 코드(checkReason)는 내부 전용.",
+            mutate(verified, set_step(0, checkReason="numeric")),
+            True,
+        ),
+        "independent-answer-exposed": (
+            "S7",
+            "독립 답 프로그램·값(evidenceCode·independentAnswer)은 내부 전용(미확정 Candidate).",
+            mutate(
+                unverified,
+                first_check(
+                    lambda c: c.update(
+                        evidenceCode="answer = 7", independentAnswer={"value": "7"}
+                    )
+                ),
+            ),
+            True,
+        ),
+        "hide-answer-step-leak": (
+            "S7",
+            "정답 숨김(hide_answer)에서 withheld 단계가 수식·설명을 실으면 거부 — "
+            "choose 단계의 보기 번호가 정답이다.",
+            mutate(
+                hide_answer,
+                set_step(
+                    -1,
+                    description="따라서 답은 ③이다.",
+                    descriptionFormat="safe_markdown",
+                    sympyStatement={"value": "3", "choice": 3},
+                ),
+            ),
+            True,
+        ),
+        "hide-answer-public-step": (
+            "S7",
+            "정답 숨김(hide_answer)에서는 모든 단계가 withheld=true다.",
+            mutate(
+                hide_answer,
+                set_step(
+                    0,
+                    withheld=False,
+                    description="조건을 정리한다.",
+                    descriptionFormat="safe_markdown",
+                ),
+            ),
+            True,
+        ),
+        "hide-solution-with-steps": (
+            "S7",
+            "풀이 숨김(hide_solution)은 단계를 하나도 보내지 않는다.",
+            mutate(
+                hide_solution,
+                first_check(
+                    lambda c: c.update(
+                        checkableSteps=deepcopy(
+                            hide_answer[-1]["payload"]["solutionChecks"][0][
+                                "checkableSteps"
+                            ]
+                        )
+                    )
+                ),
+            ),
+            True,
+        ),
+        "solution-check-without-disclosure": (
+            "S7",
+            "solution check는 disclosure를 반드시 가진다(없으면 숨김 여부를 알 수 없다).",
+            mutate(verified, first_check(lambda c: c.pop("disclosure"))),
+            True,
+        ),
+        "read-back-with-answer": (
+            "S7",
+            "Read-back은 검증 전이다 — 문제에 답을 붙일 수 없다.",
+            mutate(
+                verified,
+                read_back_completed(
+                    lambda p: p["problems"][0].update(answer={"choice": 3})
+                ),
+            ),
+            True,
+        ),
+        "read-back-with-steps": (
+            "S7",
+            "Read-back에 검증 전 풀이 단계를 실을 수 없다.",
+            mutate(
+                verified,
+                read_back_completed(
+                    lambda p: p.update(
+                        checkableSteps=deepcopy(
+                            verified[-1]["payload"]["solutionChecks"][0][
+                                "checkableSteps"
+                            ]
+                        )
+                    )
+                ),
+            ),
+            True,
+        ),
     }
 
 
@@ -2678,6 +3612,50 @@ def responses(
             }
         ),
     }
+
+    # browser-run-fixtures-v1.1: stored assistant messages carry the same
+    # additive fields as their run.completed frame (Server persists and
+    # replays them unchanged).
+    def phase2_assistant(stream: str, seconds: int) -> dict[str, Any]:
+        payload = valid_streams[stream]["frames"][-1]["payload"]
+        run = ids(stream)
+        return assistant(
+            "COMPLETED",
+            run["runId"],
+            run["assistantMessageId"],
+            at(seconds),
+            responseDisposition=payload["responseDisposition"],
+            clarificationReason=payload.get("clarificationReason"),
+            assistantResponse=payload["assistantResponse"],
+            verificationSummary=payload.get("verificationSummary", []),
+            **{key: payload[key] for key in EXTENSION_KEYS},
+        )
+
+    verified_run = ids("verified-multiple-choice-with-read-back")
+    re_explanation_run = ids("re-explanation-completed")
+    valid["conversation-verified-then-re-explanation"] = _ok(
+        {
+            "noteId": NOTE_ID,
+            "activeRun": None,
+            "messages": [
+                user_message(
+                    verified_run["userMessageId"],
+                    verified_run["runId"],
+                    "15번 풀어줘",
+                    at(200),
+                ),
+                phase2_assistant("verified-multiple-choice-with-read-back", 201),
+                user_message(
+                    re_explanation_run["userMessageId"],
+                    re_explanation_run["runId"],
+                    "방금 풀이 두 번째 단계를 더 쉽게 설명해줘",
+                    at(260),
+                ),
+                phase2_assistant("re-explanation-completed", 261),
+            ],
+            "nextBefore": None,
+        }
+    )
     schema_names = {
         "status": "RunStatusResponse",
         "cancel": "RunCancelResponse",
@@ -2859,6 +3837,35 @@ def responses(
             ),
         ),
     }
+    phase2_page = valid["conversation-verified-then-re-explanation"]
+
+    def page_with(change) -> dict[str, Any]:
+        body = deepcopy(phase2_page)
+        change(body["result"]["messages"])
+        return body
+
+    invalid.update(
+        {
+            "conversation-re-explanation-verified": (
+                "ConversationPageResponse",
+                "[v1.1] 저장된 재설명 응답도 assuranceScope는 not_applicable뿐.",
+                page_with(
+                    lambda messages: messages[3]["assistant"].update(
+                        assuranceScope="verified"
+                    )
+                ),
+            ),
+            "conversation-check-reason-exposed": (
+                "ConversationPageResponse",
+                "[v1.1] 저장·재조회 응답에도 검산기 사유 코드(checkReason)는 없다.",
+                page_with(
+                    lambda messages: messages[1]["assistant"]["solutionChecks"][0][
+                        "checkableSteps"
+                    ][0].update(checkReason="numeric")
+                ),
+            ),
+        }
+    )
     invalid_files = {
         name: {"schema": schema_name, "rationale": rationale, "body": body}
         for name, (schema_name, rationale, body) in invalid.items()
@@ -2923,10 +3930,11 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
 
 ## 버전
 
-- `consumer_version`: `browser-run-fixtures-v1` (2026-10-17 최초 고정, 단계 2 합의 D1~D10)
+- `consumer_version`: `browser-run-fixtures-v1.1` (2026-11-12, task 2.07 Phase 2 additive 확장 — 아래 "Phase 2 확장")
+  - 이전: `browser-run-fixtures-v1` (2026-10-17 최초 고정, 단계 2 합의 D1~D10). v1 fixture는 모두 byte 그대로 남아 있고 v1.1 schema도 통과한다.
 - `contract_version`: `browser-run-v1`
 - durable frame `contractVersion`: `brain-source-v1` (D1 — terminal-v2 browser schema의 `const`와 같은 값을 Server 소유 frame에도 사용)
-- 참조 계약: terminal-fixtures-v2 · activity-fixtures-v1 · assistant-response-v1 · internal-run-fixtures-v2(canonical JSON) · page-selection-v1
+- 참조 계약: terminal-fixtures-v2.1 · activity-fixtures-v1.1 · assistant-response-v1 · internal-run-fixtures-v2(canonical JSON) · page-selection-v1
 - 요청 fingerprint: `browser-request-sha256-canonical-json-v1`
 
 ## 소비 규칙
@@ -2944,6 +3952,50 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
 - 요청 body는 **closed**(알 수 없는/금지 필드 = `RUN4001`). 응답·이벤트는 additive-tolerant(알 수 없는 추가 필드 무시,
   알려진 필드 검증)이지만, 내부 키(`attempt`·`fenceToken`·`sourceEventId`·`failureClass`·`requestFingerprint`·`usage`·
   `deadline`과 snake_case 형)는 frame·payload와 Server 소유 응답 객체 모두에서 schema가 거부한다.
+
+## Phase 2 확장 (browser-run-fixtures-v1.1, task 2.07)
+
+spec 04·ADR 0017·`docs/plan/27`의 화면 wire다. `contract_version`은 `browser-run-v1` 그대로이고 모두 **선택 필드**라
+기존 frame·응답은 그대로 유효하다. 2.06 `SolutionVerification`을 Brain
+`proovy_brain.contracts.browser_solution_check.completion_extension`으로 투영한 값이 fixture에 들어 있다.
+
+- `run.completed` payload와 대화 조회 `AssistantMessageContent`에 세 필드가 **함께** 붙는다(`CompletionExtension`, 하나만 오면 거부).
+  세 필드가 없으면 이 확장 이전 응답이다.
+  - `responseKind`: `standard` | `re_explanation`. 재설명은 검증 없이 스트리밍하고 Front는 "추가 설명" 표시를 붙인다.
+    재설명은 항상 `assuranceScope: not_applicable`, `solutionChecks: []`다.
+  - `assuranceScope`(응답 배지): `not_applicable` solution은 집계에서 뺀다. 하나라도 `unverified`면 `unverified`,
+    아니고 `verified`가 있으면 `verified`, 전부 `not_applicable`(또는 없음)이면 `not_applicable`. 검증됨+검증 대상 아님
+    섞임은 `verified`다(사용자 결정 2026-11-12, `docs/plan/28`). 문제별 배지는 `solutionChecks[].assuranceScope`다.
+  - `solutionChecks[]`(최대 20): `problemNumber`(없으면 null — 텍스트 입력), `assuranceScope`, `strategy`
+    (`answer_cross_check`|`none`), `attempts`(1~3), `crossCheck`(일치 여부 플래그만, `none`이면 null),
+    `disclosure`, `checkableSteps[]`. **순서 = Read-back `problems` 순서 = 응답 순서**다(번호가 null인 문제는 순서로 맞춘다).
+  - `disclosure`(정답 공개 범위, Brain `DisclosureScope` — `assistantResponse`를 공개한 범위와 같다):
+    `full`은 단계 공개, `hide_answer`는 **모든 단계** `withheld: true`(종류·✓✗ 표시만, `description`·`descriptionFormat`·
+    `sympyStatement`는 null), `hide_solution`은 `checkableSteps: []`(배지·`crossCheck`만). 답을 정하는 단계만 골라
+    가리는 판단은 아직 없어 hide_answer는 전부 가린다.
+  - `checkableSteps[]`: `stepIndex`·`withheld`·`description`·`descriptionFormat`(`safe_markdown`|`plain_text`)·`sympyStatement`
+    (null 또는 `name`·`value`·`cond`·`covers`·`lhs`·`rhs`·`choice`)·`stepKind`(`define`·`given`·`claim`·`case`·
+    `choose`·`argue`)·`checkResult`(`verified` ✓·`falsified` ✗·`unparseable` 검산 안 됨·`not_checked` 검산 대상 아님).
+    `descriptionFormat: plain_text`는 Brain 경계에서 SafeMarkdown을 통과하지 못한 그 단계 설명이다 — 수식·markdown 없이
+    글자 그대로 그린다. `safe_markdown` 설명에는 `[[source:…]]` 마커가 없다(Brain이 지운다 — solutionChecks에는 출처 목록이
+    없다). 단계 종류별 허용 결과와 공개 ✓ 단계의 수식 필수 규칙은 2.06 모델과 같고 schema가 검사한다.
+- Brain → Server source(terminal-v2 `source.schema.json`의 `RunCompletedPayload`)에는 같은 값이 snake_case로 실린다:
+  `response_kind`·`assurance_scope`·`solution_checks[]`(`problem_number`·`assurance_scope`·`strategy`·`attempts`·
+  `cross_check{independent_answer_agrees, step_check_completed}`·`disclosure`·`checkable_steps[]{step_index, step_kind,
+  check_result, withheld, description, description_format, sympy_statement}`). source는 null 값 키를 생략하고, browser
+  변환(`to_browser_event_payload`)이 camelCase로 바꾸며 null 키를 채운다. terminal-v2 `pairs/phase2-*.json`이 그 예다.
+- Activity Kind `read_back`(Read-back, "이렇게 읽었어요"): 진행 Activity의 첫 단계. label `reading_back_problems`,
+  `activity.completed` payload `problems[]` = `problemNumber`(선택)·`questionText`·`choices`·`figureDescription`(선택).
+  정의는 terminal-v2 browser schema(`ReadBackCompleted`, Brain `activity.py`에서 생성)에 있고 여기서는
+  `ReadBackCompletedPayload`로 가리키며 `ReadBackGuard`가 답·단계·수식·내부 problem id를 거부한다.
+  사용자 확인을 기다리지 않는다(틀리면 Run Cancellation).
+- **비공개 원칙 유지**: `checkReason`, 독립 답 프로그램·값(`evidenceCode`·`independentAnswer`), `failureReason`,
+  `problemId`는 어디에도 없다(schema가 거부). 단계·수식은 검증이 끝난 `run.completed`에서만 오고 Activity에는 없다.
+- 기존 Phase 1 `verificationSummary`는 terminal-v2 그대로 남는다. `solutionChecks`가 있으면 화면 ✓·배지는 `solutionChecks`를 쓴다.
+- 확장 fixture: `streams/valid`의 `[v1.1]` 7건(객관식 검증됨+Read-back · 불일치 미검증 · 여러 문제 섞임 · 증명 검증 대상 아님 ·
+  재설명 · 정답 숨김 · 풀이 숨김), `streams/invalid`의 S7 19건, `responses/valid/conversation-verified-then-re-explanation`,
+  `responses/invalid/conversation-*`(v1.1) 2건. `[v1.1]` stream의 `assistantResponse` 본문은 terminal-v2 pair를 재사용한 예시라
+  `solutionChecks`의 문제와 내용이 같지 않다 — 구조 계약만 본다.
 
 ## 경로와 규칙 요약
 
@@ -2998,7 +4050,8 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
   terminal-v2 pair는 publication-v1 valid에서 조립되므로 clarification/unsupported_only/substantive의 공개 구조도 같다.
 - 대화 조회의 `assistantResponse`는 terminal-v2 `AssistantResponseV1`을 그대로 `$ref`한다. 대화 조회 예제는 메시지가 `createdAt`
   오름차순이고 assistant마다 run이 다르며, 각 assistant 앞에 같은 run의 user 메시지가 있다.
-- 기존 fixture의 의미·파일은 바꾸지 않았다. 참고: terminal-v2 browser schema의 opaque ID 패턴은 `$`로 끝난다(이 artifact 밖,
+- 기존 fixture의 의미·파일은 바꾸지 않았다(v1.1 확장 포함 — v1 fixture는 byte 그대로). `[v1.1]` stream의 `run.completed`는
+  terminal-v2 pair payload에 `responseKind`·`assuranceScope`·`solutionChecks`만 더한 값이다. 참고: terminal-v2 browser schema의 opaque ID 패턴은 `$`로 끝난다(이 artifact 밖,
   terminal-v2 변경 대상).
 
 ## 합의 초안 §11.1 예제와의 대응
@@ -3240,8 +4293,8 @@ def manifest(files: dict[str, str]) -> dict[str, Any]:
         "frame_contract_version": FRAME_CONTRACT_VERSION,
         "fingerprint_algorithm": FINGERPRINT_ALGORITHM,
         "references": {
-            "terminal": "terminal-fixtures-v2",
-            "activity": "activity-fixtures-v1",
+            "terminal": "terminal-fixtures-v2.1",
+            "activity": "activity-fixtures-v1.1",
             "response": "assistant-response-v1",
             "internal_run": "internal-run-fixtures-v2",
             "page_selection": "page-selection-v1",
@@ -3268,11 +4321,25 @@ def manifest(files: dict[str, str]) -> dict[str, Any]:
         "change_history": [
             {
                 "date": "2026-10-17",
-                "consumer_version": CONSUMER_VERSION,
+                "consumer_version": INITIAL_CONSUMER_VERSION,
                 "reason": "Task 1.75 initial freeze of the browser run API wire contract "
                 "(admission/replay/status/cancel/conversation, cursor, Server-owned "
                 "frames) agreed at the stage-2 gate (D1-D10).",
-            }
+            },
+            {
+                "date": "2026-11-12",
+                "consumer_version": CONSUMER_VERSION,
+                "reason": "Task 2.07 additive (contract_version stays browser-run-v1): "
+                "run.completed payload and conversation AssistantMessageContent gain "
+                "optional responseKind (standard|re_explanation), assuranceScope "
+                "(verified|unverified|not_applicable) and solutionChecks[] with "
+                "per-solution disclosure (full|hide_answer|hide_solution) and "
+                "checkableSteps[] (stepIndex/withheld/description/descriptionFormat/"
+                "sympyStatement/stepKind/checkResult); Activity Kind read_back "
+                "(terminal-v2 browser schema, guarded here). Every v1 fixture is "
+                "byte-identical and still valid; absent fields mean a response from "
+                "before the extension.",
+            },
         ],
         "files": dict(sorted(digests.items())),
         "dependencies": {"terminal-v2/browser.schema.json": _sha256(terminal_schema)},

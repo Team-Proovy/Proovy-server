@@ -201,6 +201,11 @@ public final class TerminalAcceptance {
                 && (!payload.artifacts().isEmpty() || !payload.selected().isEmpty())) {
             throw disposition("guidance cannot carry internal answer artifacts");
         }
+        // Brain RunCompletedPayload.validate_completed: 안내 응답에는 문제별 검산이 없다(task 2.07).
+        if (payload.extension() != null && !payload.extension().solutionChecks().isEmpty()
+                && payload.disposition() != ResponseDisposition.SUBSTANTIVE) {
+            throw disposition("guidance carries no solution checks");
+        }
     }
 
     /** Brain {@code _check_disposition}: clarification·unsupported는 rich_text 하나뿐이고 출처·검증이 없다. */
@@ -456,7 +461,10 @@ public final class TerminalAcceptance {
         String contentSha256 = sha256(TerminalModel.map("response_pages", pages, "source_references", references,
                 "plain_text", plainText));
         List<VerifiedSolutionInput> solutions = new ArrayList<>();
-        for (Artifact artifact : payload.artifacts()) {
+        List<CompletionExtension.SolutionCheck> verifiedChecks = verifiedChecks(payload);
+        for (int index = 0; index < payload.artifacts().size(); index++) {
+            Artifact artifact = payload.artifacts().get(index);
+            CompletionExtension.SolutionCheck check = verifiedChecks == null ? null : verifiedChecks.get(index);
             Map<String, SummaryCoverage> coverage = new HashMap<>();
             artifact.verification().claims().forEach(claim -> coverage.put(claim.claimId(), claim.coverage()));
             List<Object> claims = artifact.claims().stream().<Object>map(claim -> TerminalModel.map(
@@ -465,8 +473,9 @@ public final class TerminalAcceptance {
             solutions.add(new VerifiedSolutionInput(artifact.solutionId(), TerminalModel.ARTIFACT_SCHEMA_VERSION, 1,
                     artifact.problemStatement(),
                     tree(artifact.conditions().stream().map(TerminalModel.Condition::toMap).toList()),
-                    artifact.solutionText(), tree(claims), tree(artifact.marks().stream().map(Mark::toMap).toList()),
-                    tree(artifact.verification().toMap()), TerminalModel.VERIFICATION_VERSION,
+                    artifact.solutionText(), tree(claims),
+                    tree(check == null ? artifact.marks().stream().map(Mark::toMap).toList() : check.sourceSteps()),
+                    tree(solutionSummary(artifact, check)), TerminalModel.VERIFICATION_VERSION,
                     tree(artifact.sourceRefIds()), artifact.verification().overall(), sha256(artifact.toMap()),
                     revisions.get(artifact.solutionId())));
         }
@@ -477,7 +486,34 @@ public final class TerminalAcceptance {
                 payload.clarificationReason(), tree(pages), tree(references), plainText, contentSha256,
                 tree(payload.summaries().stream().map(Summary::toMap).toList()), solutions, payload.model(),
                 payload.tier().name().toLowerCase(Locale.ROOT),
-                new TerminalRecheck(recheckAssets, referenced, List.copyOf(revisions.values())));
+                new TerminalRecheck(recheckAssets, referenced, List.copyOf(revisions.values())),
+                payload.extension());
+    }
+
+    /**
+     * 새 Verified Solution과 짝지을 verified 검산(task 2.15 저장 위치 결정). Brain은 검산을 Read-back 순서로, artifact를
+     * 응답 순서로 보내고 둘 다 같은 순서다(docs/plan/28). verified 검산 수와 새 artifact 수가 같을 때만 순서대로 짝짓고,
+     * 아니면(확장 없음·재표현만·수가 다름) null — 그 artifact는 chain step mark를 그대로 저장한다.
+     */
+    private static List<CompletionExtension.SolutionCheck> verifiedChecks(Completed payload) {
+        if (payload.extension() == null) {
+            return null;
+        }
+        List<CompletionExtension.SolutionCheck> verified = payload.extension().solutionChecks().stream()
+                .filter(check -> check.scope() == CompletionExtension.AssuranceScope.VERIFIED).toList();
+        return verified.size() == payload.artifacts().size() ? verified : null;
+    }
+
+    /**
+     * {@code verified_solutions.verification_summary}: artifact verification 요약에 짝지은 검산의 문제 단위 값
+     * ({@code solution_check}: 번호·배지·전략·시도·일치 플래그·공개 범위)을 더한다. 단계는 {@code step_marks}에 둔다.
+     */
+    private static Map<String, Object> solutionSummary(Artifact artifact, CompletionExtension.SolutionCheck check) {
+        Map<String, Object> summary = new LinkedHashMap<>(artifact.verification().toMap());
+        if (check != null) {
+            summary.put("solution_check", check.summary());
+        }
+        return summary;
     }
 
     /** Brain {@code derive_plain_text}: page title과 block body(render)만, 빈 부분은 건너뛰고 두 줄바꿈으로 잇는다. */

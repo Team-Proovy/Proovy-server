@@ -1,0 +1,31 @@
+{
+  "contract_version": "brain-source-v1",
+  "run_id": "run-7",
+  "attempt": 1,
+  "fence_token": "fence-9f8c",
+  "source_event_id": "run-7:activity-9:r1:completed",
+  "occurred_at": "2026-10-01T09:00:02Z",
+  "type": "activity.completed",
+  "payload": {
+    "kind": "read_back",
+    "activity_id": "activity-9",
+    "problems": [
+      {
+        "problem_number": "15",
+        "question_text": "이차방정식 $x^2-5x+6=0$의 두 근의 합은?",
+        "choices": [
+          "$1$",
+          "$2$",
+          "$3$",
+          "$4$",
+          "$5$"
+        ],
+        "answer": {
+          "kind": "value",
+          "choice": 5,
+          "value": "DO-NOT-LEAK-5"
+        }
+      }
+    ]
+  }
+}

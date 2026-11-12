@@ -1,0 +1,367 @@
+{
+  "rationale": "정답 숨김(hide_answer)에서는 모든 단계가 withheld=true다.",
+  "violates": "S7",
+  "schema_rejects": true,
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "3569806c-f467-502d-b234-5724692cd1ea",
+        "noteId": "123",
+        "userMessageId": "948dd7ed-0739-5897-927f-5185542ded02",
+        "assistantMessageId": "a264627e-cd76-5aa0-80c5-e98598747cd5",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "label": "reading_back_problems"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "problems": [
+          {
+            "problemNumber": "15",
+            "questionText": "양수 $k$에 대하여 함수 $f(x)=x^3-3x^2+k$의 극솟값이 $1$일 때, $f(-1)$의 값은?",
+            "choices": [
+              "$-1$",
+              "$0$",
+              "$1$",
+              "$2$",
+              "$3$"
+            ]
+          }
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation"
+      },
+      "seq": 8
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "label": "verifying_steps",
+        "methodLabel": "단계별 함의 검사"
+      },
+      "seq": 9
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-7",
+        "status": "in_progress",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 2,
+          "total": 5
+        }
+      },
+      "seq": 10
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "occurredAt": "2026-10-17T09:00:10Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 5,
+          "total": 5
+        }
+      },
+      "seq": 11
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "seq": 12,
+      "occurredAt": "2026-10-17T09:00:11Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "a264627e-cd76-5aa0-80c5-e98598747cd5",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0,
+        "title": "오류 설명과 수정 방향"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "seq": 13,
+      "occurredAt": "2026-10-17T09:00:12Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "a264627e-cd76-5aa0-80c5-e98598747cd5",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d8ab420d-e5bb-533e-88d3-0ae12037c880",
+      "seq": 14,
+      "occurredAt": "2026-10-17T09:00:13Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "title": "오류 설명과 수정 방향",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "두 번째 단계의 변형이 틀렸다.",
+                  "kind": "check",
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "failed",
+                      "reason": "이 단계가 성립하지 않는다고 확인됐다"
+                    }
+                  ],
+                  "firstErrorStepId": "step-1",
+                  "quotedSpans": []
+                },
+                {
+                  "blockId": "block-2",
+                  "body": "양변에 3을 더해 정리한다.",
+                  "kind": "solution",
+                  "verification": "verified",
+                  "solutionId": "solution-4",
+                  "claimIds": [
+                    "claim-1"
+                  ],
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "verified",
+                      "anchor": {
+                        "start": 0,
+                        "end": 15
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "오류 설명과 수정 방향\n\n두 번째 단계의 변형이 틀렸다.\n\n양변에 3을 더해 정리한다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [
+          {
+            "solutionId": "solution-4",
+            "overallCoverage": "direct",
+            "claims": [
+              {
+                "claimId": "claim-1",
+                "coverage": "direct",
+                "methodLabel": "모든 단계를 실행 검사로 확인",
+                "unconfirmedSteps": []
+              }
+            ]
+          }
+        ],
+        "assistantMessageId": "a264627e-cd76-5aa0-80c5-e98598747cd5",
+        "responseKind": "standard",
+        "assuranceScope": "verified",
+        "solutionChecks": [
+          {
+            "problemNumber": "15",
+            "assuranceScope": "verified",
+            "strategy": "answer_cross_check",
+            "attempts": 1,
+            "crossCheck": {
+              "independentAnswerAgrees": true,
+              "stepCheckCompleted": true
+            },
+            "disclosure": "hide_answer",
+            "checkableSteps": [
+              {
+                "stepIndex": 0,
+                "stepKind": "define",
+                "checkResult": "not_checked",
+                "withheld": false,
+                "description": "조건을 정리한다.",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 1,
+                "stepKind": "given",
+                "checkResult": "not_checked",
+                "withheld": true,
+                "description": null,
+                "descriptionFormat": null,
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 2,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": true,
+                "description": null,
+                "descriptionFormat": null,
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 3,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": true,
+                "description": null,
+                "descriptionFormat": null,
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 4,
+                "stepKind": "argue",
+                "checkResult": "not_checked",
+                "withheld": true,
+                "description": null,
+                "descriptionFormat": null,
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 5,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": true,
+                "description": null,
+                "descriptionFormat": null,
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 6,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": true,
+                "description": null,
+                "descriptionFormat": null,
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 7,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": true,
+                "description": null,
+                "descriptionFormat": null,
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 8,
+                "stepKind": "choose",
+                "checkResult": "verified",
+                "withheld": true,
+                "description": null,
+                "descriptionFormat": null,
+                "sympyStatement": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

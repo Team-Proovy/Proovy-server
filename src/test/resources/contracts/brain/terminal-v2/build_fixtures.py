@@ -5,7 +5,15 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 
-from proovy_brain.contracts.publication import parse_publication_request
+from proovy_brain.contracts.browser_solution_check import (
+    ResponseKind,
+    completion_extension,
+)
+from proovy_brain.contracts.publication import (
+    DisclosureScope,
+    parse_publication_request,
+)
+from proovy_brain.contracts.solution_verification import parse_solution_verification
 from proovy_brain.contracts.source_progress import (
     SourceEventType,
     derive_source_event_id,
@@ -26,6 +34,7 @@ from proovy_brain.features.terminal_delivery.service import derive_terminal_even
 
 ROOT = Path(__file__).resolve().parent
 PUBLICATION = ROOT.parent / "publication-v1/valid"
+SOLUTIONS = ROOT.parent / "solution-verification-v1/valid"
 CONTEXT = {
     "contract_version": "brain-source-v1",
     "run_id": "run-7",
@@ -172,6 +181,63 @@ def completed_pair(name: str, request_raw: dict | None = None) -> dict:
         "source": to_source_event_payload(event),
         "server": server,
         "browser": to_browser_event_payload(event, **server),
+    }
+
+
+def with_extension(pair: dict, extension: dict) -> dict:
+    """``pair`` with the Phase 2 completion extension on its source payload."""
+
+    source = deepcopy(pair["source"])
+    source["payload"].update(extension)
+    event = parse_source_event(source)
+    return {
+        **pair,
+        "source": to_source_event_payload(event),
+        "browser": to_browser_event_payload(event, **pair["server"]),
+    }
+
+
+def phase2_pairs(review_pairs: dict[str, dict]) -> dict[str, dict]:
+    """terminal-fixtures-v2.1 (task 2.07): the snake_case source spelling of
+    response_kind/assurance_scope/solution_checks and its camelCase browser
+    form.  Solution checks come from 2.06 solution-verification-v1 records;
+    the assistant_response bodies are the existing pairs' (structure only)."""
+
+    def extension(kind, names=(), disclosure=DisclosureScope.FULL) -> dict:
+        records = [
+            parse_solution_verification(
+                json.loads((SOLUTIONS / f"{name}.json").read_text())
+            )
+            for name in names
+        ]
+        return completion_extension(kind, records, disclosure=disclosure).model_dump(
+            mode="json", exclude_none=True
+        )
+
+    return {
+        "phase2-verified": with_extension(
+            completed_pair("direct-verified"),
+            extension(ResponseKind.STANDARD, ["multiple-choice-verified"]),
+        ),
+        "phase2-mixed-scope": with_extension(
+            completed_pair("multi-page"),
+            extension(
+                ResponseKind.STANDARD,
+                ["short-answer-verified", "proof-not-applicable"],
+            ),
+        ),
+        "phase2-hide-answer": with_extension(
+            completed_pair("hide-answer"),
+            extension(
+                ResponseKind.STANDARD,
+                ["multiple-choice-verified"],
+                DisclosureScope.HIDE_ANSWER,
+            ),
+        ),
+        "phase2-re-explanation": with_extension(
+            review_pairs["explain-existing"],
+            extension(ResponseKind.RE_EXPLANATION),
+        ),
     }
 
 
@@ -538,6 +604,38 @@ def build() -> None:
     review_pairs = review_golden_pairs()
     for name, pair in review_pairs.items():
         save(ROOT / "pairs" / f"{name}.json", pair)
+    extension_pairs = phase2_pairs(review_pairs)
+    for name, pair in extension_pairs.items():
+        save(ROOT / "pairs" / f"{name}.json", pair)
+    phase2 = extension_pairs["phase2-verified"]
+    for name, change in (
+        ("extension-partial", lambda p: p.pop("response_kind")),
+        (
+            "extension-overstated-badge",
+            lambda p: p.update(assurance_scope="verified"),
+        ),
+    ):
+        source = deepcopy(phase2["source"])
+        browser = deepcopy(phase2["browser"])
+        change(source["payload"])
+        if name == "extension-partial":
+            browser["payload"].pop("responseKind")
+        else:
+            source["payload"]["solution_checks"][0]["assurance_scope"] = "unverified"
+            browser["payload"]["assuranceScope"] = "verified"
+            browser["payload"]["solutionChecks"][0]["assuranceScope"] = "unverified"
+        save(
+            ROOT / "invalid" / f"{name}.json",
+            {
+                "source": source,
+                "browser": browser,
+                "source_outcome": "reject",
+                "browser_outcome": "reject",
+                # Generated schemas carry no cross-field rule; Python and the
+                # browser-run-v1 CompletionExtension schema reject these.
+                "schema_outcome": "accept",
+            },
+        )
     existing = review_pairs["explain-existing"]
     for name in (
         "existing-phantom",
@@ -618,13 +716,13 @@ def build() -> None:
     save(
         ROOT / "manifest.json",
         {
-            "consumer_version": "terminal-fixtures-v2",
+            "consumer_version": "terminal-fixtures-v2.1",
             "source_contract_version": "brain-source-v1",
             "assistant_response_version": "assistant-response-v1",
             "artifact_version": "verified-solution-v1",
             "original_path": "tests/fixtures/contracts/terminal-v2",
             "change_reason": "Task 1.58: run.failed gains code invalid_attachment{reason} — attachment-inspection refusals (corrupt/forged/encrypted/oversized inputs) stop reporting budget_exceeded; failure_class=attachment, recoverable=false, reason is a fixed sub-code with a fixed safe message; Server consumes it for compensation and re-upload guidance.",
-            "consumption_policy": "Pin terminal-fixtures-v2 at original_path; changes require a new fixture version and reason.",
+            "consumption_policy": "Pin terminal-fixtures-v2.1 at original_path; changes require a new fixture version and reason.",
             "ownership": {
                 "brain": [
                     "snake_case source",
@@ -646,7 +744,13 @@ def build() -> None:
                 ],
             },
             "boundaries": "Fake consumer only; no product commit, replay, permissions or content grounding guarantee.",
-            "pairs": [*NAMES, "failure", "failure-invalid-attachment", *review_pairs],
+            "pairs": [
+                *NAMES,
+                "failure",
+                "failure-invalid-attachment",
+                *review_pairs,
+                *extension_pairs,
+            ],
             "change_history": [
                 {
                     "date": "2026-10-01",
@@ -660,6 +764,14 @@ def build() -> None:
                 {
                     "date": "2026-10-10",
                     "reason": "Task 1.58 terminal-fixtures-v2: run.failed adds FailureCode invalid_attachment, FailureClass attachment, and the reason sub-code (AttachmentFailureReason mirrors the file-inspection refusal reasons); invalid_attachment carries a per-reason fixed message and recoverable=false. Prior codes keep v1 meaning; completed/failure pairs are byte-identical.",
+                },
+                {
+                    "date": "2026-11-12",
+                    "reason": "Task 2.07 terminal-fixtures-v2.1 (additive, directory stays terminal-v2): the activity unions in source/browser schemas gain Activity Kind read_back (label reading_back_problems; completed carries problems[] of problemNumber/questionText/choices/figureDescription only — no step, formula, answer or problem id). Every existing pair, kind and field keeps its meaning; pairs are byte-identical.",
+                },
+                {
+                    "date": "2026-11-12",
+                    "reason": "Task 2.07 review (still terminal-fixtures-v2.1, unmerged): run.completed source payload gains the optional Phase 2 completion extension response_kind/assurance_scope/solution_checks (all three or none; snake_case source, camelCase browser = browser-run-v1 CompletionExtension; per-solution disclosure, withheld steps). New pairs phase2-*, negatives extension-*. Existing pairs are byte-identical.",
                 },
             ],
             "existing_reference_policy": "Caller supplies checked ID/version/claim coverage only, never the existing full answer. Public summaries select referenced claims inside assemble_response and retain disclosure checks. Storage/authentication/semantic claim matching are caller responsibilities, not implemented here.",

@@ -1,0 +1,433 @@
+{
+  "rationale": "strategy=none(증명·서술)은 항상 not_applicable.",
+  "violates": "S7",
+  "schema_rejects": true,
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "4ec07fe1-7ca3-51f7-9a27-98d83dfbeef7",
+        "noteId": "123",
+        "userMessageId": "0719ea99-c86a-5a39-a6b3-fb19a25bf757",
+        "assistantMessageId": "47f13728-26b9-5d2e-be8f-86ba0d9b0e11",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "label": "reading_back_problems"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "problems": [
+          {
+            "problemNumber": "22",
+            "questionText": "$\\displaystyle\\int_0^1 (2x+1)\\,dx$의 값을 구하시오.",
+            "choices": []
+          },
+          {
+            "problemNumber": "9",
+            "questionText": "부등식 $x^2-4x+3<0$의 해를 구간으로 나타내시오.",
+            "choices": [],
+            "figureDescription": "포물선 $y=x^2-4x+3$이 $x$축과 $x=1, 3$에서 만난다."
+          },
+          {
+            "questionText": "$2^{10}$의 값을 구하시오.",
+            "choices": []
+          },
+          {
+            "problemNumber": "3",
+            "questionText": "모든 자연수 $n$에 대하여 $n^3-n$이 $6$의 배수임을 증명하시오.",
+            "choices": []
+          }
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation"
+      },
+      "seq": 8
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "label": "verifying_steps",
+        "methodLabel": "단계별 함의 검사"
+      },
+      "seq": 9
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-7",
+        "status": "in_progress",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 2,
+          "total": 5
+        }
+      },
+      "seq": 10
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "occurredAt": "2026-10-17T09:00:10Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 5,
+          "total": 5
+        }
+      },
+      "seq": 11
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "seq": 12,
+      "occurredAt": "2026-10-17T09:00:11Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "47f13728-26b9-5d2e-be8f-86ba0d9b0e11",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0,
+        "title": "본문"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "seq": 13,
+      "occurredAt": "2026-10-17T09:00:12Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "47f13728-26b9-5d2e-be8f-86ba0d9b0e11",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "seq": 14,
+      "occurredAt": "2026-10-17T09:00:13Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "47f13728-26b9-5d2e-be8f-86ba0d9b0e11",
+        "responsePageId": "page-2",
+        "presentation": "thread_like",
+        "pageIndex": 1,
+        "title": "보조"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "seq": 15,
+      "occurredAt": "2026-10-17T09:00:14Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "47f13728-26b9-5d2e-be8f-86ba0d9b0e11",
+        "responsePageId": "page-2",
+        "pageIndex": 1
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "52d40fea-f642-5fec-8f7f-3f896590bdde",
+      "seq": 16,
+      "occurredAt": "2026-10-17T09:00:15Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "title": "본문",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "본문 풀이가 여기 있다.",
+                  "kind": "solution",
+                  "verification": "verified",
+                  "solutionId": "solution-7",
+                  "claimIds": [
+                    "claim-1"
+                  ],
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "verified"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "responsePageId": "page-2",
+              "presentation": "thread_like",
+              "title": "보조",
+              "resultBlocks": [
+                {
+                  "blockId": "block-2",
+                  "body": "스레드에 붙는 보조 설명이다.",
+                  "kind": "explanation",
+                  "claimIds": []
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "본문\n\n본문 풀이가 여기 있다.\n\n보조\n\n스레드에 붙는 보조 설명이다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [
+          {
+            "solutionId": "solution-7",
+            "overallCoverage": "direct",
+            "claims": [
+              {
+                "claimId": "claim-1",
+                "coverage": "direct",
+                "methodLabel": "모든 단계를 실행 검사로 확인",
+                "unconfirmedSteps": []
+              }
+            ]
+          }
+        ],
+        "assistantMessageId": "47f13728-26b9-5d2e-be8f-86ba0d9b0e11",
+        "responseKind": "standard",
+        "assuranceScope": "verified",
+        "solutionChecks": [
+          {
+            "problemNumber": "22",
+            "assuranceScope": "verified",
+            "strategy": "answer_cross_check",
+            "attempts": 2,
+            "crossCheck": {
+              "independentAnswerAgrees": true,
+              "stepCheckCompleted": true
+            },
+            "disclosure": "full",
+            "checkableSteps": [
+              {
+                "stepIndex": 0,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "부정적분은 $x^2+x$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "integrate(2*x+1, x)",
+                  "rhs": "x**2+x"
+                }
+              },
+              {
+                "stepIndex": 1,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "$[x^2+x]_0^1 = 2$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "integrate(2*x+1, (x, 0, 1))",
+                  "rhs": "2"
+                }
+              }
+            ]
+          },
+          {
+            "problemNumber": "9",
+            "assuranceScope": "verified",
+            "strategy": "answer_cross_check",
+            "attempts": 1,
+            "crossCheck": {
+              "independentAnswerAgrees": true,
+              "stepCheckCompleted": true
+            },
+            "disclosure": "full",
+            "checkableSteps": [
+              {
+                "stepIndex": 0,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "$x^2-4x+3=(x-1)(x-3)$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "x**2-4*x+3",
+                  "rhs": "(x-1)*(x-3)"
+                }
+              },
+              {
+                "stepIndex": 1,
+                "stepKind": "claim",
+                "checkResult": "unparseable",
+                "withheld": false,
+                "description": "두 근 사이에서 음수이므로 $1<x<3$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "solve_univariate_inequality(x**2-4*x+3 < 0, x, relational=False",
+                  "rhs": "Interval.open(1, 3)"
+                }
+              }
+            ]
+          },
+          {
+            "problemNumber": null,
+            "assuranceScope": "verified",
+            "strategy": "answer_cross_check",
+            "attempts": 1,
+            "crossCheck": {
+              "independentAnswerAgrees": true,
+              "stepCheckCompleted": true
+            },
+            "disclosure": "full",
+            "checkableSteps": [
+              {
+                "stepIndex": 0,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "`x = 4` 를 대입하면 성립한다",
+                "descriptionFormat": "plain_text",
+                "sympyStatement": {
+                  "lhs": "2**10",
+                  "rhs": "1024"
+                }
+              }
+            ]
+          },
+          {
+            "problemNumber": "3",
+            "assuranceScope": "verified",
+            "strategy": "none",
+            "attempts": 1,
+            "crossCheck": null,
+            "disclosure": "full",
+            "checkableSteps": [
+              {
+                "stepIndex": 0,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "$n^3-n=(n-1)n(n+1)$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "n**3-n",
+                  "rhs": "(n-1)*n*(n+1)"
+                }
+              },
+              {
+                "stepIndex": 1,
+                "stepKind": "argue",
+                "checkResult": "not_checked",
+                "withheld": false,
+                "description": "연속한 세 정수에는 $2$의 배수와 $3$의 배수가 하나 이상 있다.",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,298 @@
+{
+  "rationale": "[v1.1] 증명 답(strategy=none) → assuranceScope=not_applicable, crossCheck=null.",
+  "finalStatus": "COMPLETED",
+  "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "bf985668-5bf0-5c52-9cf0-476b0623ce63",
+        "noteId": "123",
+        "userMessageId": "95491554-1868-528e-8a82-c79a460eeec3",
+        "assistantMessageId": "d863f8ea-10c0-51f2-99f6-aa4a33214642",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "label": "reading_back_problems"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "problems": [
+          {
+            "problemNumber": "3",
+            "questionText": "모든 자연수 $n$에 대하여 $n^3-n$이 $6$의 배수임을 증명하시오.",
+            "choices": []
+          }
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation"
+      },
+      "seq": 8
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "label": "verifying_steps",
+        "methodLabel": "단계별 함의 검사"
+      },
+      "seq": 9
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-7",
+        "status": "in_progress",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 2,
+          "total": 5
+        }
+      },
+      "seq": 10
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "occurredAt": "2026-10-17T09:00:10Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 5,
+          "total": 5
+        }
+      },
+      "seq": 11
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "seq": 12,
+      "occurredAt": "2026-10-17T09:00:11Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "d863f8ea-10c0-51f2-99f6-aa4a33214642",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "seq": 13,
+      "occurredAt": "2026-10-17T09:00:12Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "d863f8ea-10c0-51f2-99f6-aa4a33214642",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d70ecce4-332a-5034-ac2c-4fc8ef45c345",
+      "seq": 14,
+      "occurredAt": "2026-10-17T09:00:13Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다.",
+                  "kind": "solution",
+                  "verification": "partially_verified",
+                  "solutionId": "solution-2",
+                  "claimIds": [
+                    "claim-1"
+                  ],
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "verified",
+                      "anchor": {
+                        "start": 0,
+                        "end": 13
+                      }
+                    },
+                    {
+                      "stepId": "step-2",
+                      "status": "unconfirmed",
+                      "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다",
+                      "anchor": {
+                        "start": 14,
+                        "end": 24
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [
+          {
+            "solutionId": "solution-2",
+            "overallCoverage": "supporting",
+            "claims": [
+              {
+                "claimId": "claim-1",
+                "coverage": "supporting",
+                "methodLabel": "일부 단계를 논리 수사 검토로 확인",
+                "unconfirmedSteps": [
+                  {
+                    "stepId": "step-2",
+                    "reason": "실행 검사 대상이 아닌 논리 수사 단계로 확인됐다"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "assistantMessageId": "d863f8ea-10c0-51f2-99f6-aa4a33214642",
+        "responseKind": "standard",
+        "assuranceScope": "not_applicable",
+        "solutionChecks": [
+          {
+            "problemNumber": "3",
+            "assuranceScope": "not_applicable",
+            "strategy": "none",
+            "attempts": 1,
+            "crossCheck": null,
+            "disclosure": "full",
+            "checkableSteps": [
+              {
+                "stepIndex": 0,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "$n^3-n=(n-1)n(n+1)$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "n**3-n",
+                  "rhs": "(n-1)*n*(n+1)"
+                }
+              },
+              {
+                "stepIndex": 1,
+                "stepKind": "argue",
+                "checkResult": "not_checked",
+                "withheld": false,
+                "description": "연속한 세 정수에는 $2$의 배수와 $3$의 배수가 하나 이상 있다.",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": null
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"bf985668-5bf0-5c52-9cf0-476b0623ce63\",\"noteId\":\"123\",\"userMessageId\":\"95491554-1868-528e-8a82-c79a460eeec3\",\"assistantMessageId\":\"d863f8ea-10c0-51f2-99f6-aa4a33214642\",\"status\":\"PENDING\",\"requestedTasks\":[\"solve\"],\"requestedOutputs\":[\"text\"]}}\n\nevent: activity.started\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-9\",\"kind\":\"read_back\",\"label\":\"reading_back_problems\"},\"seq\":2}\n\nevent: activity.completed\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:3\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:02Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-9\",\"kind\":\"read_back\",\"problems\":[{\"problemNumber\":\"3\",\"questionText\":\"모든 자연수 $n$에 대하여 $n^3-n$이 $6$의 배수임을 증명하시오.\",\"choices\":[]}]},\"seq\":3}\n\nevent: activity.started\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:4\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:03Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-1\",\"responsePageId\":\"page-1\",\"kind\":\"input_analysis\",\"label\":\"analyzing_input\"},\"seq\":4}\n\nevent: activity.updated\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:5\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:04Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-1\",\"status\":\"in_progress\",\"message\":\"입력을 읽고 있다\",\"kind\":\"input_analysis\"},\"seq\":5}\n\nevent: activity.completed\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:6\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:05Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-1\",\"kind\":\"input_analysis\"},\"seq\":6}\n\nevent: activity.started\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:7\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:06Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-2\",\"kind\":\"solution_generation\",\"label\":\"drafting_solution\"},\"seq\":7}\n\nevent: activity.completed\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:8\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:07Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-2\",\"kind\":\"solution_generation\"},\"seq\":8}\n\nevent: activity.started\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:9\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:08Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-7\",\"kind\":\"verification\",\"label\":\"verifying_steps\",\"methodLabel\":\"단계별 함의 검사\"},\"seq\":9}\n\nevent: activity.updated\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:10\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:09Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-7\",\"status\":\"in_progress\",\"kind\":\"verification\",\"methodLabel\":\"단계별 함의 검사\",\"progress\":{\"checked\":2,\"total\":5}},\"seq\":10}\n\nevent: activity.completed\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:11\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"occurredAt\":\"2026-10-17T09:00:10Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-7\",\"kind\":\"verification\",\"methodLabel\":\"단계별 함의 검사\",\"progress\":{\"checked\":5,\"total\":5}},\"seq\":11}\n\nevent: response.page.started\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:12\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"seq\":12,\"occurredAt\":\"2026-10-17T09:00:11Z\",\"type\":\"response.page.started\",\"payload\":{\"assistantMessageId\":\"d863f8ea-10c0-51f2-99f6-aa4a33214642\",\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"pageIndex\":0}}\n\nevent: response.page.completed\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:13\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"seq\":13,\"occurredAt\":\"2026-10-17T09:00:12Z\",\"type\":\"response.page.completed\",\"payload\":{\"assistantMessageId\":\"d863f8ea-10c0-51f2-99f6-aa4a33214642\",\"responsePageId\":\"page-1\",\"pageIndex\":0}}\n\nevent: run.completed\nid: d70ecce4-332a-5034-ac2c-4fc8ef45c345:14\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d70ecce4-332a-5034-ac2c-4fc8ef45c345\",\"seq\":14,\"occurredAt\":\"2026-10-17T09:00:13Z\",\"type\":\"run.completed\",\"payload\":{\"responseDisposition\":\"substantive\",\"assistantResponse\":{\"responsePages\":[{\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"resultBlocks\":[{\"blockId\":\"block-1\",\"body\":\"√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다.\",\"kind\":\"solution\",\"verification\":\"partially_verified\",\"solutionId\":\"solution-2\",\"claimIds\":[\"claim-1\"],\"stepMarks\":[{\"stepId\":\"step-1\",\"status\":\"verified\",\"anchor\":{\"start\":0,\"end\":13}},{\"stepId\":\"step-2\",\"status\":\"unconfirmed\",\"reason\":\"실행 검사 대상이 아닌 논리 수사 단계로 확인됐다\",\"anchor\":{\"start\":14,\"end\":24}}]}]}],\"sourceReferences\":[],\"plainText\":\"√2=p/q라 가정한다. 대입하면 모순이다. 따라서 √2는 무리수이다.\"},\"model\":\"fake/main-model\",\"tier\":\"main\",\"verificationSummary\":[{\"solutionId\":\"solution-2\",\"overallCoverage\":\"supporting\",\"claims\":[{\"claimId\":\"claim-1\",\"coverage\":\"supporting\",\"methodLabel\":\"일부 단계를 논리 수사 검토로 확인\",\"unconfirmedSteps\":[{\"stepId\":\"step-2\",\"reason\":\"실행 검사 대상이 아닌 논리 수사 단계로 확인됐다\"}]}]}],\"assistantMessageId\":\"d863f8ea-10c0-51f2-99f6-aa4a33214642\",\"responseKind\":\"standard\",\"assuranceScope\":\"not_applicable\",\"solutionChecks\":[{\"problemNumber\":\"3\",\"assuranceScope\":\"not_applicable\",\"strategy\":\"none\",\"attempts\":1,\"crossCheck\":null,\"disclosure\":\"full\",\"checkableSteps\":[{\"stepIndex\":0,\"stepKind\":\"claim\",\"checkResult\":\"verified\",\"withheld\":false,\"description\":\"$n^3-n=(n-1)n(n+1)$\",\"descriptionFormat\":\"safe_markdown\",\"sympyStatement\":{\"lhs\":\"n**3-n\",\"rhs\":\"(n-1)*n*(n+1)\"}},{\"stepIndex\":1,\"stepKind\":\"argue\",\"checkResult\":\"not_checked\",\"withheld\":false,\"description\":\"연속한 세 정수에는 $2$의 배수와 $3$의 배수가 하나 이상 있다.\",\"descriptionFormat\":\"safe_markdown\",\"sympyStatement\":null}]}]}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}
