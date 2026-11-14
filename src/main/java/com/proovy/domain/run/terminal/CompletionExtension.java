@@ -144,6 +144,38 @@ public record CompletionExtension(ResponseKind responseKind, AssuranceScope assu
     }
 
 
+    /**
+     * 공개 검산 텍스트 목록 — signed URL 등 금지 콘텐츠 검사 대상(R2-M3).
+     * {@code problem_number}, {@code description}(safe_markdown·plain_text 공통), {@code sympy_statement} 내 문자열을 포함한다.
+     */
+    List<String> texts() {
+        List<String> out = new java.util.ArrayList<>();
+        for (SolutionCheck check : solutionChecks) {
+            if (check.problemNumber() != null) {
+                out.add(check.problemNumber());
+            }
+            for (Step step : check.steps()) {
+                if (step.description() != null) {
+                    out.add(step.description());
+                }
+                if (step.statement() != null) {
+                    step.statement().values().forEach(value -> collectStrings(value, out));
+                }
+            }
+        }
+        return out;
+    }
+
+    private static void collectStrings(Object value, List<String> out) {
+        if (value instanceof String s) {
+            out.add(s);
+        } else if (value instanceof Map<?, ?> map) {
+            map.values().forEach(nested -> collectStrings(nested, out));
+        } else if (value instanceof Iterable<?> iterable) {
+            iterable.forEach(nested -> collectStrings(nested, out));
+        }
+    }
+
     /** 저장 철자(source snake_case, null 값 key 생략). */
     public JsonNode sourceChecks() {
         ArrayNode out = JsonNodeFactory.instance.arrayNode();

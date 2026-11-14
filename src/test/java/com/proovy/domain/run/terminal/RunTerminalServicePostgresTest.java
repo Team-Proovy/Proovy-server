@@ -349,9 +349,9 @@ class RunTerminalServicePostgresTest {
     }
 
     @Test
-    @DisplayName("verified 검산은 짝지은 Verified Solution의 verification_summary.solution_check에 남고 step_marks는 chain mark 그대로다")
+    @DisplayName("verified_solutions는 chain step_marks·verification_summary를 유지하고 solution_check를 휴리스틱 부착하지 않으며 chat_messages.solution_checks에 검산을 보존한다")
     void verifiedChecksAreKeptOnSolutionRows() {
-        for (String name : List.of("phase2-verified", "phase2-hide-answer")) {
+        for (String name : List.of("phase2-verified", "phase2-hide-answer", "phase2-mixed-scope")) {
             JsonNode source = pair(name).get("source");
             Run run = newRun(source, RunOptions.defaults());
             service.settle(event(bind(source, run)));
@@ -362,10 +362,72 @@ class RunTerminalServicePostgresTest {
             assertThat(normalize(readJson((String) row.get("marks")))).as(name)
                     .isEqualTo(normalize(source.at("/payload/verified_solutions/0/step_marks")));
             JsonNode summary = readJson((String) row.get("summary"));
-            assertThat(normalize(summary.get("solution_check"))).as(name)
-                    .isEqualTo(normalize(source.at("/payload/solution_checks/0")));
+            assertThat(summary.has("solution_check")).as(name).isFalse();
             assertThat(summary.get("overall_coverage").asText()).isEqualTo("direct");
+
+            String savedChecks = jdbc.queryForObject(
+                    "SELECT solution_checks::text FROM chat_messages WHERE message_id = ?",
+                    String.class, run.assistantMessageId());
+            assertThat(normalize(readJson(savedChecks))).as(name)
+                    .isEqualTo(normalize(source.at("/payload/solution_checks")));
         }
+    }
+
+    @Test
+    @DisplayName("DB 정합: 혼합 검산(verified+unverified)은 1건만 영구 저장되고 단일 unverified artifact·signed URL 단계 설명은 REJECTED 되어 row가 남지 않는다")
+    void mixedAndRejectedExtensionCasesInPostgres() {
+        ObjectNode base = (ObjectNode) pair("phase2-verified").get("source").deepCopy();
+        ObjectNode unverifiedCheck = (ObjectNode) base.at("/payload/solution_checks/0").deepCopy();
+        unverifiedCheck.put("problem_number", "16");
+        unverifiedCheck.put("assurance_scope", "unverified");
+        ((ObjectNode) unverifiedCheck.get("cross_check")).put("independent_answer_agrees", false);
+        ArrayNode steps = unverifiedCheck.putArray("checkable_steps");
+        ObjectNode claimStep = steps.addObject()
+                .put("step_index", 0)
+                .put("step_kind", "claim")
+                .put("check_result", "falsified")
+                .put("withheld", false)
+                .put("description", "$x = 1$")
+                .put("description_format", "safe_markdown");
+        claimStep.putObject("sympy_statement").put("lhs", "x").put("rhs", "1");
+
+        // 1) 혼합 응답(verified 1 + unverified 1 + artifact 1) -> COMMITTED, message는 unverified + 2 checks, solution은 1 row (no solution_check)
+        ObjectNode mixed = base.deepCopy();
+        ((ObjectNode) mixed.get("payload")).put("assurance_scope", "unverified");
+        ((ArrayNode) mixed.at("/payload/solution_checks")).add(unverifiedCheck.deepCopy());
+        Run mixedRun = newRun(mixed, RunOptions.defaults());
+        assertThat(service.settle(event(bind(mixed, mixedRun))).outcome()).isEqualTo(Outcome.COMMITTED);
+        assertThat(jdbc.queryForObject("SELECT assurance_scope FROM chat_messages WHERE message_id = ?",
+                String.class, mixedRun.assistantMessageId())).isEqualTo("unverified");
+        assertThat(readJson(jdbc.queryForObject("SELECT solution_checks::text FROM chat_messages WHERE message_id = ?",
+                String.class, mixedRun.assistantMessageId()))).hasSize(2);
+        assertThat(count("SELECT count(*) FROM verified_solutions WHERE source_run_id = ?", mixedRun.runId())).isEqualTo(1);
+        JsonNode mixedSummary = readJson(jdbc.queryForObject(
+                "SELECT verification_summary::text FROM verified_solutions WHERE source_run_id = ?",
+                String.class, mixedRun.runId()));
+        assertThat(mixedSummary.has("solution_check")).isFalse();
+
+        // 2) 단일 unverified + artifact 1 -> REJECTED(VERIFICATION_INTEGRITY), verified_solutions 0건
+        ObjectNode singleUnverified = base.deepCopy();
+        ((ObjectNode) singleUnverified.get("payload")).put("assurance_scope", "unverified")
+                .putArray("solution_checks").add(unverifiedCheck.deepCopy());
+        Run rejectedUnverified = newRun(singleUnverified, RunOptions.defaults());
+        TerminalSettlement unverifiedSettlement = service.settle(event(bind(singleUnverified, rejectedUnverified)));
+        assertThat(unverifiedSettlement.outcome()).isEqualTo(Outcome.REJECTED);
+        assertThat(unverifiedSettlement.rejection()).isEqualTo(TerminalRejectionReason.VERIFICATION_INTEGRITY);
+        assertThat(count("SELECT count(*) FROM verified_solutions WHERE source_run_id = ?",
+                rejectedUnverified.runId())).isZero();
+
+        // 3) 단계 설명 signed URL -> REJECTED(FORBIDDEN_CONTENT), verified_solutions 0건
+        ObjectNode signedDesc = base.deepCopy();
+        ((ObjectNode) signedDesc.at("/payload/solution_checks/0/checkable_steps/0"))
+                .put("description", "참고 [링크](https://storage.example.com/p?X-Goog-Signature=synthetic-sig)");
+        Run rejectedSigned = newRun(signedDesc, RunOptions.defaults());
+        TerminalSettlement signedSettlement = service.settle(event(bind(signedDesc, rejectedSigned)));
+        assertThat(signedSettlement.outcome()).isEqualTo(Outcome.REJECTED);
+        assertThat(signedSettlement.rejection()).isEqualTo(TerminalRejectionReason.FORBIDDEN_CONTENT);
+        assertThat(count("SELECT count(*) FROM verified_solutions WHERE source_run_id = ?",
+                rejectedSigned.runId())).isZero();
     }
 
     @Test

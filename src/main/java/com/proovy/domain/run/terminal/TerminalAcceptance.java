@@ -205,10 +205,11 @@ public final class TerminalAcceptance {
     }
 
     /**
-     * 확장과 artifact·참조의 정합. 앞의 규칙은 Brain {@code validate_completed}와 같고, 뒤 둘은 Server가 더 엄격하다(2.15 리뷰 m1).
+     * 확장과 artifact·참조의 정합. 앞의 규칙은 Brain {@code validate_completed}와 같고, 뒤 셋은 Server가 더 엄격하다(2.15 리뷰 m1, R2-M2).
      * <ul>
      *   <li>안내 응답에는 문제별 검산이 없다.</li>
      *   <li>재설명은 새 Verified Solution을 만들지 않는다(ADR 0017 §6, 작업 문서).</li>
+     *   <li>새 Verified Solution은 verified 검산 수를 넘을 수 없다 — unverified·not_applicable·빈 검산의 영구 저장 금지.</li>
      *   <li>verified 검산은 뒷받침하는 풀이(새 artifact 또는 기존 참조) 수를 넘을 수 없다 — 근거 없는 "검증됨" 배지 금지.</li>
      * </ul>
      */
@@ -226,6 +227,9 @@ public final class TerminalAcceptance {
         }
         long verified = extension.solutionChecks().stream()
                 .filter(check -> check.scope() == CompletionExtension.AssuranceScope.VERIFIED).count();
+        if (payload.artifacts().size() > verified) {
+            throw verification("payload.verified_solutions", "a new Verified Solution requires a verified solution check");
+        }
         if (verified > payload.artifacts().size() + payload.existingOrEmpty().size()) {
             throw verification("payload.solution_checks", "a verified check needs a Verified Solution behind it");
         }
@@ -351,6 +355,9 @@ public final class TerminalAcceptance {
         }
         payload.labels().forEach(label -> texts.add(label.label()));
         payload.artifacts().forEach(artifact -> texts.addAll(artifact.texts()));
+        if (payload.extension() != null) {
+            texts.addAll(payload.extension().texts());
+        }
         for (String text : texts) {
             if (SIGNED_URL.matcher(text).find()) {
                 throw new TerminalRejection(TerminalRejectionReason.FORBIDDEN_CONTENT, "payload",
@@ -483,10 +490,10 @@ public final class TerminalAcceptance {
         String plainText = plainText(response);
         String contentSha256 = sha256(TerminalModel.map("response_pages", pages, "source_references", references,
                 "plain_text", plainText));
+        // 2.07 source wire에는 solution_checks와 verified_solutions를 잇는 solution_id 키가 없어 휴리스틱 짝짓기를 하지 않는다(R2-M1).
+        // 검산 전체는 chat_messages.solution_checks에 남고, Brain 계약에 solution_id가 추가되면 명시 키로 연결한다(2.12/2.18).
         List<VerifiedSolutionInput> solutions = new ArrayList<>();
-        CompletionExtension.SolutionCheck paired = pairedCheck(payload);
         for (Artifact artifact : payload.artifacts()) {
-            CompletionExtension.SolutionCheck check = paired;
             Map<String, SummaryCoverage> coverage = new HashMap<>();
             artifact.verification().claims().forEach(claim -> coverage.put(claim.claimId(), claim.coverage()));
             List<Object> claims = artifact.claims().stream().<Object>map(claim -> TerminalModel.map(
@@ -497,7 +504,7 @@ public final class TerminalAcceptance {
                     tree(artifact.conditions().stream().map(TerminalModel.Condition::toMap).toList()),
                     artifact.solutionText(), tree(claims),
                     tree(artifact.marks().stream().map(Mark::toMap).toList()),
-                    tree(solutionSummary(artifact, check)), TerminalModel.VERIFICATION_VERSION,
+                    tree(artifact.verification().toMap()), TerminalModel.VERIFICATION_VERSION,
                     tree(artifact.sourceRefIds()), artifact.verification().overall(), sha256(artifact.toMap()),
                     revisions.get(artifact.solutionId())));
         }
@@ -510,36 +517,6 @@ public final class TerminalAcceptance {
                 payload.tier().name().toLowerCase(Locale.ROOT),
                 new TerminalRecheck(recheckAssets, referenced, List.copyOf(revisions.values())),
                 payload.extension());
-    }
-
-    /**
-     * 새 Verified Solution과 짝지을 verified 검산 하나(task 2.15). 2.07 wire에는 검산과 solution_id를 잇는 키가 없으므로
-     * 모호하지 않을 때만 짝짓는다: 새 artifact 1개, verified 검산 1개, 기존 풀이 참조 없음. 그 밖(여러 개·재표현 섞임·확장
-     * 없음)은 짝짓지 않는다 — 다른 문제의 검산이 영구 행에 잘못 붙는 것보다 비워 두는 쪽이 안전하다. 검산은 메시지
-     * {@code solution_checks}에 모두 남아 화면에는 영향이 없다. Brain이 terminal source 검산에 solution_id를 실으면(2.12
-     * 확인 필요) 그 키로 바꾼다.
-     */
-    private static CompletionExtension.SolutionCheck pairedCheck(Completed payload) {
-        if (payload.extension() == null || payload.artifacts().size() != 1 || !payload.existingOrEmpty().isEmpty()) {
-            return null;
-        }
-        List<CompletionExtension.SolutionCheck> verified = payload.extension().solutionChecks().stream()
-                .filter(check -> check.scope() == CompletionExtension.AssuranceScope.VERIFIED).toList();
-        return verified.size() == 1 ? verified.get(0) : null;
-    }
-
-    /**
-     * {@code verified_solutions.verification_summary}: artifact verification 요약에 짝지은 검산({@code solution_check})을 더한다.
-     * {@code step_marks}는 artifact chain step mark 그대로다(content_sha256·응답 block step_marks와 대응). 검산 단계는
-     * Brain이 보낸 공개 view라 {@code disclosure}가 적용되어 있다 — hide_answer면 단계 설명·수식이 없고 hide_solution이면
-     * 단계가 없다. 그래서 {@code disclosure}를 함께 두고, 원문 단계가 필요하면 Brain 내부 필드가 필요하다(확인 필요).
-     */
-    private static Map<String, Object> solutionSummary(Artifact artifact, CompletionExtension.SolutionCheck check) {
-        Map<String, Object> summary = new LinkedHashMap<>(artifact.verification().toMap());
-        if (check != null) {
-            summary.put("solution_check", check.toSource());
-        }
-        return summary;
     }
 
     /** Brain {@code derive_plain_text}: page title과 block body(render)만, 빈 부분은 건너뛰고 두 줄바꿈으로 잇는다. */
