@@ -41,6 +41,9 @@ commit에서 복사한 파일만 둔다(단계 2 합의 D9 — 복사본 + 해�
    consumer_version이 바뀌었는데 Java 쪽을 고치지 않았으면 `BrainContractMirrorTest`가 실패하도록
    `BrowserRunContractTestSupport.EXPECTED_CONSUMER_VERSION`도 함께 올린다.
 
+Phase 2 확장(2.07 → 2.15)처럼 browser-run·terminal-v2·activity-v1이 함께 바뀌면 세 디렉터리를 같은 commit에서 한 번에
+복사하고 `PIN.json`·`PIN-terminal-v2.json`·`PIN-activity-v1.json`을 함께 갱신한다(proovy-brain `docs/plan/28` pin 가이드).
+
 ## internal-run-v1 (task 1.76)
 
 - pin: `PIN-internal-run-v1.json` (commit·`consumer_version` `internal-run-fixtures-v2`·manifest sha256).

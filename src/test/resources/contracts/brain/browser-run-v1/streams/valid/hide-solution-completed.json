@@ -1,0 +1,281 @@
+{
+  "rationale": "[v1.1] 풀이 숨김 요청(disclosure=hide_solution) → solutionChecks에 배지·crossCheck만 남고 checkableSteps=[]. assistantResponse 본문은 terminal-v2 hide-answer 재사용(예시).",
+  "finalStatus": "COMPLETED",
+  "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "1dcf57b0-f7b3-5b54-83fd-51df735da415",
+        "noteId": "123",
+        "userMessageId": "8f5c5c81-7809-5cb6-b73e-6eb12bb00e75",
+        "assistantMessageId": "a4daa5cb-b3f7-5265-bf70-d9778d08cb06",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "label": "reading_back_problems"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "problems": [
+          {
+            "problemNumber": "22",
+            "questionText": "$\\displaystyle\\int_0^1 (2x+1)\\,dx$의 값을 구하시오.",
+            "choices": []
+          }
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation"
+      },
+      "seq": 8
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "label": "verifying_steps",
+        "methodLabel": "단계별 함의 검사"
+      },
+      "seq": 9
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-7",
+        "status": "in_progress",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 2,
+          "total": 5
+        }
+      },
+      "seq": 10
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "occurredAt": "2026-10-17T09:00:10Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 5,
+          "total": 5
+        }
+      },
+      "seq": 11
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "seq": 12,
+      "occurredAt": "2026-10-17T09:00:11Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "a4daa5cb-b3f7-5265-bf70-d9778d08cb06",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0,
+        "title": "오류 설명과 수정 방향"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "seq": 13,
+      "occurredAt": "2026-10-17T09:00:12Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "a4daa5cb-b3f7-5265-bf70-d9778d08cb06",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "4c1a7312-d7ad-526e-9fca-80e27436a647",
+      "seq": 14,
+      "occurredAt": "2026-10-17T09:00:13Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "title": "오류 설명과 수정 방향",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "두 번째 단계의 변형이 틀렸다.",
+                  "kind": "check",
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "failed",
+                      "reason": "이 단계가 성립하지 않는다고 확인됐다"
+                    }
+                  ],
+                  "firstErrorStepId": "step-1",
+                  "quotedSpans": []
+                },
+                {
+                  "blockId": "block-2",
+                  "body": "양변에 3을 더해 정리한다.",
+                  "kind": "solution",
+                  "verification": "verified",
+                  "solutionId": "solution-4",
+                  "claimIds": [
+                    "claim-1"
+                  ],
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "verified",
+                      "anchor": {
+                        "start": 0,
+                        "end": 15
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "오류 설명과 수정 방향\n\n두 번째 단계의 변형이 틀렸다.\n\n양변에 3을 더해 정리한다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [
+          {
+            "solutionId": "solution-4",
+            "overallCoverage": "direct",
+            "claims": [
+              {
+                "claimId": "claim-1",
+                "coverage": "direct",
+                "methodLabel": "모든 단계를 실행 검사로 확인",
+                "unconfirmedSteps": []
+              }
+            ]
+          }
+        ],
+        "assistantMessageId": "a4daa5cb-b3f7-5265-bf70-d9778d08cb06",
+        "responseKind": "standard",
+        "assuranceScope": "verified",
+        "solutionChecks": [
+          {
+            "problemNumber": "22",
+            "assuranceScope": "verified",
+            "strategy": "answer_cross_check",
+            "attempts": 2,
+            "crossCheck": {
+              "independentAnswerAgrees": true,
+              "stepCheckCompleted": true
+            },
+            "disclosure": "hide_solution",
+            "checkableSteps": []
+          }
+        ]
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"1dcf57b0-f7b3-5b54-83fd-51df735da415\",\"noteId\":\"123\",\"userMessageId\":\"8f5c5c81-7809-5cb6-b73e-6eb12bb00e75\",\"assistantMessageId\":\"a4daa5cb-b3f7-5265-bf70-d9778d08cb06\",\"status\":\"PENDING\",\"requestedTasks\":[\"solve\"],\"requestedOutputs\":[\"text\"]}}\n\nevent: activity.started\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-9\",\"kind\":\"read_back\",\"label\":\"reading_back_problems\"},\"seq\":2}\n\nevent: activity.completed\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:3\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:02Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-9\",\"kind\":\"read_back\",\"problems\":[{\"problemNumber\":\"22\",\"questionText\":\"$\\\\displaystyle\\\\int_0^1 (2x+1)\\\\,dx$의 값을 구하시오.\",\"choices\":[]}]},\"seq\":3}\n\nevent: activity.started\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:4\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:03Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-1\",\"responsePageId\":\"page-1\",\"kind\":\"input_analysis\",\"label\":\"analyzing_input\"},\"seq\":4}\n\nevent: activity.updated\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:5\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:04Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-1\",\"status\":\"in_progress\",\"message\":\"입력을 읽고 있다\",\"kind\":\"input_analysis\"},\"seq\":5}\n\nevent: activity.completed\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:6\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:05Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-1\",\"kind\":\"input_analysis\"},\"seq\":6}\n\nevent: activity.started\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:7\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:06Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-2\",\"kind\":\"solution_generation\",\"label\":\"drafting_solution\"},\"seq\":7}\n\nevent: activity.completed\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:8\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:07Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-2\",\"kind\":\"solution_generation\"},\"seq\":8}\n\nevent: activity.started\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:9\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:08Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-7\",\"kind\":\"verification\",\"label\":\"verifying_steps\",\"methodLabel\":\"단계별 함의 검사\"},\"seq\":9}\n\nevent: activity.updated\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:10\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:09Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-7\",\"status\":\"in_progress\",\"kind\":\"verification\",\"methodLabel\":\"단계별 함의 검사\",\"progress\":{\"checked\":2,\"total\":5}},\"seq\":10}\n\nevent: activity.completed\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:11\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"occurredAt\":\"2026-10-17T09:00:10Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-7\",\"kind\":\"verification\",\"methodLabel\":\"단계별 함의 검사\",\"progress\":{\"checked\":5,\"total\":5}},\"seq\":11}\n\nevent: response.page.started\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:12\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"seq\":12,\"occurredAt\":\"2026-10-17T09:00:11Z\",\"type\":\"response.page.started\",\"payload\":{\"assistantMessageId\":\"a4daa5cb-b3f7-5265-bf70-d9778d08cb06\",\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"pageIndex\":0,\"title\":\"오류 설명과 수정 방향\"}}\n\nevent: response.page.completed\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:13\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"seq\":13,\"occurredAt\":\"2026-10-17T09:00:12Z\",\"type\":\"response.page.completed\",\"payload\":{\"assistantMessageId\":\"a4daa5cb-b3f7-5265-bf70-d9778d08cb06\",\"responsePageId\":\"page-1\",\"pageIndex\":0}}\n\nevent: run.completed\nid: 4c1a7312-d7ad-526e-9fca-80e27436a647:14\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"4c1a7312-d7ad-526e-9fca-80e27436a647\",\"seq\":14,\"occurredAt\":\"2026-10-17T09:00:13Z\",\"type\":\"run.completed\",\"payload\":{\"responseDisposition\":\"substantive\",\"assistantResponse\":{\"responsePages\":[{\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"title\":\"오류 설명과 수정 방향\",\"resultBlocks\":[{\"blockId\":\"block-1\",\"body\":\"두 번째 단계의 변형이 틀렸다.\",\"kind\":\"check\",\"stepMarks\":[{\"stepId\":\"step-1\",\"status\":\"failed\",\"reason\":\"이 단계가 성립하지 않는다고 확인됐다\"}],\"firstErrorStepId\":\"step-1\",\"quotedSpans\":[]},{\"blockId\":\"block-2\",\"body\":\"양변에 3을 더해 정리한다.\",\"kind\":\"solution\",\"verification\":\"verified\",\"solutionId\":\"solution-4\",\"claimIds\":[\"claim-1\"],\"stepMarks\":[{\"stepId\":\"step-1\",\"status\":\"verified\",\"anchor\":{\"start\":0,\"end\":15}}]}]}],\"sourceReferences\":[],\"plainText\":\"오류 설명과 수정 방향\\n\\n두 번째 단계의 변형이 틀렸다.\\n\\n양변에 3을 더해 정리한다.\"},\"model\":\"fake/main-model\",\"tier\":\"main\",\"verificationSummary\":[{\"solutionId\":\"solution-4\",\"overallCoverage\":\"direct\",\"claims\":[{\"claimId\":\"claim-1\",\"coverage\":\"direct\",\"methodLabel\":\"모든 단계를 실행 검사로 확인\",\"unconfirmedSteps\":[]}]}],\"assistantMessageId\":\"a4daa5cb-b3f7-5265-bf70-d9778d08cb06\",\"responseKind\":\"standard\",\"assuranceScope\":\"verified\",\"solutionChecks\":[{\"problemNumber\":\"22\",\"assuranceScope\":\"verified\",\"strategy\":\"answer_cross_check\",\"attempts\":2,\"crossCheck\":{\"independentAnswerAgrees\":true,\"stepCheckCompleted\":true},\"disclosure\":\"hide_solution\",\"checkableSteps\":[]}]}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

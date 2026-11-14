@@ -45,6 +45,9 @@
             },
             {
               "$ref": "#/$defs/VerificationCanceled"
+            },
+            {
+              "$ref": "#/$defs/ReadBackCanceled"
             }
           ],
           "title": "Payload"
@@ -110,6 +113,9 @@
             },
             {
               "$ref": "#/$defs/VerificationCompleted"
+            },
+            {
+              "$ref": "#/$defs/ReadBackCompleted"
             }
           ],
           "title": "Payload"
@@ -175,6 +181,9 @@
             },
             {
               "$ref": "#/$defs/VerificationFailed"
+            },
+            {
+              "$ref": "#/$defs/ReadBackFailed"
             }
           ],
           "title": "Payload"
@@ -251,6 +260,9 @@
             },
             {
               "$ref": "#/$defs/VerificationStarted"
+            },
+            {
+              "$ref": "#/$defs/ReadBackStarted"
             }
           ],
           "title": "Payload"
@@ -326,6 +338,9 @@
             },
             {
               "$ref": "#/$defs/VerificationUpdated"
+            },
+            {
+              "$ref": "#/$defs/ReadBackUpdated"
             }
           ],
           "title": "Payload"
@@ -660,6 +675,16 @@
       "title": "AssistantResponseV1",
       "type": "object"
     },
+    "AssuranceScope": {
+      "description": "화면 배지 세 값: 검증됨 / 미검증 / 검증 대상 아님 (ADR 0017 §2).",
+      "enum": [
+        "verified",
+        "unverified",
+        "not_applicable"
+      ],
+      "title": "AssuranceScope",
+      "type": "string"
+    },
     "AttachmentFailureReason": {
       "description": "The public sub-code an ``invalid_attachment`` failure carries.\n\nThe literal set mirrors\n:class:`~proovy_brain.features.multimodal_input.validation.AttachmentRejectionReason`\nexactly — the same relationship ``RunCanceledPayload.cause`` keeps\nwith ``CancelCause`` — so every safe file-inspection refusal owns one\nwire spelling and one fixed message.  The wire enum is its own\ndeclaration, not an import: an internal rename or a new rejection\nreason can never silently change the published vocabulary; extending\nit is a deliberate, fixture-versioned contract change.",
       "enum": [
@@ -739,6 +764,72 @@
         "kind"
       ],
       "title": "CheckBlock",
+      "type": "object"
+    },
+    "CheckableStepView": {
+      "additionalProperties": true,
+      "description": "One Checkable Step as the screen sees it (no ``check_reason``).",
+      "properties": {
+        "stepIndex": {
+          "exclusiveMaximum": 80,
+          "minimum": 0,
+          "title": "Step Index",
+          "type": "integer"
+        },
+        "stepKind": {
+          "$ref": "#/$defs/StepKind"
+        },
+        "checkResult": {
+          "$ref": "#/$defs/StepCheckResult"
+        },
+        "withheld": {
+          "title": "Withheld",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 10000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "descriptionFormat": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DescriptionFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sympyStatement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SympyStatement"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "stepIndex",
+        "stepKind",
+        "checkResult",
+        "withheld"
+      ],
+      "title": "CheckableStepView",
       "type": "object"
     },
     "ClaimVerificationSummary": {
@@ -1050,6 +1141,44 @@
       ],
       "title": "CodeExecutionUpdated",
       "type": "object"
+    },
+    "CrossCheckView": {
+      "additionalProperties": true,
+      "description": "Agreement flags only — never the independent answer or its program.",
+      "properties": {
+        "independentAnswerAgrees": {
+          "title": "Independent Answer Agrees",
+          "type": "boolean"
+        },
+        "stepCheckCompleted": {
+          "title": "Step Check Completed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "independentAnswerAgrees",
+        "stepCheckCompleted"
+      ],
+      "title": "CrossCheckView",
+      "type": "object"
+    },
+    "DescriptionFormat": {
+      "enum": [
+        "safe_markdown",
+        "plain_text"
+      ],
+      "title": "DescriptionFormat",
+      "type": "string"
+    },
+    "DisclosureScope": {
+      "description": "The hiding policy the caller's disclosure judgment resolved to.",
+      "enum": [
+        "full",
+        "hide_answer",
+        "hide_solution"
+      ],
+      "title": "DisclosureScope",
+      "type": "string"
     },
     "ExplanationBlock": {
       "additionalProperties": true,
@@ -1688,6 +1817,282 @@
       "title": "QuotedSpan",
       "type": "object"
     },
+    "ReadBackCanceled": {
+      "additionalProperties": true,
+      "properties": {
+        "activityId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "read_back",
+          "default": "read_back",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activityId",
+        "kind"
+      ],
+      "title": "ReadBackCanceled",
+      "type": "object"
+    },
+    "ReadBackCompleted": {
+      "additionalProperties": true,
+      "description": "The read-back itself: every problem read, in reading order.",
+      "properties": {
+        "activityId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "read_back",
+          "default": "read_back",
+          "title": "Kind",
+          "type": "string"
+        },
+        "problems": {
+          "items": {
+            "$ref": "#/$defs/ReadBackProblem"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "activityId",
+        "problems",
+        "kind"
+      ],
+      "title": "ReadBackCompleted",
+      "type": "object"
+    },
+    "ReadBackFailed": {
+      "additionalProperties": true,
+      "properties": {
+        "activityId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "code": {
+          "$ref": "#/$defs/ActivityFailureCode"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "read_back",
+          "default": "read_back",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activityId",
+        "code",
+        "kind"
+      ],
+      "title": "ReadBackFailed",
+      "type": "object"
+    },
+    "ReadBackLabel": {
+      "enum": [
+        "reading_back_problems"
+      ],
+      "title": "ReadBackLabel",
+      "type": "string"
+    },
+    "ReadBackProblem": {
+      "additionalProperties": true,
+      "description": "What was read for one Extracted Problem — and nothing else.\n\nThe public subset of :class:`~.solution_verification.ExtractedProblem`\n(``docs/plan/27`` exposure policy: number, text, choices, figure\ndescription).  ``problem_id`` and ``answer_type`` stay internal, and no\nstep, formula or answer field exists: the model is closed, so a\npre-verification Candidate cannot ride along.",
+      "properties": {
+        "problemNumber": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Problem Number"
+        },
+        "questionText": {
+          "maxLength": 10000,
+          "minLength": 1,
+          "title": "Question Text",
+          "type": "string"
+        },
+        "choices": {
+          "default": [],
+          "items": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Choices",
+          "type": "array"
+        },
+        "figureDescription": {
+          "anyOf": [
+            {
+              "maxLength": 10000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Figure Description"
+        }
+      },
+      "required": [
+        "questionText"
+      ],
+      "title": "ReadBackProblem",
+      "type": "object"
+    },
+    "ReadBackStarted": {
+      "additionalProperties": true,
+      "properties": {
+        "activityId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "responsePageId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Page Id"
+        },
+        "kind": {
+          "const": "read_back",
+          "default": "read_back",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/ReadBackLabel"
+        }
+      },
+      "required": [
+        "activityId",
+        "label",
+        "kind"
+      ],
+      "title": "ReadBackStarted",
+      "type": "object"
+    },
+    "ReadBackUpdated": {
+      "additionalProperties": true,
+      "properties": {
+        "activityId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActivityStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "kind": {
+          "const": "read_back",
+          "default": "read_back",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "activityId",
+        "kind"
+      ],
+      "title": "ReadBackUpdated",
+      "type": "object"
+    },
     "ResponseDisposition": {
       "description": "Terminal response classification; the typed input 1.26 validates.",
       "enum": [
@@ -1696,6 +2101,15 @@
         "unsupported_only"
       ],
       "title": "ResponseDisposition",
+      "type": "string"
+    },
+    "ResponseKind": {
+      "description": "What kind of assistant response a completed run carries.",
+      "enum": [
+        "standard",
+        "re_explanation"
+      ],
+      "title": "ResponseKind",
       "type": "string"
     },
     "ResponsePage": {
@@ -1874,6 +2288,44 @@
           "title": "Verification Summary",
           "type": "array"
         },
+        "responseKind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "assuranceScope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssuranceScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "solutionChecks": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SolutionCheckView"
+              },
+              "maxItems": 20,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Solution Checks"
+        },
         "assistantMessageId": {
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
@@ -2038,6 +2490,69 @@
         "kind"
       ],
       "title": "SolutionBlock",
+      "type": "object"
+    },
+    "SolutionCheckView": {
+      "additionalProperties": true,
+      "description": "One verified solution's public check summary and steps.",
+      "properties": {
+        "problemNumber": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Problem Number"
+        },
+        "assuranceScope": {
+          "$ref": "#/$defs/AssuranceScope"
+        },
+        "strategy": {
+          "$ref": "#/$defs/VerificationStrategy"
+        },
+        "attempts": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "crossCheck": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CrossCheckView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "disclosure": {
+          "$ref": "#/$defs/DisclosureScope"
+        },
+        "checkableSteps": {
+          "items": {
+            "$ref": "#/$defs/CheckableStepView"
+          },
+          "maxItems": 80,
+          "title": "Checkable Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "assuranceScope",
+        "strategy",
+        "attempts",
+        "disclosure",
+        "checkableSteps"
+      ],
+      "title": "SolutionCheckView",
       "type": "object"
     },
     "SolutionGenerationCanceled": {
@@ -2327,6 +2842,30 @@
       "title": "SourceReference",
       "type": "object"
     },
+    "StepCheckResult": {
+      "description": "Deterministic checker outcome for one step (spec 04: ✓·✗·검산 안 됨·대상 아님).",
+      "enum": [
+        "verified",
+        "falsified",
+        "unparseable",
+        "not_checked"
+      ],
+      "title": "StepCheckResult",
+      "type": "string"
+    },
+    "StepKind": {
+      "description": "Checkable Step kinds the spike checker understands (``evals/core_v2``).\n\nADR 0017 §3's draft kinds map onto these: 정의 → ``define``; 조건 등록 →\n``given``; 식 변형·방정식 풀이·값 계산·부등식/구간 판정 → ``claim``\n(``lhs`` == ``rhs``); 경우 나눔 → ``case``; 보기 선택 → ``choose``;\n수식으로 쓸 수 없는 논리·전략 → ``argue``.",
+      "enum": [
+        "define",
+        "given",
+        "claim",
+        "case",
+        "choose",
+        "argue"
+      ],
+      "title": "StepKind",
+      "type": "string"
+    },
     "StepMark": {
       "additionalProperties": true,
       "description": "One Solution Step's public status mark on a block.\n\n``anchor`` locates the step inside this block's public body; it is absent\nwhen the step's span is not publicly shown, so a mark can never point at\nhidden content.  ``reason`` is a safe, bounded explanation — required for\n``unconfirmed`` so an unchecked step always says why.",
@@ -2413,6 +2952,113 @@
       ],
       "title": "SummaryCoverage",
       "type": "string"
+    },
+    "SympyStatement": {
+      "additionalProperties": true,
+      "description": "The SymPy side of a step; which fields matter depends on the step kind.\n\n``define``: ``name``+``value``; ``given``: ``cond``; ``case``: ``cond``\n(+ optional ``covers``); ``claim``: ``lhs``+``rhs`` (+ optional ``name``\nto bind the right side); ``choose``: ``value`` (+ ``choice``).  Use\n:func:`checkable_step_from_model` to build one from model output.",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "cond": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cond"
+        },
+        "covers": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Covers"
+        },
+        "lhs": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lhs"
+        },
+        "rhs": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rhs"
+        },
+        "choice": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Choice"
+        }
+      },
+      "title": "SympyStatement",
+      "type": "object",
+      "required": []
     },
     "TextAnchor": {
       "additionalProperties": true,
@@ -2663,6 +3309,15 @@
       ],
       "title": "VerificationStarted",
       "type": "object"
+    },
+    "VerificationStrategy": {
+      "description": "How verification was attempted.  New strategies are additive values.",
+      "enum": [
+        "answer_cross_check",
+        "none"
+      ],
+      "title": "VerificationStrategy",
+      "type": "string"
     },
     "VerificationUpdated": {
       "additionalProperties": true,

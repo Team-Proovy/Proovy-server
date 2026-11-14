@@ -25,7 +25,7 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 public final class BrowserRunContractTestSupport {
 
     /** Java 쪽이 맞춰 둔 consumer_version. 사본을 새 version으로 갱신하면 함께 올린다. */
-    static final String EXPECTED_CONSUMER_VERSION = "browser-run-fixtures-v1";
+    static final String EXPECTED_CONSUMER_VERSION = "browser-run-fixtures-v1.1";
     static final String SCHEMA_BASE = "https://proovy.invalid/contracts/";
     static final String SCHEMA_ID = SCHEMA_BASE + "browser-run-v1/schemas/browser-run.schema.json";
 

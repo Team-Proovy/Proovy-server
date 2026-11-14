@@ -160,14 +160,16 @@ public class RunReadService {
     private record MessageRow(UUID messageId, MessageRole role, ConversationMessageStatus status, Instant createdAt,
                               JsonNode userInput, JsonNode responsePages, JsonNode sourceReferences, String plainText,
                               String contentSha256, JsonNode verificationSummary, UUID runId, JsonNode viewerContext,
-                              String clarificationReason, String cancelCause) {
+                              String clarificationReason, String cancelCause, String responseKind,
+                              String assuranceScope, JsonNode solutionChecks) {
     }
 
     private List<MessageRow> messages(long noteId, UUID before, int limit) {
         String select = """
                 SELECT m.message_id, m.role, m.status, m.created_at, m.user_input::text, m.response_pages::text,
                        m.source_references::text, m.plain_text, m.content_sha256, m.verification_summary::text,
-                       r.run_id, (r.request_snapshot -> 'viewer_context')::text, r.clarification_reason, r.cancel_cause
+                       r.run_id, (r.request_snapshot -> 'viewer_context')::text, r.clarification_reason, r.cancel_cause,
+                       m.response_kind, m.assurance_scope, m.solution_checks::text
                 FROM chat_messages m
                 JOIN ai_runs r ON r.note_id = m.note_id
                      AND (r.user_message_id = m.message_id OR r.assistant_message_id = m.message_id)
@@ -192,7 +194,7 @@ public class RunReadService {
                 ConversationMessageStatus.valueOf(rs.getString(3)), instant(rs, 4), json(rs.getString(5)),
                 json(rs.getString(6)), json(rs.getString(7)), rs.getString(8), rs.getString(9),
                 json(rs.getString(10)), rs.getObject(11, UUID.class), json(rs.getString(12)), rs.getString(13),
-                rs.getString(14));
+                rs.getString(14), rs.getString(15), rs.getString(16), json(rs.getString(17)));
     }
 
     private List<ConversationMessage> render(long noteId, List<MessageRow> page) {
@@ -251,21 +253,21 @@ public class RunReadService {
                         new TerminalReplay.CompletedMessage(message.messageId(), message.responsePages(),
                                 message.sourceReferences(), message.plainText(), message.contentSha256(),
                                 message.verificationSummary() == null ? JsonNodeFactory.instance.arrayNode()
-                                        : message.verificationSummary()), available);
+                                        : message.verificationSummary(), message.responseKind(),
+                                message.assuranceScope(), message.solutionChecks()), available);
                 List<JsonNode> summary = new ArrayList<>();
                 payload.get("verificationSummary").forEach(summary::add);
                 yield new AssistantMessageContent(payload.get("responseDisposition").asText(),
                         textOrNull(payload, "clarificationReason"), payload.get("assistantResponse"), summary, null,
-                        null);
+                        null, textOrNull(payload, "responseKind"), textOrNull(payload, "assuranceScope"), payload.get("solutionChecks"));
             }
             case FAILED -> {
                 JsonNode failed = runEvents.get("run.failed");
-                yield new AssistantMessageContent(null, null, null, List.of(),
-                        new AssistantFailure(failed.get("code").asText(), textOrNull(failed, "reason"),
-                                failed.get("message").asText(), failed.get("recoverable").asBoolean()), null);
+                yield AssistantMessageContent.failed(new AssistantFailure(failed.get("code").asText(),
+                        textOrNull(failed, "reason"), failed.get("message").asText(),
+                        failed.get("recoverable").asBoolean()));
             }
-            case CANCELED -> new AssistantMessageContent(null, null, null, List.of(), null,
-                    AssistantCancel.of(cancelCause(message.cancelCause())));
+            case CANCELED -> AssistantMessageContent.canceled(AssistantCancel.of(cancelCause(message.cancelCause())));
             case PENDING, STREAMING -> AssistantMessageContent.placeholder();
         };
     }

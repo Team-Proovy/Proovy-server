@@ -6,7 +6,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Phase 1 Activity Kind 6종과 kind별 label allowlist (activity-v1, Brain {@code contracts/activity.py}).
+ * Phase 1 Activity Kind 6종 + Phase 2 {@code read_back}(activity-fixtures-v1.1, task 2.07)과 kind별 label allowlist
+ * (activity-v1, Brain {@code contracts/activity.py}).
  * <p>
  * label은 Activity의 유일한 자유 표시면이라 kind마다 닫혀 있다. graph node 이름·추론 조각·판정처럼 보이는 문구는
  * 어떤 label에도 들어갈 수 없다.
@@ -17,7 +18,9 @@ public enum ActivityKind implements WireValue {
     ASSET_UNDERSTANDING("asset_understanding", Set.of("reading_pages", "summarizing_pages")),
     NOTE_RETRIEVAL("note_retrieval", Set.of("searching_notes")),
     CODE_EXECUTION("code_execution", Set.of("running_calculation", "running_check_code")),
-    VERIFICATION("verification", Set.of("verifying_steps"));
+    VERIFICATION("verification", Set.of("verifying_steps")),
+    /** Read-back("이렇게 읽었어요"): 진행 Activity의 첫 단계. 완료 payload에 읽은 문제(번호·본문·보기·그림 설명)만 있다. */
+    READ_BACK("read_back", Set.of("reading_back_problems"));
 
     private final String wireValue;
     private final Set<String> labels;

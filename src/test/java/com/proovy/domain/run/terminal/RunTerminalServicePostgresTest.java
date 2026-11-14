@@ -24,6 +24,7 @@ import com.proovy.domain.run.event.RunEventSignals;
 import com.proovy.domain.run.event.RunEventStore;
 import com.proovy.domain.run.event.StoredRunEvent;
 import com.proovy.domain.run.repository.AiRunRepository;
+import com.proovy.domain.run.stream.SseReplayProbe;
 import com.proovy.domain.run.terminal.TerminalSettlement.Outcome;
 import com.proovy.domain.usage.entity.UsageCompensationReason;
 import com.proovy.domain.usage.service.RequestUsageService;
@@ -72,7 +73,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * asset rename/삭제 뒤 snapshot 불변, commit 전 비공개와 신호 유실 뒤 복원.
  * <p>
  * fixture의 Brain asset ID(예: {@code note-alpha})는 테스트 Note의 실제 asset ID 문자열로, provenance content version은
- * pin 303a9e4 Brain 구현과 같은 asset content sha256으로 바꿔 넣는다. 나머지 payload는 pin된 fixture 그대로다.
+ * pin된 Brain 구현(303a9e4 이후 같음)과 같은 asset content sha256으로 바꿔 넣는다. 나머지 payload는 pin된 fixture 그대로다.
  */
 @Tag("postgres")
 @ActiveProfiles("test")
@@ -132,6 +133,8 @@ class RunTerminalServicePostgresTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper objectMapper;
     @Autowired AiRunRepository aiRuns;
+    @Autowired com.proovy.domain.run.stream.RunFrameReader frameReader;
+    @Autowired com.proovy.domain.run.stream.RunReadService reads;
 
     // ------------------------------------------------------------------
     // pair별 저장 결과
@@ -141,7 +144,7 @@ class RunTerminalServicePostgresTest {
         return Stream.of("check-with-correction", "clarification", "conflict-clarification", "conflict-substantive",
                 "direct-verified", "hide-answer", "inconclusive-unverified", "mixed-substantive-notice", "multi-page",
                 "supporting-logical-move", "unsupported-only", "zero-step-fallback", "failure",
-                "failure-invalid-attachment");
+                "failure-invalid-attachment", "phase2-verified", "phase2-mixed-scope", "phase2-hide-answer");
     }
 
     @ParameterizedTest(name = "{0}")
@@ -255,7 +258,7 @@ class RunTerminalServicePostgresTest {
         assertThat(service.settle(event(bind(pair("direct-verified").get("source"), first))).outcome())
                 .isEqualTo(Outcome.COMMITTED);
 
-        for (String name : List.of("explain-existing", "explain-existing-hide-answer")) {
+        for (String name : List.of("explain-existing", "explain-existing-hide-answer", "phase2-re-explanation")) {
             JsonNode source = pair(name).get("source");
             Run run = newRun(source, RunOptions.defaults().inNote(first.noteId())
                     .referencing("solution-1", first.assistantMessageId()));
@@ -266,6 +269,253 @@ class RunTerminalServicePostgresTest {
             assertThat(normalize(TerminalReplay.completedPayload(lastEvent(run).payload(),
                     replay.findCompleted(run.runId()).orElseThrow(), id -> true)))
                     .isEqualTo(normalize(expectedBrowserPayload(pair(name), run)));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Phase 2 확장 terminal 저장·전달 (task 2.15)
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("2.07 fixture 4종(객관식 검증됨·단답형 미검증·검증 대상 아님·재설명): 메시지에 배지가 저장되고 history·SSE replay가 같다")
+    void phase2BadgesSurviveHistoryAndReplay() {
+        // 재설명은 같은 Note 이전 run의 solution-1을 참조한다.
+        Run first = newRun(pair("direct-verified").get("source"), RunOptions.defaults());
+        assertThat(service.settle(event(bind(pair("direct-verified").get("source"), first))).outcome())
+                .isEqualTo(Outcome.COMMITTED);
+
+        record Case(String name, JsonNode source, JsonNode browserCompleted, int solutions) {
+        }
+        JsonNode inconclusive = pair("inconclusive-unverified").get("source");
+        List<Case> cases = List.of(
+                new Case("verified-multiple-choice", pair("phase2-verified").get("source"),
+                        completedPayload("verified-multiple-choice-with-read-back"), 1),
+                new Case("unverified-short-answer", withExtension(inconclusive,
+                        completedPayload("unverified-disagreement")),
+                        completedPayload("unverified-disagreement"), 0),
+                new Case("not-applicable-proof", withExtension(inconclusive, completedPayload("not-applicable-proof")),
+                        completedPayload("not-applicable-proof"), 0),
+                new Case("re-explanation", pair("phase2-re-explanation").get("source"),
+                        completedPayload("re-explanation-completed"), 0));
+
+        for (Case c : cases) {
+            Run run = newRun(c.source(), RunOptions.defaults().inNote(first.noteId())
+                    .referencing("solution-1", first.assistantMessageId()));
+            assertThat(service.settle(event(bind(c.source(), run))).outcome()).as(c.name())
+                    .isEqualTo(Outcome.COMMITTED);
+            JsonNode expected = c.browserCompleted();
+
+            Map<String, Object> message = jdbc.queryForMap("""
+                    SELECT response_kind, assurance_scope, solution_checks::text AS checks
+                    FROM chat_messages WHERE message_id = ?
+                    """, run.assistantMessageId());
+            assertThat(message.get("response_kind")).as(c.name()).isEqualTo(expected.get("responseKind").asText());
+            assertThat(message.get("assurance_scope")).as(c.name()).isEqualTo(expected.get("assuranceScope").asText());
+            assertThat(count("SELECT count(*) FROM verified_solutions WHERE source_run_id = ?", run.runId()))
+                    .as(c.name()).isEqualTo(c.solutions());
+
+            JsonNode replayed = SseReplayProbe.frames(frameReader, run.runId()).stream()
+                    .filter(frame -> frame.get("type").asText().equals("run.completed")).findFirst().orElseThrow()
+                    .get("payload");
+            JsonNode history = historyAssistant(run);
+            for (String key : List.of("responseKind", "assuranceScope", "solutionChecks")) {
+                assertThat(normalize(replayed.get(key))).as(c.name() + " replay " + key)
+                        .isEqualTo(normalize(expected.get(key)));
+                assertThat(normalize(history.get(key))).as(c.name() + " history " + key)
+                        .isEqualTo(normalize(replayed.get(key)));
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("확장 없는 terminal은 response_kind standard·배지 NULL이고 history·replay에 확장 key가 없다")
+    void legacyTerminalHasNoExtension() {
+        JsonNode source = pair("direct-verified").get("source");
+        Run run = newRun(source, RunOptions.defaults());
+        service.settle(event(bind(source, run)));
+        Map<String, Object> message = jdbc.queryForMap("""
+                SELECT response_kind, assurance_scope, solution_checks FROM chat_messages WHERE message_id = ?
+                """, run.assistantMessageId());
+        assertThat(message.get("response_kind")).isEqualTo("standard");
+        assertThat(message.get("assurance_scope")).isNull();
+        assertThat(message.get("solution_checks")).isNull();
+        JsonNode history = historyAssistant(run);
+        assertThat(history.has("responseKind") || history.has("assuranceScope") || history.has("solutionChecks"))
+                .isFalse();
+        // 짝지을 검산이 없으면 Verified Solution은 chain step mark를 그대로 둔다
+        assertThat(normalize(readJson(jdbc.queryForObject(
+                "SELECT step_marks::text FROM verified_solutions WHERE source_run_id = ?", String.class,
+                run.runId())))).isEqualTo(normalize(source.at("/payload/verified_solutions/0/step_marks")));
+    }
+
+    @Test
+    @DisplayName("verified 검산은 짝지은 Verified Solution의 verification_summary.solution_check에 남고 step_marks는 chain mark 그대로다")
+    void verifiedChecksAreKeptOnSolutionRows() {
+        for (String name : List.of("phase2-verified", "phase2-hide-answer")) {
+            JsonNode source = pair(name).get("source");
+            Run run = newRun(source, RunOptions.defaults());
+            service.settle(event(bind(source, run)));
+            Map<String, Object> row = jdbc.queryForMap("""
+                    SELECT step_marks::text AS marks, verification_summary::text AS summary
+                    FROM verified_solutions WHERE source_run_id = ?
+                    """, run.runId());
+            assertThat(normalize(readJson((String) row.get("marks")))).as(name)
+                    .isEqualTo(normalize(source.at("/payload/verified_solutions/0/step_marks")));
+            JsonNode summary = readJson((String) row.get("summary"));
+            assertThat(normalize(summary.get("solution_check"))).as(name)
+                    .isEqualTo(normalize(source.at("/payload/solution_checks/0")));
+            assertThat(summary.get("overall_coverage").asText()).isEqualTo("direct");
+        }
+    }
+
+    @Test
+    @DisplayName("Read-back 완료는 16KB를 넘어도 256KiB 안이면 저장·replay되고, 넘으면 거부된다(리뷰 M3)")
+    void largeReadBackIsStored() {
+        Run run = newRun(pair("phase2-verified").get("source"), RunOptions.defaults());
+        ObjectNode started = (ObjectNode) load("activity-v1/valid/read-back-started.json").deepCopy();
+        started.put("run_id", run.runId().toString()).put("attempt", 1).put("fence_token", FENCE);
+        assertThat(store.appendActivity(event(started)).outcome())
+                .isEqualTo(com.proovy.domain.run.event.ActivityAppendResult.Outcome.APPENDED);
+        ObjectNode activity = (ObjectNode) load("activity-v1/valid/read-back-completed.json").deepCopy();
+        activity.put("run_id", run.runId().toString()).put("attempt", 1).put("fence_token", FENCE);
+        ArrayNode problems = ((ObjectNode) activity.get("payload")).putArray("problems");
+        String korean = "가".repeat(6_000); // UTF-8 18KB
+        for (int i = 0; i < 4; i++) {
+            problems.addObject().put("problem_number", String.valueOf(i + 1)).put("question_text", korean);
+        }
+        assertThat(store.appendActivity(event(activity)).outcome())
+                .isEqualTo(com.proovy.domain.run.event.ActivityAppendResult.Outcome.APPENDED);
+        assertThat(SseReplayProbe.frames(frameReader, run.runId()).get(2).at("/payload/problems")).hasSize(4);
+
+        ObjectNode tooLarge = activity.deepCopy();
+        tooLarge.put("source_event_id", "run-7:activity-9:r2:completed");
+        ArrayNode many = ((ObjectNode) tooLarge.get("payload")).putArray("problems");
+        String longest = "가".repeat(10_000);
+        for (int i = 0; i < 20; i++) {
+            many.addObject().put("question_text", longest).put("figure_description", longest);
+        }
+        assertThat(store.appendActivity(event(tooLarge)).outcome())
+                .isEqualTo(com.proovy.domain.run.event.ActivityAppendResult.Outcome.MALFORMED);
+        // 다른 event의 상한은 그대로 16KB다(DB CHECK는 read_back 완료만 넓힌다)
+        String check = jdbc.queryForObject("""
+                SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_ai_run_events_payload'
+                """, String.class);
+        assertThat(check).contains("262144").contains("16384").contains("read_back");
+    }
+
+    @Test
+    @DisplayName("V6 CHECK: 배지 집계와 다른 값·재설명 verified·placeholder 배지·짝 없는 값은 DB가 거부한다")
+    void v6ConstraintsRejectInconsistentRows() {
+        JsonNode source = pair("phase2-verified").get("source");
+        Run run = newRun(source, RunOptions.defaults());
+        String checks = source.at("/payload/solution_checks").toString();
+        // placeholder(PENDING)에는 배지를 둘 수 없다
+        assertThatThrownBy(() -> jdbc.update("""
+                UPDATE chat_messages SET assurance_scope = 'verified', solution_checks = '[]' WHERE message_id = ?
+                """, run.assistantMessageId())).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        String complete = """
+                UPDATE chat_messages SET status = 'COMPLETED', response_pages = '[{"response_page_id":"page-1"}]',
+                       source_references = '[]', plain_text = 'x', content_sha256 = ?, completed_at = now(),
+                       response_kind = ?, assurance_scope = ?, solution_checks = CAST(? AS jsonb)
+                WHERE message_id = ?
+                """;
+        String sha = "b".repeat(64);
+        for (Object[] bad : new Object[][] {
+                {"standard", "unverified", checks},          // 집계는 verified
+                {"re_explanation", "verified", checks},      // 재설명은 not_applicable·검산 없음
+                {"re_explanation", "not_applicable", checks},
+                {"standard", "verified", null},              // 함께 와야 한다
+                {"re_explanation", null, null}}) {           // 확장 이전 행은 standard
+            assertThatThrownBy(() -> jdbc.update(complete, sha, bad[0], bad[1], bad[2], run.assistantMessageId()))
+                    .as(java.util.Arrays.toString(bad))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        }
+        assertThat(jdbc.update(complete, sha, "standard", "verified", checks, run.assistantMessageId())).isOne();
+    }
+
+    @Test
+    @DisplayName("진행 중 run을 다시 열면 Read-back Activity가 replay되고 terminal 뒤에도 남는다")
+    void readBackActivityIsReplayed() {
+        JsonNode source = pair("phase2-verified").get("source");
+        Run run = newRun(source, RunOptions.defaults());
+        JsonNode expectedProblems = load("activity-v1/browser/read-back-completed.browser.json").at("/payload/problems");
+        for (String name : List.of("read-back-started", "read-back-completed")) {
+            ObjectNode activity = (ObjectNode) load("activity-v1/valid/" + name + ".json").deepCopy();
+            activity.put("run_id", run.runId().toString()).put("attempt", 1).put("fence_token", FENCE);
+            assertThat(store.appendActivity(event(activity)).outcome()).as(name)
+                    .isEqualTo(com.proovy.domain.run.event.ActivityAppendResult.Outcome.APPENDED);
+        }
+        List<JsonNode> live = SseReplayProbe.frames(frameReader, run.runId());
+        assertThat(live).extracting(frame -> frame.get("type").asText())
+                .containsExactly("run.created", "activity.started", "activity.completed");
+        assertThat(live.get(1).at("/payload/kind").asText()).isEqualTo("read_back");
+        assertThat(live.get(1).at("/payload/label").asText()).isEqualTo("reading_back_problems");
+        assertThat(live.get(2).at("/payload/problems")).isEqualTo(expectedProblems);
+
+        service.settle(event(bind(source, run)));
+        List<JsonNode> after = SseReplayProbe.frames(frameReader, run.runId());
+        assertThat(after.get(2).at("/payload/problems")).isEqualTo(expectedProblems);
+        assertThat(after.get(after.size() - 1).at("/payload/assuranceScope").asText()).isEqualTo("verified");
+    }
+
+    /** browser-run-v1.1 valid stream의 run.completed payload. */
+    private static JsonNode completedPayload(String stream) {
+        for (JsonNode frame : load("browser-run-v1/streams/valid/" + stream + ".json").get("frames")) {
+            if (frame.get("type").asText().equals("run.completed")) {
+                return frame.get("payload");
+            }
+        }
+        throw new IllegalStateException("no run.completed in " + stream);
+    }
+
+    /**
+     * 확장 이전 pair source에 browser stream의 확장 값을 source 철자(snake_case, null key 생략)로 붙인다. Brain이 2.12에서 보낼
+     * 모양(terminal-v2 phase2 pair)과 같다 — 미검증·검증 대상 아님 terminal pair는 2.07에 없어 이렇게 만든다.
+     */
+    private static JsonNode withExtension(JsonNode source, JsonNode browserCompleted) {
+        ObjectNode copy = (ObjectNode) source.deepCopy();
+        ObjectNode payload = (ObjectNode) copy.get("payload");
+        payload.put("response_kind", browserCompleted.get("responseKind").asText());
+        payload.put("assurance_scope", browserCompleted.get("assuranceScope").asText());
+        payload.set("solution_checks", snakeWithoutNulls(browserCompleted.get("solutionChecks")));
+        return copy;
+    }
+
+    private static JsonNode snakeWithoutNulls(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode out = JsonNodeFactory.instance.objectNode();
+            node.properties().forEach(entry -> {
+                if (!entry.getValue().isNull()) {
+                    out.set(entry.getKey().replaceAll("([A-Z])", "_$1").toLowerCase(),
+                            snakeWithoutNulls(entry.getValue()));
+                }
+            });
+            return out;
+        }
+        if (node.isArray()) {
+            ArrayNode out = JsonNodeFactory.instance.arrayNode();
+            node.forEach(item -> out.add(snakeWithoutNulls(item)));
+            return out;
+        }
+        return node;
+    }
+
+    /** 대화 다시 열기(GET 대화 조회)가 돌려주는 이 run의 assistant 메시지 JSON. */
+    private JsonNode historyAssistant(Run run) {
+        JsonNode page = objectMapper.valueToTree(reads.conversation(ALICE, String.valueOf(run.noteId()), null, "50"));
+        for (JsonNode message : page.get("messages")) {
+            if (message.get("messageId").asText().equals(run.assistantMessageId().toString())) {
+                return message.get("assistant");
+            }
+        }
+        throw new IllegalStateException("assistant message not in history");
+    }
+
+    private JsonNode readJson(String json) {
+        try {
+            return objectMapper.readTree(json);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
         }
     }
 

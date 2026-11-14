@@ -24,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
  * 저장 형태: {@code run.completed} event payload는 본문 없는 최소 요약
  * {@code {assistantMessageId, responseDisposition, clarificationReason?, model, tier}}이고, 본문은 assistant message의
  * {@code response_pages}·{@code source_references}·{@code plain_text}·{@code verification_summary}(snake_case canonical)에 있다.
+ * Phase 2 확장(task 2.15)인 {@code responseKind}·{@code assuranceScope}·{@code solutionChecks}도 message 열
+ * ({@code response_kind}·{@code assurance_scope}·{@code solution_checks})에서 채운다 — SSE replay와 대화 조회가 같은 값이다.
  * page 경계·{@code run.failed} payload는 이미 browser frame 모양이라 그대로 쓴다.
  * <p>
  * {@code sourceReferences[].available}은 canonical 값이 아니라 read-time 제품 상태다 — 호출자가 asset 상태로 판정해 넘긴다
@@ -40,9 +42,13 @@ public class TerminalReplay {
         this.objectMapper = objectMapper;
     }
 
-    /** 완료 assistant message의 canonical 본문(snake_case). {@code verificationSummary}는 없으면 빈 배열이다. */
+    /**
+     * 완료 assistant message의 canonical 본문(snake_case). {@code verificationSummary}는 없으면 빈 배열이다.
+     * {@code assuranceScope}가 null이면 Phase 2 확장 이전 응답이고 {@code solutionChecks}도 null이다(V6).
+     */
     public record CompletedMessage(UUID messageId, JsonNode responsePages, JsonNode sourceReferences, String plainText,
-                                   String contentSha256, JsonNode verificationSummary) {
+                                   String contentSha256, JsonNode verificationSummary, String responseKind,
+                                   String assuranceScope, JsonNode solutionChecks) {
     }
 
     /** run의 assistant message가 COMPLETED면 그 본문. 아직 placeholder·실패·취소면 empty(공개할 본문이 없다). */
@@ -50,12 +56,13 @@ public class TerminalReplay {
     public Optional<CompletedMessage> findCompleted(UUID runId) {
         return jdbc.query("""
                 SELECT m.message_id, m.response_pages::text, m.source_references::text, m.plain_text, m.content_sha256,
-                       m.verification_summary::text
+                       m.verification_summary::text, m.response_kind, m.assurance_scope, m.solution_checks::text
                 FROM ai_runs r JOIN chat_messages m ON m.message_id = r.assistant_message_id AND m.note_id = r.note_id
                 WHERE r.run_id = ? AND m.status = 'COMPLETED'
                 """, (rs, row) -> new CompletedMessage(rs.getObject(1, UUID.class), read(rs.getString(2)),
                 read(rs.getString(3)), rs.getString(4), rs.getString(5),
-                rs.getString(6) == null ? JsonNodeFactory.instance.arrayNode() : read(rs.getString(6))), runId)
+                rs.getString(6) == null ? JsonNodeFactory.instance.arrayNode() : read(rs.getString(6)),
+                rs.getString(7), rs.getString(8), rs.getString(9) == null ? null : read(rs.getString(9))), runId)
                 .stream().findFirst();
     }
 
@@ -87,6 +94,12 @@ public class TerminalReplay {
         payload.set("model", storedSummary.get("model"));
         payload.set("tier", storedSummary.get("tier"));
         payload.set("verificationSummary", camel(message.verificationSummary()));
+        if (message.assuranceScope() != null) {
+            // browser-run-v1.1 CompletionExtension: 세 필드는 함께 온다. 확장 이전 응답에는 하나도 없다.
+            payload.put("responseKind", message.responseKind());
+            payload.put("assuranceScope", message.assuranceScope());
+            payload.set("solutionChecks", CompletionExtension.browserChecks(message.solutionChecks()));
+        }
         payload.set("assistantMessageId", storedSummary.get("assistantMessageId"));
         return payload;
     }

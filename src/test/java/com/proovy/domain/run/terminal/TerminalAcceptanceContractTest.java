@@ -1,5 +1,6 @@
 package com.proovy.domain.run.terminal;
 
+import static com.proovy.domain.run.terminal.TerminalFixtures.copy;
 import static com.proovy.domain.run.terminal.TerminalFixtures.event;
 import static com.proovy.domain.run.terminal.TerminalFixtures.files;
 import static com.proovy.domain.run.terminal.TerminalFixtures.load;
@@ -11,6 +12,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.proovy.domain.run.brain.SourceEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -117,14 +121,221 @@ class TerminalAcceptanceContractTest {
             AcceptedCompletion completion = (AcceptedCompletion) TerminalAcceptance.accept(
                     stored(fixture.get("source")), seededScope(fixture.get("source")));
             String publicSurface = completion.plainText() + "\n" + completion.responsePages() + "\n"
-                    + completion.sourceReferences() + "\n" + completion.verificationSummary();
+                    + completion.sourceReferences() + "\n" + completion.verificationSummary() + "\n"
+                    + (completion.extension() == null ? "" : completion.extension().sourceChecks());
             for (String fragment : hidden) {
                 assertThat(publicSurface).as(name).doesNotContain(fragment);
                 assertThat(publicSurface).as(name).doesNotContain(fragment.replace("$", ""));
             }
             checked++;
         }
-        assertThat(checked).isEqualTo(2);
+        assertThat(checked).isEqualTo(3);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("pairs")
+    @DisplayName("2.07 확장: phase2 pair는 배지·응답 종류·검산을 저장 입력으로 넘기고 browser 철자가 golden과 같다")
+    void completionExtensionMatchesGolden(String name) {
+        JsonNode fixture = pair(name);
+        JsonNode source = fixture.get("source");
+        if (!source.get("type").asText().equals("run.completed")) {
+            return;
+        }
+        JsonNode payload = source.get("payload");
+        JsonNode browser = fixture.at("/browser/payload");
+        AcceptedCompletion completion = (AcceptedCompletion) TerminalAcceptance.accept(stored(source),
+                seededScope(source));
+        if (!payload.has("response_kind")) {
+            assertThat(completion.extension()).as(name).isNull();
+            assertThat(browser.has("responseKind") || browser.has("solutionChecks")).isFalse();
+            return;
+        }
+        CompletionExtension extension = completion.extension();
+        assertThat(extension.responseKind().wireValue()).isEqualTo(payload.get("response_kind").asText());
+        assertThat(extension.assuranceScope().wireValue()).isEqualTo(payload.get("assurance_scope").asText());
+        // 저장 철자는 source 그대로, browser 철자는 null key를 채운 golden과 같다
+        assertThat(extension.sourceChecks()).isEqualTo(payload.get("solution_checks"));
+        assertThat(CompletionExtension.browserChecks(extension.sourceChecks())).isEqualTo(browser.get("solutionChecks"));
+        assertThat(browser.get("responseKind")).isEqualTo(payload.get("response_kind"));
+        assertThat(browser.get("assuranceScope")).isEqualTo(payload.get("assurance_scope"));
+
+        // step_marks는 언제나 artifact chain mark 그대로다(공개 view·disclosure로 덮어쓰지 않는다, 리뷰 M1).
+        for (int i = 0; i < completion.verifiedSolutions().size(); i++) {
+            assertThat(completion.verifiedSolutions().get(i).stepMarks())
+                    .isEqualTo(payload.at("/verified_solutions/" + i + "/step_marks"));
+        }
+        // 짝짓기는 새 artifact 1개·verified 검산 1개·기존 참조 없음일 때만(리뷰 M2)
+        List<JsonNode> verified = new ArrayList<>();
+        payload.get("solution_checks").forEach(check -> {
+            if (check.get("assurance_scope").asText().equals("verified")) {
+                verified.add(check);
+            }
+        });
+        boolean paired = completion.verifiedSolutions().size() == 1 && verified.size() == 1
+                && payload.path("existing_solution_references").isEmpty();
+        for (VerifiedSolutionInput solution : completion.verifiedSolutions()) {
+            JsonNode summary = solution.verificationSummary();
+            assertThat(summary.get("overall_coverage")).isNotNull();
+            if (paired) {
+                // disclosure가 적용된 공개 view 전체(단계 포함)와 disclosure를 함께 둔다
+                assertThat(summary.get("solution_check")).isEqualTo(verified.get(0));
+            } else {
+                assertThat(summary.has("solution_check")).isFalse();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("2.07 확장 없는 terminal의 Verified Solution은 chain step mark를 그대로 저장한다")
+    void legacyArtifactKeepsChainMarks() {
+        JsonNode source = pair("direct-verified").get("source");
+        AcceptedCompletion completion = (AcceptedCompletion) TerminalAcceptance.accept(stored(source),
+                seededScope(source));
+        assertThat(completion.extension()).isNull();
+        assertThat(completion.verifiedSolutions().get(0).stepMarks())
+                .isEqualTo(source.at("/payload/verified_solutions/0/step_marks"));
+        assertThat(completion.verifiedSolutions().get(0).verificationSummary().has("solution_check")).isFalse();
+    }
+
+    @Test
+    @DisplayName("browser-run-v1.1 stream: valid 확장은 source 철자로 통과·왕복하고, invalid 확장은 모두 거부된다")
+    void browserStreamExtensions() {
+        int valid = 0;
+        for (var entry : files("browser-run-v1/streams/valid", ".json").entrySet()) {
+            JsonNode completed = completedFrame(read(entry.getValue()));
+            if (completed == null || !completed.has("responseKind")) {
+                continue;
+            }
+            CompletionExtension extension = CompletionExtension.parse(sourceExtension(completed));
+            assertThat(extension).as(entry.getKey()).isNotNull();
+            assertThat(extension.assuranceScope().wireValue()).isEqualTo(completed.get("assuranceScope").asText());
+            assertThat(CompletionExtension.browserChecks(extension.sourceChecks())).as(entry.getKey())
+                    .isEqualTo(completed.get("solutionChecks"));
+            valid++;
+        }
+        assertThat(valid).isEqualTo(7);
+        int invalid = 0;
+        for (var entry : files("browser-run-v1/streams/invalid", ".json").entrySet()) {
+            JsonNode completed = completedFrame(read(entry.getValue()));
+            if (completed == null || entry.getKey().startsWith("read-back-")
+                    || EXTENSION_KEYS.stream().noneMatch(completed::has)) {
+                continue;
+            }
+            JsonNode extension = sourceExtension(completed);
+            assertThatThrownBy(() -> CompletionExtension.parse(extension)).as(entry.getKey())
+                    .isInstanceOf(TerminalRejection.class)
+                    .satisfies(error -> assertThat(error.getMessage()).doesNotContainPattern("[\\uAC00-\\uD7A3$]"));
+            invalid++;
+        }
+        assertThat(invalid).isEqualTo(17);
+    }
+
+    @Test
+    @DisplayName("2.07 확장: 안내 응답에 검산이 있으면 거부, 확장 필드는 함께 와야 한다")
+    void guidanceCarriesNoChecks() {
+        JsonNode verified = pair("phase2-verified").at("/source/payload");
+        ObjectNode clarification = copy(pair("clarification").get("source"));
+        ObjectNode payload = (ObjectNode) clarification.get("payload");
+        payload.put("response_kind", "standard").put("assurance_scope", "verified")
+                .set("solution_checks", verified.get("solution_checks"));
+        assertThatThrownBy(() -> TerminalAcceptance.accept(stored(clarification), seededScope(clarification)))
+                .isInstanceOf(TerminalRejection.class)
+                .extracting(error -> ((TerminalRejection) error).reason())
+                .isEqualTo(TerminalRejectionReason.DISPOSITION_STRUCTURE);
+        // 안내 응답도 빈 검산의 not_applicable 확장은 받는다
+        payload.put("assurance_scope", "not_applicable").putArray("solution_checks");
+        AcceptedCompletion accepted = (AcceptedCompletion) TerminalAcceptance.accept(stored(clarification),
+                seededScope(clarification));
+        assertThat(accepted.extension().solutionChecks()).isEmpty();
+        // 하나만 오면 거부
+        payload.remove("assurance_scope");
+        assertThatThrownBy(() -> TerminalAcceptance.accept(stored(clarification), seededScope(clarification)))
+                .isInstanceOf(TerminalRejection.class);
+    }
+
+    @Test
+    @DisplayName("근거 없는 verified 검산(풀이 수 초과)·새 풀이를 만드는 재설명·step_index 빈틈은 거부된다(리뷰 m1·m2)")
+    void extensionMustAgreeWithArtifacts() {
+        // verified 검산 2개 > 새 artifact 1개 + 기존 참조 0개
+        ObjectNode twoVerified = copy(pair("phase2-verified").get("source"));
+        ArrayNode checks = (ArrayNode) twoVerified.at("/payload/solution_checks");
+        checks.add(((ObjectNode) checks.get(0).deepCopy()).put("problem_number", "16"));
+        assertRejected(twoVerified, TerminalRejectionReason.VERIFICATION_INTEGRITY);
+
+        // 재설명은 새 Verified Solution을 만들지 않는다
+        ObjectNode reExplanation = copy(pair("phase2-verified").get("source"));
+        ((ObjectNode) reExplanation.get("payload")).put("response_kind", "re_explanation")
+                .put("assurance_scope", "not_applicable").putArray("solution_checks");
+        assertRejected(reExplanation, TerminalRejectionReason.VERIFICATION_INTEGRITY);
+
+        // step_index는 0부터 빈틈없이(2.06 규칙)
+        ObjectNode gap = copy(pair("phase2-verified").get("source"));
+        ((ObjectNode) gap.at("/payload/solution_checks/0/checkable_steps/1")).put("step_index", 5);
+        assertRejected(gap, TerminalRejectionReason.VERIFICATION_INTEGRITY);
+        ObjectNode duplicate = copy(pair("phase2-verified").get("source"));
+        ((ObjectNode) duplicate.at("/payload/solution_checks/0/checkable_steps/1")).put("step_index", 0);
+        assertRejected(duplicate, TerminalRejectionReason.VERIFICATION_INTEGRITY);
+    }
+
+    @Test
+    @DisplayName("verified 1개·not_applicable 1개·artifact 1개(mixed-scope)는 verified 검산과 짝짓는다")
+    void mixedScopePairsTheVerifiedCheck() {
+        JsonNode source = pair("phase2-mixed-scope").get("source");
+        AcceptedCompletion completion = (AcceptedCompletion) TerminalAcceptance.accept(stored(source),
+                seededScope(source));
+        JsonNode check = completion.verifiedSolutions().get(0).verificationSummary().get("solution_check");
+        assertThat(check.get("assurance_scope").asText()).isEqualTo("verified");
+        assertThat(check.get("problem_number").asText()).isEqualTo("22");
+    }
+
+    private static void assertRejected(JsonNode source, TerminalRejectionReason reason) {
+        assertThatThrownBy(() -> TerminalAcceptance.accept(stored(source), seededScope(source)))
+                .isInstanceOf(TerminalRejection.class)
+                .extracting(error -> ((TerminalRejection) error).reason()).isEqualTo(reason);
+    }
+
+    private static final List<String> EXTENSION_KEYS = List.of("responseKind", "assuranceScope", "solutionChecks");
+
+    private static JsonNode completedFrame(JsonNode stream) {
+        for (JsonNode frame : stream.get("frames")) {
+            if (frame.get("type").asText().equals("run.completed")) {
+                return frame.get("payload");
+            }
+        }
+        return null;
+    }
+
+    /** browser 확장 필드만 source 철자(snake_case, null 값 key 생략)로 되돌린다. */
+    private static JsonNode sourceExtension(JsonNode completed) {
+        ObjectNode out = JsonNodeFactory.instance.objectNode();
+        for (String key : EXTENSION_KEYS) {
+            if (completed.has(key)) {
+                out.set(snakeKey(key), snakeWithoutNulls(completed.get(key)));
+            }
+        }
+        return out;
+    }
+
+    private static JsonNode snakeWithoutNulls(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode out = JsonNodeFactory.instance.objectNode();
+            node.properties().forEach(entry -> {
+                if (!entry.getValue().isNull()) {
+                    out.set(snakeKey(entry.getKey()), snakeWithoutNulls(entry.getValue()));
+                }
+            });
+            return out;
+        }
+        if (node.isArray()) {
+            ArrayNode out = JsonNodeFactory.instance.arrayNode();
+            node.forEach(item -> out.add(snakeWithoutNulls(item)));
+            return out;
+        }
+        return node;
+    }
+
+    private static String snakeKey(String key) {
+        return key.replaceAll("([A-Z])", "_$1").toLowerCase();
     }
 
     @Test

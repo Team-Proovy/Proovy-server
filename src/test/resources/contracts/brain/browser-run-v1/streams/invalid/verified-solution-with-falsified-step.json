@@ -1,0 +1,394 @@
+{
+  "rationale": "✗ 단계가 있는 solution은 verified일 수 없다.",
+  "violates": "S7",
+  "schema_rejects": true,
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "317738aa-32a9-5789-9336-3b89d152e3cb",
+        "noteId": "123",
+        "userMessageId": "7afe2b09-8cfb-5cd0-8e67-ca12793bdc1c",
+        "assistantMessageId": "a45a4f70-6a63-5e4c-b2f0-4f762945f9c4",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "label": "reading_back_problems"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "problems": [
+          {
+            "problemNumber": "15",
+            "questionText": "양수 $k$에 대하여 함수 $f(x)=x^3-3x^2+k$의 극솟값이 $1$일 때, $f(-1)$의 값은?",
+            "choices": [
+              "$-1$",
+              "$0$",
+              "$1$",
+              "$2$",
+              "$3$"
+            ]
+          }
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation"
+      },
+      "seq": 8
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "label": "verifying_steps",
+        "methodLabel": "단계별 함의 검사"
+      },
+      "seq": 9
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-7",
+        "status": "in_progress",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 2,
+          "total": 5
+        }
+      },
+      "seq": 10
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "occurredAt": "2026-10-17T09:00:10Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 5,
+          "total": 5
+        }
+      },
+      "seq": 11
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "seq": 12,
+      "occurredAt": "2026-10-17T09:00:11Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "a45a4f70-6a63-5e4c-b2f0-4f762945f9c4",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0,
+        "title": "검증된 풀이"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "seq": 13,
+      "occurredAt": "2026-10-17T09:00:12Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "a45a4f70-6a63-5e4c-b2f0-4f762945f9c4",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "8248cd0b-59c7-53c1-abc8-a9af1b01069f",
+      "seq": 14,
+      "occurredAt": "2026-10-17T09:00:13Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "title": "검증된 풀이",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "인수분해하면 $(x-2)(x-3)=0$이다. 따라서 $x=2$ 또는 $x=3$이다.[[source:sref-1]]",
+                  "kind": "solution",
+                  "verification": "verified",
+                  "solutionId": "solution-1",
+                  "claimIds": [
+                    "claim-1"
+                  ],
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "verified",
+                      "anchor": {
+                        "start": 0,
+                        "end": 24
+                      }
+                    },
+                    {
+                      "stepId": "step-2",
+                      "status": "verified",
+                      "anchor": {
+                        "start": 25,
+                        "end": 46
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [
+            {
+              "sourceRefId": "sref-1",
+              "assetId": "note-alpha",
+              "pageStart": 3,
+              "pageEnd": 4,
+              "displayLabelSnapshot": "개념 노트 3–4쪽",
+              "available": true
+            }
+          ],
+          "plainText": "검증된 풀이\n\n인수분해하면 (x-2)(x-3)=0이다. 따라서 x=2 또는 x=3이다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [
+          {
+            "solutionId": "solution-1",
+            "overallCoverage": "direct",
+            "claims": [
+              {
+                "claimId": "claim-1",
+                "coverage": "direct",
+                "methodLabel": "모든 단계를 실행 검사로 확인",
+                "unconfirmedSteps": []
+              }
+            ]
+          }
+        ],
+        "assistantMessageId": "a45a4f70-6a63-5e4c-b2f0-4f762945f9c4",
+        "responseKind": "standard",
+        "assuranceScope": "verified",
+        "solutionChecks": [
+          {
+            "problemNumber": "15",
+            "assuranceScope": "verified",
+            "strategy": "answer_cross_check",
+            "attempts": 1,
+            "crossCheck": {
+              "independentAnswerAgrees": true,
+              "stepCheckCompleted": true
+            },
+            "disclosure": "full",
+            "checkableSteps": [
+              {
+                "stepIndex": 0,
+                "stepKind": "define",
+                "checkResult": "not_checked",
+                "withheld": false,
+                "description": "$f(x)=x^3-3x^2+k$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "name": "f",
+                  "value": "Lambda(x, x**3-3*x**2+k)"
+                }
+              },
+              {
+                "stepIndex": 1,
+                "stepKind": "given",
+                "checkResult": "not_checked",
+                "withheld": false,
+                "description": "$k$는 양수",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "cond": "k > 0"
+                }
+              },
+              {
+                "stepIndex": 2,
+                "stepKind": "claim",
+                "checkResult": "falsified",
+                "withheld": false,
+                "description": "$f'(x)=3x(x-2)$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "diff(f(x), x)",
+                  "rhs": "3*x*(x-2)"
+                }
+              },
+              {
+                "stepIndex": 3,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "$f'(x)=0$의 해는 $x=0, 2$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "solveset(diff(f(x), x), x, Reals)",
+                  "rhs": "FiniteSet(0, 2)"
+                }
+              },
+              {
+                "stepIndex": 4,
+                "stepKind": "argue",
+                "checkResult": "not_checked",
+                "withheld": false,
+                "description": "$f'$의 부호가 $x=2$에서 −→+로 바뀌므로 $x=2$에서 극소이다.",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": null
+              },
+              {
+                "stepIndex": 5,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "극솟값 $f(2)=k-4$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "name": "m",
+                  "lhs": "f(2)",
+                  "rhs": "k-4"
+                }
+              },
+              {
+                "stepIndex": 6,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "극솟값이 $1$이므로 $k=5$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "solve(Eq(m, 1), k)",
+                  "rhs": "[5]"
+                }
+              },
+              {
+                "stepIndex": 7,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "$f(-1)=-4+5=1$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "f(-1).subs(k, 5)",
+                  "rhs": "1"
+                }
+              },
+              {
+                "stepIndex": 8,
+                "stepKind": "choose",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "답은 $1$, 보기 ③",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "value": "1",
+                  "choice": 3
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

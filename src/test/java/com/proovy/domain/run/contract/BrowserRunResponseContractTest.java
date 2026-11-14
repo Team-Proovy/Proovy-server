@@ -50,7 +50,8 @@ class BrowserRunResponseContractTest {
             assertThat(schemaErrors(fixture.get("schema").asText(), written)).as(entry.getKey()).isEmpty();
             checked++;
         }
-        assertThat(checked).isEqualTo(15);
+        // v1.1(2.07)에서 conversation-verified-then-re-explanation이 더해졌다
+        assertThat(checked).isEqualTo(16);
     }
 
     @Test

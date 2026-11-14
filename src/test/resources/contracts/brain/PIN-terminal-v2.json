@@ -1,14 +1,14 @@
 {
   "repository": "Team-Proovy/proovy-brain",
-  "commit": "303a9e45943207cb22fc555452cc781fb8117d21",
+  "commit": "6b237b82f4de0af34fdd9ee1d7b4a7147f002f4e",
   "source_path": "tests/fixtures/contracts",
-  "consumer_version": "terminal-fixtures-v2",
+  "consumer_version": "terminal-fixtures-v2.1",
   "manifest": "terminal-v2/manifest.json",
-  "manifest_sha256": "3fc53998a9f82d88b2db83b00675a46ab5758e82f59313833cda6dd4f87dfc03",
+  "manifest_sha256": "ea47ec53cfc274683b22263f1adfc4e1e2de46c901061a211580426bc388bb45",
   "files_note": "terminal-v2 manifest에는 파일별 sha256이 없어, pin commit에서 복사한 직후 계산한 값을 적는다(README 갱신 절차). browser.schema.json은 PIN.json(browser-run-v1 dependency)도 소유한다.",
   "files": {
-    "terminal-v2/browser.schema.json": "b0e906e24c85ec8faa25fda7fb7d44198a71c0c60d2244651f6732bbc0c0284d",
-    "terminal-v2/build_fixtures.py": "ebf6a2bdbac6340266f930f3c268d9415b55937169237852cff5191a4be00939",
+    "terminal-v2/browser.schema.json": "8af7574ae52bc242dc956c84d2a5f0189ddcd5c6b74cc1a015b1e89afdf017c5",
+    "terminal-v2/build_fixtures.py": "c6f18ab066045a5c2a7933b5726f1266e60f534e2d9808cf7bd8559cbe51f8da",
     "terminal-v2/invalid/attachment-message-mismatch.json": "ef498910d1ba3dc307c9a051af8f9f27905822a89812f8bd34364a8a5dd97d2b",
     "terminal-v2/invalid/attachment-missing-reason.json": "e8815446296f2175d9db9e57f5ba04c66447138b2d663ec7812076efc6c916cb",
     "terminal-v2/invalid/attachment-recoverable.json": "ca7308c0dddf32b233a0df5f74c624b60c4b4b2bfacf33045cb0a5a0bf2eed6f",
@@ -21,6 +21,8 @@
     "terminal-v2/invalid/existing-mismatched-claim.json": "874b068ffe639904475a3322d7c86917bdbe892f163d605812c2b94c3e0e797f",
     "terminal-v2/invalid/existing-phantom.json": "11eb7a7eb1ee44e5b6a0609385fcc55c6ff14bedf2b5f6ee3dec818f058e32c9",
     "terminal-v2/invalid/existing-unchecked.json": "ae279081bb876329d4392f699406f73e973e3136b25b0afcbf2383c830363114",
+    "terminal-v2/invalid/extension-overstated-badge.json": "f53b8f118319b6ac8f0d6470ab141331e3730fa213f65191d512f3679fa3ad1a",
+    "terminal-v2/invalid/extension-partial.json": "411b02aef9955ca5f23b3d86f359ec654634d5b819d56f5e7655f69985ab30e9",
     "terminal-v2/invalid/failure-with-answer.json": "5f9d81484e6be7d40e4fcc5aafc7731b446ea016431142391bb369983cbe86fa",
     "terminal-v2/invalid/guidance-with-sources.json": "ee6200449d62292e0be3ad9835d60e3cc72f02e55e05f1ee50b7ab70bf20f24c",
     "terminal-v2/invalid/kind-type-mismatch.json": "a5fdca499f0c2312e18b0f75a0cb17ca148cb5f8716c55b31a7c7dfa1673041f",
@@ -53,10 +55,14 @@
     "terminal-v2/pairs/inconclusive-unverified.json": "beccfdad78b0522ca82ef9e91847c48af7a41372f4878417d7c74fc02d787fbb",
     "terminal-v2/pairs/mixed-substantive-notice.json": "99726769c77aaafa1d016c78aa621c2e42214a2e991800d2261654c955e0d79b",
     "terminal-v2/pairs/multi-page.json": "d4b90688ef8e00077955b7d2932274b94fbf810b7d0361da4683cac85f80d95d",
+    "terminal-v2/pairs/phase2-hide-answer.json": "0dfb7f93cc058f4c0adf1c51602613923bd097fdc26ba92eb8ed15415c4e1b3d",
+    "terminal-v2/pairs/phase2-mixed-scope.json": "62ba74d4b6b20c30d7cdcf1688aa4da7eac397458aa96e9056c8ea9a840cfaf3",
+    "terminal-v2/pairs/phase2-re-explanation.json": "127fa75986c3c0cff26d1e2f063edc3bc86f9f13790655f1d60f56e6963d1ff4",
+    "terminal-v2/pairs/phase2-verified.json": "65b9c2e5af36b1a6c9370023325b8b66b871145f9d1341241843b4a495d40618",
     "terminal-v2/pairs/supporting-logical-move.json": "261a4cfddc99c43bc3479d9bac1bb2c72bb6f944204262d9b03d1ed3a6e0cc94",
     "terminal-v2/pairs/unsupported-only.json": "834d1c4bbfc10d11273d4eb894d241aff986d8de09fd982be48501e58e7ee258",
     "terminal-v2/pairs/zero-step-fallback.json": "1d4d5869c60b9281225fc4771589e3f023dabdf8a8060236c08214f1653d814f",
     "terminal-v2/redelivery.json": "44d6f0d5450ef68e1bf5c91b6c6c4e2c797070bdddc58cd441c82f8b9a9ee9c7",
-    "terminal-v2/source.schema.json": "67274ee822de604df5be6d0da964e63baef6394fd5437f1ee61bb1ae1396949e"
+    "terminal-v2/source.schema.json": "f5364953f40d91190375396bf2b170fbefcf66ba4477c256423a80dc41059579"
   }
 }

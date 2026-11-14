@@ -61,6 +61,22 @@ public class ChatMessage extends AssignedIdEntity<UUID> {
     @Column(name = "content_sha256", length = 64)
     private String contentSha256;
 
+    /**
+     * Phase 2 응답 종류 {@code standard|re_explanation}(V6, task 2.15). 확장 이전 행·placeholder는 DB 기본값 standard다.
+     * 아래 세 열은 terminal transaction(1.82 JDBC)만 쓴다 — JPA는 읽기만 한다.
+     */
+    @Column(name = "response_kind", length = 20, nullable = false, insertable = false, updatable = false)
+    private String responseKind = "standard"; // JPA insert 직후에도 DB 기본값과 같은 값(2.15 리뷰 m3)
+
+    /** 응답 배지 {@code verified|unverified|not_applicable}. 확장 terminal로 완료된 assistant 메시지만 값이 있다. */
+    @Column(name = "assurance_scope", length = 20, insertable = false, updatable = false)
+    private String assuranceScope;
+
+    /** 문제별 공개 검산(terminal source 철자). {@code assuranceScope}와 함께 있거나 함께 없다. */
+    @Type(JsonBinaryType.class)
+    @Column(name = "solution_checks", columnDefinition = "jsonb", insertable = false, updatable = false)
+    private JsonNode solutionChecks;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

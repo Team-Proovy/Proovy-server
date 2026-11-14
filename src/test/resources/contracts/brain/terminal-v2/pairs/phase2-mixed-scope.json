@@ -1,0 +1,388 @@
+{
+  "publication_request": {
+    "schema_version": "publication-v1",
+    "disposition": "substantive",
+    "disclosure": {
+      "scope": "full",
+      "judgment_completed": true
+    },
+    "pages": [
+      {
+        "presentation": "main",
+        "blocks": [
+          {
+            "kind": "solution",
+            "draft": {
+              "text": "본문 풀이가 여기 있다.",
+              "withheld": []
+            },
+            "report": {
+              "status": "accepted",
+              "claims": [
+                {
+                  "claim_id": "claim-1",
+                  "verdict": "accepted",
+                  "basis": "chain",
+                  "coverage": "direct"
+                }
+              ],
+              "requested_claim_count": 1,
+              "steps": [
+                {
+                  "step_id": "step-1",
+                  "status": "verified",
+                  "level": "direct"
+                }
+              ]
+            },
+            "solution_id": "solution-7"
+          }
+        ],
+        "title": "본문"
+      },
+      {
+        "presentation": "thread_like",
+        "blocks": [
+          {
+            "kind": "explanation",
+            "draft": {
+              "text": "스레드에 붙는 보조 설명이다.",
+              "withheld": []
+            }
+          }
+        ],
+        "title": "보조"
+      }
+    ]
+  },
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:terminal:r0:b4c05df04575822cec85",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "response_disposition": "substantive",
+      "assistant_response": {
+        "schema_version": "assistant-response-v1",
+        "response_pages": [
+          {
+            "response_page_id": "page-1",
+            "presentation": "main",
+            "title": "본문",
+            "result_blocks": [
+              {
+                "block_id": "block-1",
+                "body": "본문 풀이가 여기 있다.",
+                "kind": "solution",
+                "verification": "verified",
+                "solution_id": "solution-7",
+                "claim_ids": [
+                  "claim-1"
+                ],
+                "step_marks": [
+                  {
+                    "step_id": "step-1",
+                    "status": "verified"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "response_page_id": "page-2",
+            "presentation": "thread_like",
+            "title": "보조",
+            "result_blocks": [
+              {
+                "block_id": "block-2",
+                "body": "스레드에 붙는 보조 설명이다.",
+                "kind": "explanation",
+                "claim_ids": []
+              }
+            ]
+          }
+        ],
+        "source_references": []
+      },
+      "verified_solutions": [
+        {
+          "schema_version": "verified-solution-v1",
+          "solution_id": "solution-7",
+          "version": 1,
+          "problem_statement": "주어진 명시 조건을 만족하는 결론을 구한다.",
+          "problem_conditions": [
+            {
+              "condition_id": "condition-1",
+              "text": "문제의 명시 조건을 사용한다."
+            }
+          ],
+          "solution_text": "본문 풀이가 여기 있다.",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "statement": "명시 조건에서 제시한 결론이 성립한다."
+            }
+          ],
+          "step_marks": [
+            {
+              "step_id": "step-1",
+              "status": "verified"
+            }
+          ],
+          "verification": {
+            "solution_id": "solution-7",
+            "overall_coverage": "direct",
+            "claims": [
+              {
+                "claim_id": "claim-1",
+                "coverage": "direct",
+                "method_label": "모든 단계를 실행 검사로 확인",
+                "unconfirmed_steps": []
+              }
+            ]
+          },
+          "verification_version": "chain-verification-report-v3",
+          "source_ref_ids": []
+        }
+      ],
+      "selected_page_provenance": [],
+      "model": "fake/main-model",
+      "tier": "main",
+      "verification_summary": [
+        {
+          "solution_id": "solution-7",
+          "overall_coverage": "direct",
+          "claims": [
+            {
+              "claim_id": "claim-1",
+              "coverage": "direct",
+              "method_label": "모든 단계를 실행 검사로 확인",
+              "unconfirmed_steps": []
+            }
+          ]
+        }
+      ],
+      "source_labels": [],
+      "response_kind": "standard",
+      "assurance_scope": "verified",
+      "solution_checks": [
+        {
+          "problem_number": "22",
+          "assurance_scope": "verified",
+          "strategy": "answer_cross_check",
+          "attempts": 2,
+          "cross_check": {
+            "independent_answer_agrees": true,
+            "step_check_completed": true
+          },
+          "disclosure": "full",
+          "checkable_steps": [
+            {
+              "step_index": 0,
+              "step_kind": "claim",
+              "check_result": "verified",
+              "withheld": false,
+              "description": "부정적분은 $x^2+x$",
+              "description_format": "safe_markdown",
+              "sympy_statement": {
+                "lhs": "integrate(2*x+1, x)",
+                "rhs": "x**2+x"
+              }
+            },
+            {
+              "step_index": 1,
+              "step_kind": "claim",
+              "check_result": "verified",
+              "withheld": false,
+              "description": "$[x^2+x]_0^1 = 2$",
+              "description_format": "safe_markdown",
+              "sympy_statement": {
+                "lhs": "integrate(2*x+1, (x, 0, 1))",
+                "rhs": "2"
+              }
+            }
+          ]
+        },
+        {
+          "problem_number": "3",
+          "assurance_scope": "not_applicable",
+          "strategy": "none",
+          "attempts": 1,
+          "disclosure": "full",
+          "checkable_steps": [
+            {
+              "step_index": 0,
+              "step_kind": "claim",
+              "check_result": "verified",
+              "withheld": false,
+              "description": "$n^3-n=(n-1)n(n+1)$",
+              "description_format": "safe_markdown",
+              "sympy_statement": {
+                "lhs": "n**3-n",
+                "rhs": "(n-1)*n*(n+1)"
+              }
+            },
+            {
+              "step_index": 1,
+              "step_kind": "argue",
+              "check_result": "not_checked",
+              "withheld": false,
+              "description": "연속한 세 정수에는 $2$의 배수와 $3$의 배수가 하나 이상 있다.",
+              "description_format": "safe_markdown"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "server": {
+    "assistant_message_id": "message-7",
+    "seq": 9,
+    "display_labels": {},
+    "availability": {}
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "seq": 9,
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "run.completed",
+    "payload": {
+      "responseDisposition": "substantive",
+      "assistantResponse": {
+        "responsePages": [
+          {
+            "responsePageId": "page-1",
+            "presentation": "main",
+            "title": "본문",
+            "resultBlocks": [
+              {
+                "blockId": "block-1",
+                "body": "본문 풀이가 여기 있다.",
+                "kind": "solution",
+                "verification": "verified",
+                "solutionId": "solution-7",
+                "claimIds": [
+                  "claim-1"
+                ],
+                "stepMarks": [
+                  {
+                    "stepId": "step-1",
+                    "status": "verified"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "responsePageId": "page-2",
+            "presentation": "thread_like",
+            "title": "보조",
+            "resultBlocks": [
+              {
+                "blockId": "block-2",
+                "body": "스레드에 붙는 보조 설명이다.",
+                "kind": "explanation",
+                "claimIds": []
+              }
+            ]
+          }
+        ],
+        "sourceReferences": [],
+        "plainText": "본문\n\n본문 풀이가 여기 있다.\n\n보조\n\n스레드에 붙는 보조 설명이다."
+      },
+      "model": "fake/main-model",
+      "tier": "main",
+      "verificationSummary": [
+        {
+          "solutionId": "solution-7",
+          "overallCoverage": "direct",
+          "claims": [
+            {
+              "claimId": "claim-1",
+              "coverage": "direct",
+              "methodLabel": "모든 단계를 실행 검사로 확인",
+              "unconfirmedSteps": []
+            }
+          ]
+        }
+      ],
+      "responseKind": "standard",
+      "assuranceScope": "verified",
+      "solutionChecks": [
+        {
+          "problemNumber": "22",
+          "assuranceScope": "verified",
+          "strategy": "answer_cross_check",
+          "attempts": 2,
+          "crossCheck": {
+            "independentAnswerAgrees": true,
+            "stepCheckCompleted": true
+          },
+          "disclosure": "full",
+          "checkableSteps": [
+            {
+              "stepIndex": 0,
+              "stepKind": "claim",
+              "checkResult": "verified",
+              "withheld": false,
+              "description": "부정적분은 $x^2+x$",
+              "descriptionFormat": "safe_markdown",
+              "sympyStatement": {
+                "lhs": "integrate(2*x+1, x)",
+                "rhs": "x**2+x"
+              }
+            },
+            {
+              "stepIndex": 1,
+              "stepKind": "claim",
+              "checkResult": "verified",
+              "withheld": false,
+              "description": "$[x^2+x]_0^1 = 2$",
+              "descriptionFormat": "safe_markdown",
+              "sympyStatement": {
+                "lhs": "integrate(2*x+1, (x, 0, 1))",
+                "rhs": "2"
+              }
+            }
+          ]
+        },
+        {
+          "problemNumber": "3",
+          "assuranceScope": "not_applicable",
+          "strategy": "none",
+          "attempts": 1,
+          "crossCheck": null,
+          "disclosure": "full",
+          "checkableSteps": [
+            {
+              "stepIndex": 0,
+              "stepKind": "claim",
+              "checkResult": "verified",
+              "withheld": false,
+              "description": "$n^3-n=(n-1)n(n+1)$",
+              "descriptionFormat": "safe_markdown",
+              "sympyStatement": {
+                "lhs": "n**3-n",
+                "rhs": "(n-1)*n*(n+1)"
+              }
+            },
+            {
+              "stepIndex": 1,
+              "stepKind": "argue",
+              "checkResult": "not_checked",
+              "withheld": false,
+              "description": "연속한 세 정수에는 $2$의 배수와 $3$의 배수가 하나 이상 있다.",
+              "descriptionFormat": "safe_markdown",
+              "sympyStatement": null
+            }
+          ]
+        }
+      ],
+      "assistantMessageId": "message-7"
+    }
+  }
+}

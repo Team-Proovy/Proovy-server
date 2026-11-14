@@ -22,13 +22,14 @@ class TerminalContractMirrorTest {
 
     @ParameterizedTest(name = "{0}")
     @CsvSource({
-            "terminal-v2, terminal-fixtures-v2",
-            "response-v1, response-fixtures-v1",
-            "publication-v1, publication-fixtures-v1.2"})
-    void mirrorMatchesPin(String artifact, String consumerVersion) throws Exception {
+            // terminal-v2는 2.07(6b237b8)에서 v2.1로 올렸고, response-v1·publication-v1은 바뀌지 않아 303a9e4 그대로다.
+            "terminal-v2, terminal-fixtures-v2.1, 6b237b82f4de0af34fdd9ee1d7b4a7147f002f4e",
+            "response-v1, response-fixtures-v1, 303a9e45943207cb22fc555452cc781fb8117d21",
+            "publication-v1, publication-fixtures-v1.2, 303a9e45943207cb22fc555452cc781fb8117d21"})
+    void mirrorMatchesPin(String artifact, String consumerVersion, String commit) throws Exception {
         JsonNode pin = read(MIRROR.resolve("PIN-" + artifact + ".json"));
         assertThat(pin.get("repository").asText()).isEqualTo("Team-Proovy/proovy-brain");
-        assertThat(pin.get("commit").asText()).isEqualTo("303a9e45943207cb22fc555452cc781fb8117d21");
+        assertThat(pin.get("commit").asText()).isEqualTo(commit);
         assertThat(pin.get("consumer_version").asText()).isEqualTo(consumerVersion);
         Set<String> listed = new HashSet<>();
         for (var entry : pin.get("files").properties()) {
