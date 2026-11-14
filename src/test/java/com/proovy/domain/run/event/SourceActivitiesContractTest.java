@@ -342,6 +342,28 @@ class SourceActivitiesContractTest {
     }
 
     @Test
+    @DisplayName("Read-back 완료만 256KiB 저장 상한, 경계: 한글 6,000자 문제 4개는 통과하고 상한을 넘으면 거부")
+    void readBackStorageLimit() {
+        ObjectNode fits = completed("read_back");
+        ArrayNode problems = fits.putArray("problems");
+        for (int i = 0; i < 4; i++) {
+            problems.addObject().put("question_text", "가".repeat(6_000));
+        }
+        SourceEvent ok = source(envelope(UUID.randomUUID().toString(), "activity.completed", fits).toString());
+        assertThat(SourceActivities.storedLength(convert(ok))).isGreaterThan(SourceActivities.MAX_STORED_PAYLOAD_BYTES);
+        assertThat(SourceActivities.toDurable(ok).kind()).isEqualTo(ActivityKind.READ_BACK);
+
+        ObjectNode over = completed("read_back");
+        ArrayNode many = over.putArray("problems");
+        for (int i = 0; i < SourceActivities.MAX_READ_BACK_PROBLEMS; i++) {
+            many.addObject().put("question_text", "가".repeat(10_000)).put("figure_description", "가".repeat(10_000));
+        }
+        SourceEvent big = source(envelope(UUID.randomUUID().toString(), "activity.completed", over).toString());
+        assertThatThrownBy(() -> SourceActivities.toDurable(big)).isInstanceOf(ActivityContractViolation.class)
+                .hasMessage("payload is too large to store");
+    }
+
+    @Test
     @DisplayName("read_back(2.07): 읽은 문제만 통과 — 줄바꿈은 내용, 제어 문자·보기 1개·21문제·빈 본문·답 필드는 거부")
     void readBackProblems() {
         ObjectNode ok = completed("read_back");

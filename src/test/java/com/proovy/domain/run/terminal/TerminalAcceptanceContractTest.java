@@ -159,23 +159,29 @@ class TerminalAcceptanceContractTest {
         assertThat(browser.get("responseKind")).isEqualTo(payload.get("response_kind"));
         assertThat(browser.get("assuranceScope")).isEqualTo(payload.get("assurance_scope"));
 
-        // verified 검산과 새 Verified Solution은 순서대로 짝지어 단계는 step_marks, 문제 단위 값은 summary에 둔다
+        // step_marks는 언제나 artifact chain mark 그대로다(공개 view·disclosure로 덮어쓰지 않는다, 리뷰 M1).
+        for (int i = 0; i < completion.verifiedSolutions().size(); i++) {
+            assertThat(completion.verifiedSolutions().get(i).stepMarks())
+                    .isEqualTo(payload.at("/verified_solutions/" + i + "/step_marks"));
+        }
+        // 짝짓기는 새 artifact 1개·verified 검산 1개·기존 참조 없음일 때만(리뷰 M2)
         List<JsonNode> verified = new ArrayList<>();
         payload.get("solution_checks").forEach(check -> {
             if (check.get("assurance_scope").asText().equals("verified")) {
                 verified.add(check);
             }
         });
-        assertThat(completion.verifiedSolutions()).hasSize(verified.size());
-        for (int i = 0; i < verified.size(); i++) {
-            VerifiedSolutionInput solution = completion.verifiedSolutions().get(i);
-            assertThat(solution.stepMarks()).isEqualTo(verified.get(i).get("checkable_steps"));
-            JsonNode check = solution.verificationSummary().get("solution_check");
-            assertThat(check.get("assurance_scope").asText()).isEqualTo("verified");
-            assertThat(check.get("disclosure")).isEqualTo(verified.get(i).get("disclosure"));
-            assertThat(check.has("checkable_steps")).isFalse();
-            // artifact verification 요약 key는 그대로 남는다
-            assertThat(solution.verificationSummary().get("overall_coverage")).isNotNull();
+        boolean paired = completion.verifiedSolutions().size() == 1 && verified.size() == 1
+                && payload.path("existing_solution_references").isEmpty();
+        for (VerifiedSolutionInput solution : completion.verifiedSolutions()) {
+            JsonNode summary = solution.verificationSummary();
+            assertThat(summary.get("overall_coverage")).isNotNull();
+            if (paired) {
+                // disclosure가 적용된 공개 view 전체(단계 포함)와 disclosure를 함께 둔다
+                assertThat(summary.get("solution_check")).isEqualTo(verified.get(0));
+            } else {
+                assertThat(summary.has("solution_check")).isFalse();
+            }
         }
     }
 
@@ -245,6 +251,47 @@ class TerminalAcceptanceContractTest {
         payload.remove("assurance_scope");
         assertThatThrownBy(() -> TerminalAcceptance.accept(stored(clarification), seededScope(clarification)))
                 .isInstanceOf(TerminalRejection.class);
+    }
+
+    @Test
+    @DisplayName("근거 없는 verified 검산(풀이 수 초과)·새 풀이를 만드는 재설명·step_index 빈틈은 거부된다(리뷰 m1·m2)")
+    void extensionMustAgreeWithArtifacts() {
+        // verified 검산 2개 > 새 artifact 1개 + 기존 참조 0개
+        ObjectNode twoVerified = copy(pair("phase2-verified").get("source"));
+        ArrayNode checks = (ArrayNode) twoVerified.at("/payload/solution_checks");
+        checks.add(((ObjectNode) checks.get(0).deepCopy()).put("problem_number", "16"));
+        assertRejected(twoVerified, TerminalRejectionReason.VERIFICATION_INTEGRITY);
+
+        // 재설명은 새 Verified Solution을 만들지 않는다
+        ObjectNode reExplanation = copy(pair("phase2-verified").get("source"));
+        ((ObjectNode) reExplanation.get("payload")).put("response_kind", "re_explanation")
+                .put("assurance_scope", "not_applicable").putArray("solution_checks");
+        assertRejected(reExplanation, TerminalRejectionReason.VERIFICATION_INTEGRITY);
+
+        // step_index는 0부터 빈틈없이(2.06 규칙)
+        ObjectNode gap = copy(pair("phase2-verified").get("source"));
+        ((ObjectNode) gap.at("/payload/solution_checks/0/checkable_steps/1")).put("step_index", 5);
+        assertRejected(gap, TerminalRejectionReason.VERIFICATION_INTEGRITY);
+        ObjectNode duplicate = copy(pair("phase2-verified").get("source"));
+        ((ObjectNode) duplicate.at("/payload/solution_checks/0/checkable_steps/1")).put("step_index", 0);
+        assertRejected(duplicate, TerminalRejectionReason.VERIFICATION_INTEGRITY);
+    }
+
+    @Test
+    @DisplayName("verified 1개·not_applicable 1개·artifact 1개(mixed-scope)는 verified 검산과 짝짓는다")
+    void mixedScopePairsTheVerifiedCheck() {
+        JsonNode source = pair("phase2-mixed-scope").get("source");
+        AcceptedCompletion completion = (AcceptedCompletion) TerminalAcceptance.accept(stored(source),
+                seededScope(source));
+        JsonNode check = completion.verifiedSolutions().get(0).verificationSummary().get("solution_check");
+        assertThat(check.get("assurance_scope").asText()).isEqualTo("verified");
+        assertThat(check.get("problem_number").asText()).isEqualTo("22");
+    }
+
+    private static void assertRejected(JsonNode source, TerminalRejectionReason reason) {
+        assertThatThrownBy(() -> TerminalAcceptance.accept(stored(source), seededScope(source)))
+                .isInstanceOf(TerminalRejection.class)
+                .extracting(error -> ((TerminalRejection) error).reason()).isEqualTo(reason);
     }
 
     private static final List<String> EXTENSION_KEYS = List.of("responseKind", "assuranceScope", "solutionChecks");

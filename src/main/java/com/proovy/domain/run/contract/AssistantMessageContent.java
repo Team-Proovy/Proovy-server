@@ -24,7 +24,7 @@ public record AssistantMessageContent(
         AssistantCancel cancel,
         @JsonInclude(JsonInclude.Include.NON_NULL) String responseKind,
         @JsonInclude(JsonInclude.Include.NON_NULL) String assuranceScope,
-        @JsonInclude(JsonInclude.Include.NON_NULL) List<JsonNode> solutionChecks
+        @JsonInclude(JsonInclude.Include.NON_NULL) JsonNode solutionChecks
 ) {
 
     @JsonCreator
@@ -34,7 +34,9 @@ public record AssistantMessageContent(
         if (any && !all) {
             throw new IllegalArgumentException("completion extension fields appear together");
         }
-        solutionChecks = solutionChecks == null ? null : List.copyOf(solutionChecks);
+        if (solutionChecks != null && !solutionChecks.isArray()) {
+            throw new IllegalArgumentException("solutionChecks must be an array");
+        }
     }
 
     /** 확장 필드 없는 완료 본문. */

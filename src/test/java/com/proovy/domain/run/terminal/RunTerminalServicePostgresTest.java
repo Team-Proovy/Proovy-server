@@ -349,21 +349,58 @@ class RunTerminalServicePostgresTest {
     }
 
     @Test
-    @DisplayName("verified 검산은 짝지은 Verified Solution의 step_marks·verification_summary(solution_check)에도 남는다")
+    @DisplayName("verified 검산은 짝지은 Verified Solution의 verification_summary.solution_check에 남고 step_marks는 chain mark 그대로다")
     void verifiedChecksAreKeptOnSolutionRows() {
-        JsonNode source = pair("phase2-verified").get("source");
-        Run run = newRun(source, RunOptions.defaults());
-        service.settle(event(bind(source, run)));
-        Map<String, Object> row = jdbc.queryForMap("""
-                SELECT step_marks::text AS marks, verification_summary::text AS summary
-                FROM verified_solutions WHERE source_run_id = ?
-                """, run.runId());
-        JsonNode check = source.at("/payload/solution_checks/0");
-        assertThat(normalize(readJson((String) row.get("marks")))).isEqualTo(normalize(check.get("checkable_steps")));
-        JsonNode summary = readJson((String) row.get("summary"));
-        assertThat(summary.at("/solution_check/problem_number").asText()).isEqualTo("15");
-        assertThat(summary.at("/solution_check/assurance_scope").asText()).isEqualTo("verified");
-        assertThat(summary.get("overall_coverage").asText()).isEqualTo("direct");
+        for (String name : List.of("phase2-verified", "phase2-hide-answer")) {
+            JsonNode source = pair(name).get("source");
+            Run run = newRun(source, RunOptions.defaults());
+            service.settle(event(bind(source, run)));
+            Map<String, Object> row = jdbc.queryForMap("""
+                    SELECT step_marks::text AS marks, verification_summary::text AS summary
+                    FROM verified_solutions WHERE source_run_id = ?
+                    """, run.runId());
+            assertThat(normalize(readJson((String) row.get("marks")))).as(name)
+                    .isEqualTo(normalize(source.at("/payload/verified_solutions/0/step_marks")));
+            JsonNode summary = readJson((String) row.get("summary"));
+            assertThat(normalize(summary.get("solution_check"))).as(name)
+                    .isEqualTo(normalize(source.at("/payload/solution_checks/0")));
+            assertThat(summary.get("overall_coverage").asText()).isEqualTo("direct");
+        }
+    }
+
+    @Test
+    @DisplayName("Read-back 완료는 16KB를 넘어도 256KiB 안이면 저장·replay되고, 넘으면 거부된다(리뷰 M3)")
+    void largeReadBackIsStored() {
+        Run run = newRun(pair("phase2-verified").get("source"), RunOptions.defaults());
+        ObjectNode started = (ObjectNode) load("activity-v1/valid/read-back-started.json").deepCopy();
+        started.put("run_id", run.runId().toString()).put("attempt", 1).put("fence_token", FENCE);
+        assertThat(store.appendActivity(event(started)).outcome())
+                .isEqualTo(com.proovy.domain.run.event.ActivityAppendResult.Outcome.APPENDED);
+        ObjectNode activity = (ObjectNode) load("activity-v1/valid/read-back-completed.json").deepCopy();
+        activity.put("run_id", run.runId().toString()).put("attempt", 1).put("fence_token", FENCE);
+        ArrayNode problems = ((ObjectNode) activity.get("payload")).putArray("problems");
+        String korean = "가".repeat(6_000); // UTF-8 18KB
+        for (int i = 0; i < 4; i++) {
+            problems.addObject().put("problem_number", String.valueOf(i + 1)).put("question_text", korean);
+        }
+        assertThat(store.appendActivity(event(activity)).outcome())
+                .isEqualTo(com.proovy.domain.run.event.ActivityAppendResult.Outcome.APPENDED);
+        assertThat(SseReplayProbe.frames(frameReader, run.runId()).get(2).at("/payload/problems")).hasSize(4);
+
+        ObjectNode tooLarge = activity.deepCopy();
+        tooLarge.put("source_event_id", "run-7:activity-9:r2:completed");
+        ArrayNode many = ((ObjectNode) tooLarge.get("payload")).putArray("problems");
+        String longest = "가".repeat(10_000);
+        for (int i = 0; i < 20; i++) {
+            many.addObject().put("question_text", longest).put("figure_description", longest);
+        }
+        assertThat(store.appendActivity(event(tooLarge)).outcome())
+                .isEqualTo(com.proovy.domain.run.event.ActivityAppendResult.Outcome.MALFORMED);
+        // 다른 event의 상한은 그대로 16KB다(DB CHECK는 read_back 완료만 넓힌다)
+        String check = jdbc.queryForObject("""
+                SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_ai_run_events_payload'
+                """, String.class);
+        assertThat(check).contains("262144").contains("16384").contains("read_back");
     }
 
     @Test

@@ -49,10 +49,17 @@ pin: proovy-brain `6b237b8`(PR #198). `PIN.json`(browser-run-fixtures-v1.1)·`PI
 | wire | Server 처리 | 저장 위치 |
 |---|---|---|
 | terminal `run.completed`의 `response_kind`·`assurance_scope`·`solution_checks`(snake_case, 함께 오거나 모두 없음) | `CompletionExtension.parse` — Brain `browser_solution_check.py`와 같은 규칙(단계 종류별 결과, ✓ 단계 수식, hide_answer 전 단계 withheld, hide_solution 단계 없음, 배지 집계, 재설명 not_applicable·검산 없음, 안내 응답 검산 없음) | `chat_messages.response_kind`·`assurance_scope`·`solution_checks`(V6) |
-| verified 검산 | 새 Verified Solution과 순서대로 짝지음(수가 같을 때) | 단계 → `verified_solutions.step_marks`, 문제 단위 값 → `verified_solutions.verification_summary.solution_check` |
+| verified 검산 | 모호하지 않을 때만(새 artifact 1·verified 검산 1·기존 참조 0) 새 Verified Solution과 짝지음. 연결 키가 wire에 없다 | 공개 view 그대로(`disclosure` 포함) → `verified_solutions.verification_summary.solution_check`. `step_marks`는 artifact chain mark 그대로 |
 | browser `run.completed`·대화 조회 assistant의 `responseKind`·`assuranceScope`·`solutionChecks`(camelCase, null key 채움) | `TerminalReplay.completedPayload` 한 함수 — SSE replay·live·대화 조회가 같은 값 | — |
 | Activity Kind `read_back`(label `reading_back_problems`, 완료 `problems[]`) | `SourceActivities` — 번호·본문·보기(0 또는 2~5)·그림 설명만, 탭·줄바꿈 밖 제어 문자 거부 | `ai_run_events` (다른 Activity와 같음, replay 대상) |
 
+- Server가 Brain보다 엄격한 규칙: 재설명은 새 Verified Solution을 만들지 않는다, verified 검산 수 ≤ 새 artifact + 기존 참조,
+  `step_index`는 0부터 빈틈없이(2.06 규칙).
+- Read-back 완료 Activity만 저장 상한 256KiB(V6 `ck_ai_run_events_payload`), 나머지 event는 16KB 그대로.
+- 작업 문서(2026-11-11 결정)와 다른 저장 위치 — 근거와 확인 필요 항목은 PR #247:
+  미검증·검증 대상 아님 단계 검산은 `response_pages` result block이 아니라 `chat_messages.solution_checks`,
+  단계는 `verified_solutions.step_marks`가 아니라 `verification_summary.solution_check`(disclosure 적용 view라 영구 mark를 덮지 않는다),
+  `evidence_code`는 Brain이 보내지 않아 저장하지 않는다.
 - 확장 없는 terminal(2.12·2.14 이전 Brain)은 `response_kind = 'standard'`, 배지·검산 NULL이고 browser 응답에 세 key가 없다.
 - 독립 답·`check_reason`·`evidence_code`·problem id는 Brain이 source에도 싣지 않으므로 Server도 저장하지 않는다.
 

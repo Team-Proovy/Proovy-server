@@ -56,6 +56,13 @@ public final class SourceActivities {
     public static final int MAX_READ_BACK_CHOICES = 5;
     /** {@code ck_ai_run_events_payload}: {@code octet_length(payload::TEXT) <= 16384}. */
     public static final int MAX_STORED_PAYLOAD_BYTES = 16_384;
+    /**
+     * Read-back 완료({@code activity.completed}, kind {@code read_back})만 더 큰 상한(V6 {@code ck_ai_run_events_payload}).
+     * Brain {@code ReadBackProblem}은 바이트 상한 없이 문제 20개 × 글 10,000자까지 허용해 16KB로는 시험지 몇 문제도 담지 못한다.
+     * 256KiB는 20문제 × 약 4,000자 한글(UTF-8 3바이트)을 담는다. 그보다 크면 지금처럼 거부한다 — Brain과 바이트 상한을
+     * 계약에 두는 일은 2.12 확인 필요.
+     */
+    public static final int MAX_STORED_READ_BACK_PAYLOAD_BYTES = 262_144;
     /** {@code ck_ai_run_events_source_event_id}는 128자다. brain-source-v1은 256자까지 허용한다. */
     public static final int MAX_STORED_SOURCE_EVENT_ID_LENGTH = 128;
     private static final String DIGEST_PREFIX = "sha256:";
@@ -103,7 +110,7 @@ public final class SourceActivities {
             throw violation("source_event_id", "uses the reserved digest prefix");
         }
         ObjectNode payload = browserPayload(event.type(), event.payload());
-        if (storedLength(payload) > MAX_STORED_PAYLOAD_BYTES) {
+        if (storedLength(payload) > maxStoredBytes(type, payload)) {
             throw violation("payload", "is too large to store");
         }
         return new DurableActivity(UUID.fromString(event.runId()), event.attempt(), event.fenceToken(),
@@ -111,6 +118,13 @@ public final class SourceActivities {
                         .orElseThrow(() -> violation("payload.kind", "is not a known activity kind")),
                 payload.get("activityId").textValue(), payload,
                 BrowserRunContract.wireTime(event.occurredAt().toInstant()));
+    }
+
+    /** 저장 한도: Read-back 완료만 {@link #MAX_STORED_READ_BACK_PAYLOAD_BYTES}, 나머지는 {@link #MAX_STORED_PAYLOAD_BYTES}. */
+    static int maxStoredBytes(AiRunEventType type, JsonNode payload) {
+        return type == AiRunEventType.ACTIVITY_COMPLETED
+                && ActivityKind.READ_BACK.wireValue().equals(payload.path("kind").textValue())
+                ? MAX_STORED_READ_BACK_PAYLOAD_BYTES : MAX_STORED_PAYLOAD_BYTES;
     }
 
     /**

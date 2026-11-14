@@ -19,7 +19,8 @@ final class SafeMarkdown {
     private static final int FLAGS = Pattern.UNIX_LINES | Pattern.UNICODE_CHARACTER_CLASS;
     private static final Pattern SOURCE_MARKER =
             Pattern.compile("\\[\\[source:([A-Za-z0-9][A-Za-z0-9_.:-]{0,127})\\]\\]", FLAGS);
-    private static final Pattern CONTROL = Pattern.compile("[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]");
+    /** C0/C1 제어 문자(탭·줄바꿈·CR 제외) — Brain {@code CONTROL_CHARACTER_PATTERN}. 단계 검산 설명도 같은 집합을 쓴다. */
+    static final Pattern CONTROL = Pattern.compile("[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]");
     private static final Pattern FENCED_CODE = Pattern.compile("(?m)^[ \\t]{0,3}(?:`{3,}|~{3,})", FLAGS);
     private static final Pattern HTML =
             Pattern.compile("<!--|<!|<\\?|</?[A-Za-z][A-Za-z0-9:-]*(?:\\s[^>]*)?/?>", FLAGS);

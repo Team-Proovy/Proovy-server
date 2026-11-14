@@ -42,11 +42,9 @@ public record CompletionExtension(ResponseKind responseKind, AssuranceScope assu
     static final int MAX_CHOICE = 5;
     static final Set<String> FIELDS = Set.of("response_kind", "assurance_scope", "solution_checks");
 
-    /** SafeMarkdown 제어 문자 집합(탭·줄바꿈·CR 제외). */
-    private static final Pattern CONTROL = Pattern.compile("[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]");
+    /** SafeMarkdown과 같은 제어 문자 집합(탭·줄바꿈·CR 제외). */
+    private static final Pattern CONTROL = SafeMarkdown.CONTROL;
     private static final String SOURCE_MARKER_PREFIX = "[[source:";
-    private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
-            new com.fasterxml.jackson.databind.ObjectMapper();
 
     public CompletionExtension {
         solutionChecks = List.copyOf(solutionChecks);
@@ -124,8 +122,10 @@ public record CompletionExtension(ResponseKind responseKind, AssuranceScope assu
         if (present != FIELDS.size()) {
             throw TerminalModel.verificationError("payload", "completion extension fields appear together");
         }
-        // payload의 나머지 key는 TerminalModel.Completed가 닫힌 목록으로 검사했다.
-        StrictJson json = StrictJson.object(payload, "payload", fieldNames(payload));
+        // 세 필드만 떼어 닫힌 목록으로 읽는다(payload의 나머지 key는 TerminalModel.Completed가 검사한다).
+        com.fasterxml.jackson.databind.node.ObjectNode fields = JsonNodeFactory.instance.objectNode();
+        FIELDS.forEach(field -> fields.set(field, payload.get(field)));
+        StrictJson json = StrictJson.object(fields, "payload", FIELDS);
         ResponseKind kind = json.enumValue("response_kind", ResponseKind.class);
         AssuranceScope scope = json.enumValue("assurance_scope", AssuranceScope.class);
         List<JsonNode> nodes = json.array("solution_checks", MAX_SOLUTION_CHECKS);
@@ -143,16 +143,11 @@ public record CompletionExtension(ResponseKind responseKind, AssuranceScope assu
         return new CompletionExtension(kind, scope, checks);
     }
 
-    private static Set<String> fieldNames(JsonNode node) {
-        Set<String> names = new java.util.HashSet<>();
-        node.fieldNames().forEachRemaining(names::add);
-        return names;
-    }
 
     /** 저장 철자(source snake_case, null 값 key 생략). */
     public JsonNode sourceChecks() {
         ArrayNode out = JsonNodeFactory.instance.arrayNode();
-        solutionChecks.forEach(check -> out.add(JSON.valueToTree(check.toSource())));
+        solutionChecks.forEach(check -> out.add(TerminalAcceptance.tree(check.toSource())));
         return out;
     }
 
@@ -223,7 +218,13 @@ public record CompletionExtension(ResponseKind responseKind, AssuranceScope assu
             }
             List<Step> steps = new ArrayList<>();
             for (int i = 0; i < rawSteps.size(); i++) {
-                steps.add(Step.parse(rawSteps.get(i), json.path("checkable_steps") + "[" + i + "]"));
+                Step step = Step.parse(rawSteps.get(i), json.path("checkable_steps") + "[" + i + "]");
+                // 2.06 SolutionVerification은 step_index가 0부터 빈틈없이 센다. 화면이 stepIndex를 키로 쓰므로 그대로 강제한다.
+                if (step.index() != i) {
+                    throw TerminalModel.verificationError(json.path("checkable_steps"),
+                            "step_index must count from 0 without gaps");
+                }
+                steps.add(step);
             }
             SolutionCheck check = new SolutionCheck(problemNumber, scope, strategy, attempts, cross, disclosure, steps);
             check.validate(path);
@@ -273,16 +274,6 @@ public record CompletionExtension(ResponseKind responseKind, AssuranceScope assu
                     "checkable_steps", steps.stream().map(Step::toSource).toList());
         }
 
-        /** {@code verified_solutions.verification_summary}에 함께 두는 문제 단위 값(단계 제외). */
-        Map<String, Object> summary() {
-            Map<String, Object> out = toSource();
-            out.remove("checkable_steps");
-            return out;
-        }
-
-        List<Object> sourceSteps() {
-            return steps.stream().<Object>map(Step::toSource).toList();
-        }
     }
 
     /** 일치 여부 플래그만 — 독립 답 값·프로그램은 없다. */

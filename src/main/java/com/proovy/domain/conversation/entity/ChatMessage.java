@@ -66,7 +66,7 @@ public class ChatMessage extends AssignedIdEntity<UUID> {
      * 아래 세 열은 terminal transaction(1.82 JDBC)만 쓴다 — JPA는 읽기만 한다.
      */
     @Column(name = "response_kind", length = 20, nullable = false, insertable = false, updatable = false)
-    private String responseKind;
+    private String responseKind = "standard"; // JPA insert 직후에도 DB 기본값과 같은 값(2.15 리뷰 m3)
 
     /** 응답 배지 {@code verified|unverified|not_applicable}. 확장 terminal로 완료된 assistant 메시지만 값이 있다. */
     @Column(name = "assurance_scope", length = 20, insertable = false, updatable = false)

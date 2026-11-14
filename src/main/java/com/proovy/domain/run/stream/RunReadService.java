@@ -257,14 +257,9 @@ public class RunReadService {
                                 message.assuranceScope(), message.solutionChecks()), available);
                 List<JsonNode> summary = new ArrayList<>();
                 payload.get("verificationSummary").forEach(summary::add);
-                List<JsonNode> checks = null;
-                if (payload.has("solutionChecks")) {
-                    checks = new ArrayList<>();
-                    payload.get("solutionChecks").forEach(checks::add);
-                }
                 yield new AssistantMessageContent(payload.get("responseDisposition").asText(),
                         textOrNull(payload, "clarificationReason"), payload.get("assistantResponse"), summary, null,
-                        null, textOrNull(payload, "responseKind"), textOrNull(payload, "assuranceScope"), checks);
+                        null, textOrNull(payload, "responseKind"), textOrNull(payload, "assuranceScope"), payload.get("solutionChecks"));
             }
             case FAILED -> {
                 JsonNode failed = runEvents.get("run.failed");
