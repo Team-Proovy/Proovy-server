@@ -30,10 +30,10 @@ class InternalRunRequestContractTest {
     }
 
     @Test
-    @DisplayName("거부 요청 23종은 모두 계약 위반이고 오류에 grant·URL·입력 값이 없다")
+    @DisplayName("거부 요청 25종은 모두 계약 위반이고 오류에 grant·URL·입력 값이 없다")
     void invalidRequestsRejected() {
         var invalid = entries("invalid");
-        assertThat(invalid).hasSize(23);
+        assertThat(invalid).hasSize(25);
         for (Map.Entry<String, JsonNode> entry : invalid) {
             JsonNode request = entry.getValue().get("request");
             assertThatThrownBy(() -> InternalRunWire.read(request, InternalRunRequest.class))
@@ -78,10 +78,10 @@ class InternalRunRequestContractTest {
     }
 
     @Test
-    @DisplayName("fingerprint 27쌍: canonical·sha256이 Python과 같고 same/different 관계가 base와 맞는다")
+    @DisplayName("fingerprint 28쌍: canonical·sha256이 Python과 같고 same/different 관계가 base와 맞는다")
     void fingerprintFixtures() {
         var cases = entries("fingerprint");
-        assertThat(cases).hasSize(27);
+        assertThat(cases).hasSize(28);
         InternalRunFingerprint base = InternalRunWire.read(load("fingerprint/base.json").get("request"),
                 InternalRunRequest.class).fingerprint();
         for (Map.Entry<String, JsonNode> entry : cases) {

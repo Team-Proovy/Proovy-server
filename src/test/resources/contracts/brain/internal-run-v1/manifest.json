@@ -1,10 +1,10 @@
 {
-  "consumer_version": "internal-run-fixtures-v2",
+  "consumer_version": "internal-run-fixtures-v3",
   "contract_version": "internal-run-v1",
   "fingerprint_algorithm": "sha256-canonical-json-v1",
   "original_path": "tests/fixtures/contracts/internal-run-v1",
-  "change_reason": "Task 1.65 stream identity-binding rejection: a request_id bound to a different run_id refuses with reason request_id_bound_to_other_run + existing_run_id — operations/stream-request-id-bound and decisions.json binding_overrides pin the shape for the Server.",
-  "consumption_policy": "Pin internal-run-fixtures-v2 at original_path; changes require a new fixture version and reason.",
+  "change_reason": "Task 2.13 internal-run-fixtures-v3: VerifiedSolutionRef gains optional paired answer_claim_id and answer_text (hashed into verified_solution_refs[].content_sha256 when present) so Brain follow-up correction and hiding checks know the exact final answer across the wire.",
+  "consumption_policy": "Pin internal-run-fixtures-v3 at original_path; changes require a new fixture version and reason.",
   "ownership": {
     "brain": [
       "contract validation and sanitization",
@@ -21,7 +21,8 @@
   "boundaries": "Wire contract only — no HTTP endpoints, service auth, lease/fencing storage, budget recording, or recovery persistence.",
   "requests": [
     "full",
-    "minimal"
+    "minimal",
+    "with-answer-ref"
   ],
   "operations": [
     "cancel-accepted",
@@ -55,10 +56,12 @@
     "metadata-field",
     "naive-deadline",
     "pdf-with-pixels",
+    "phantom-solution-answer-claim",
     "pixel-count-mismatch",
     "scope-note-mismatch",
     "self-revising-solution",
     "unknown-input-field",
+    "unpaired-solution-answer",
     "viewer-page-out-of-range",
     "wrong-contract-version"
   ],
@@ -75,6 +78,7 @@
     "diff-limits",
     "diff-locale",
     "diff-requested-tasks",
+    "diff-solution-answer",
     "diff-solution-content",
     "diff-solution-id",
     "diff-text",
@@ -105,6 +109,10 @@
     {
       "date": "2026-10-08",
       "reason": "Task 1.65: a stream whose request_id is bound to a different run_id rejects 409 with reason request_id_bound_to_other_run and existing_run_id naming the owning run — operations gains stream-request-id-bound, decisions.json gains binding_overrides (run-decisions-v2). Additive under internal-run-v1; no existing fixture changed."
+    },
+    {
+      "date": "2026-11-15",
+      "reason": "Task 2.13 internal-run-fixtures-v3: VerifiedSolutionRef gains optional paired answer_claim_id and answer_text, included in verified_solution_refs[].content_sha256 when present. Null-answer legacy fixtures stay byte-identical; requests gains with-answer-ref, fingerprint gains diff-solution-answer, and invalid gains unpaired-solution-answer and phantom-solution-answer-claim."
     }
   ],
   "validation_scope": "Python validators enforce identifier/media/scope/reference integrity; Java validates against the same canonical JSON and fingerprint expectations.",

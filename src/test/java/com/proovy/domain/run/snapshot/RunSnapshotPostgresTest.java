@@ -254,6 +254,45 @@ class RunSnapshotPostgresTest {
         assertThat(snapshot.policySnapshot().at("/history/estimated_tokens").asInt()).isEqualTo(30_008);
     }
 
+    @Test
+    void storedAnswerMetadataRoundTripsIntoDeliveredReferenceAndAltersFingerprint() {
+        long note = newNote(ALICE);
+        Turn hiddenTurn = completedTurn(note, "x+1=3을 답만 가리고 풀어줘", "풀이 단계만 안내했습니다.");
+        UUID firstSolution = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id, assistant_message_id,
+                       schema_version, solution_version, problem_statement, solution_text, claims, verification_summary,
+                       verification_version, overall_coverage, content_sha256, answer_claim_id, answer_text)
+                VALUES (?, 'solution-eeeeeeeeeeeeeeeeeeee-001', ?, ?, ?, 'verified-solution-v1', 1, 'x+1=3',
+                        '양변에서 1을 빼면 $x=2$이다.', '[{"claim_id":"claim-1","statement":"해를 구한다","coverage":"direct"}]',
+                        '{}', 'chain-verification-report-v3', 'direct', ?, 'claim-1', '$x=2$')
+                """, firstSolution, note, hiddenTurn.runId(), hiddenTurn.assistantMessageId(), "d".repeat(64));
+
+        RunSnapshot snapshot = admit(UUID.randomUUID(), note, request(note, "답이 99 아닌가요?", null), Instant.now());
+        InternalRunRequest delivered = RunSnapshotFactoryTest.firstDelivery(snapshot, RunAssetAccess.NONE);
+
+        assertThat(delivered.verifiedSolutionRefs()).hasSize(1);
+        VerifiedSolutionRef ref = delivered.verifiedSolutionRefs().getFirst();
+        assertThat(ref.answerClaimId()).isEqualTo("claim-1");
+        assertThat(ref.answerText()).isEqualTo("$x=2$");
+        assertThat(delivered.history()).noneMatch(message -> message.text().contains("$x=2$"));
+
+        // 동일 problem_statement·claims라도 answer_text가 달라지면 snapshot fingerprint가 달라진다
+        long otherNote = newNote(ALICE);
+        Turn otherTurn = completedTurn(otherNote, "x+1=3을 답만 가리고 풀어줘", "풀이 단계만 안내했습니다.");
+        jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id, assistant_message_id,
+                       schema_version, solution_version, problem_statement, solution_text, claims, verification_summary,
+                       verification_version, overall_coverage, content_sha256, answer_claim_id, answer_text)
+                VALUES (?, 'solution-eeeeeeeeeeeeeeeeeeee-001', ?, ?, ?, 'verified-solution-v1', 1, 'x+1=3',
+                        '양변에서 1을 빼면 $x=3$이다.', '[{"claim_id":"claim-1","statement":"해를 구한다","coverage":"direct"}]',
+                        '{}', 'chain-verification-report-v3', 'direct', ?, 'claim-1', '$x=3$')
+                """, UUID.randomUUID(), otherNote, otherTurn.runId(), otherTurn.assistantMessageId(), "d".repeat(64));
+        RunSnapshot otherSnapshot = factory.create(UUID.randomUUID(), ALICE, otherNote,
+                request(otherNote, "답이 99 아닌가요?", null), Instant.now());
+        assertThat(otherSnapshot.requestFingerprint()).isNotEqualTo(snapshot.requestFingerprint());
+    }
+
     // ------------------------------------------------------------------
     // 거부
     // ------------------------------------------------------------------

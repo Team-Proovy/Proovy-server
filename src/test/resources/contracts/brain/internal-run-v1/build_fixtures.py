@@ -202,6 +202,13 @@ def build_requests() -> dict[str, dict]:
     return {
         "full": _wire(FULL),
         "minimal": _wire(MINIMAL),
+        "with-answer-ref": _wire(
+            _mutate(
+                lambda r: r["verified_solution_refs"][0].update(
+                    {"answer_claim_id": "claim-1", "answer_text": "2와 3"}
+                )
+            )
+        ),
     }
 
 
@@ -396,6 +403,16 @@ def build_fingerprint_cases() -> dict[str, dict]:
                 )
             ),
             "다른 solution 선택은 의미가 다르다.",
+        ),
+        "diff-solution-answer": _fp_case(
+            "diff-solution-answer",
+            "different",
+            _mutate(
+                lambda r: r["verified_solution_refs"][0].update(
+                    {"answer_claim_id": "claim-1", "answer_text": "2와 3"}
+                )
+            ),
+            "Verified Solution 의 답 식별 근거(answer_claim_id·answer_text)가 추가·변경되면 새로 계산한다.",
         ),
         "diff-attachment-ref": _fp_case(
             "diff-attachment-ref",
@@ -898,6 +915,22 @@ def build_invalid() -> dict[str, dict]:
             ),
             "solution 참조는 자기 자신을 revise 할 수 없다.",
         ),
+        "unpaired-solution-answer": case(
+            _mutate(
+                lambda r: r["verified_solution_refs"][0].update(
+                    {"answer_claim_id": "claim-1"}
+                )
+            ),
+            "answer_claim_id 와 answer_text 는 함께 오거나 함께 비어야 한다.",
+        ),
+        "phantom-solution-answer-claim": case(
+            _mutate(
+                lambda r: r["verified_solution_refs"][0].update(
+                    {"answer_claim_id": "claim-99", "answer_text": "2와 3"}
+                )
+            ),
+            "answer_claim_id 는 해당 solution 참조의 claims 안에 있어야 한다.",
+        ),
         "duplicate-history-message-id": case(
             _mutate(
                 lambda r: r["history"].append(
@@ -974,19 +1007,19 @@ def build_canonical_rules() -> dict:
 
 def build_manifest() -> dict:
     return {
-        "consumer_version": "internal-run-fixtures-v2",
+        "consumer_version": "internal-run-fixtures-v3",
         "contract_version": "internal-run-v1",
         "fingerprint_algorithm": "sha256-canonical-json-v1",
         "original_path": "tests/fixtures/contracts/internal-run-v1",
         "change_reason": (
-            "Task 1.65 stream identity-binding rejection: a request_id bound "
-            "to a different run_id refuses with reason "
-            "request_id_bound_to_other_run + existing_run_id — "
-            "operations/stream-request-id-bound and decisions.json "
-            "binding_overrides pin the shape for the Server."
+            "Task 2.13 internal-run-fixtures-v3: VerifiedSolutionRef gains "
+            "optional paired answer_claim_id and answer_text (hashed into "
+            "verified_solution_refs[].content_sha256 when present) so Brain "
+            "follow-up correction and hiding checks know the exact final "
+            "answer across the wire."
         ),
         "consumption_policy": (
-            "Pin internal-run-fixtures-v2 at original_path; changes require "
+            "Pin internal-run-fixtures-v3 at original_path; changes require "
             "a new fixture version and reason."
         ),
         "ownership": {
@@ -1036,6 +1069,18 @@ def build_manifest() -> dict:
                     "stream-request-id-bound, decisions.json gains "
                     "binding_overrides (run-decisions-v2). Additive under "
                     "internal-run-v1; no existing fixture changed."
+                ),
+            },
+            {
+                "date": "2026-11-15",
+                "reason": (
+                    "Task 2.13 internal-run-fixtures-v3: VerifiedSolutionRef "
+                    "gains optional paired answer_claim_id and answer_text, "
+                    "included in verified_solution_refs[].content_sha256 when "
+                    "present. Null-answer legacy fixtures stay byte-identical; "
+                    "requests gains with-answer-ref, fingerprint gains "
+                    "diff-solution-answer, and invalid gains "
+                    "unpaired-solution-answer and phantom-solution-answer-claim."
                 ),
             },
         ],

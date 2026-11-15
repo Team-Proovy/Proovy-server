@@ -27,5 +27,7 @@ public record VerifiedSolutionInput(
         JsonNode sourceRefIds,
         SummaryCoverage overallCoverage,
         String contentSha256,
-        UUID revisesSolutionId) {
+        UUID revisesSolutionId,
+        String answerClaimId,
+        String answerText) {
 }

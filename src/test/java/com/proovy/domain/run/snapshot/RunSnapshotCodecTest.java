@@ -167,7 +167,7 @@ class RunSnapshotCodecTest {
                     .map(path -> Map.entry(path.getFileName().toString(),
                             InternalRunFixtures.load("fingerprint/" + path.getFileName())))
                     .toList();
-            assertThat(entries).hasSize(27);
+            assertThat(entries).hasSize(28);
             return entries.stream();
         } catch (IOException e) {
             throw new UncheckedIOException(e);

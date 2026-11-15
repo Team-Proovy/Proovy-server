@@ -129,7 +129,25 @@ class TerminalAcceptanceContractTest {
             }
             checked++;
         }
-        assertThat(checked).isEqualTo(3);
+        assertThat(checked).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("verified-answer-ref: answer_claim_id·answer_text는 저장 입력으로 추출되고 공개 표면에는 노출되지 않는다")
+    void verifiedAnswerRefExtractsAnswerMetadataWithoutLeakingToBrowser() {
+        JsonNode fixture = pair("verified-answer-ref");
+        JsonNode source = fixture.get("source");
+        AcceptedCompletion completion = (AcceptedCompletion) TerminalAcceptance.accept(stored(source),
+                seededScope(source));
+
+        assertThat(completion.verifiedSolutions()).hasSize(1);
+        VerifiedSolutionInput solution = completion.verifiedSolutions().getFirst();
+        assertThat(solution.answerClaimId()).isEqualTo("claim-1");
+        assertThat(solution.answerText()).isEqualTo("$x=2$");
+
+        String browserSurface = fixture.get("browser").toString() + "\n" + completion.plainText() + "\n"
+                + completion.responsePages() + "\n" + completion.verificationSummary();
+        assertThat(browserSurface).doesNotContain("answer_claim_id", "answer_text", "$x=2$", "x=2");
     }
 
     @ParameterizedTest(name = "{0}")

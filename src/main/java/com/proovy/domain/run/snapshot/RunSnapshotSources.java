@@ -38,9 +38,18 @@ public interface RunSnapshotSources {
      * @param revisesPublicSolutionId 정정 대상의 Brain neutral ID(없으면 null)
      * @param superseded              현재 SUPERSEDED인지(조회 시점 상태)
      * @param claims                  {@code [{claim_id, statement, coverage}]}
+     * @param answerClaimId           명시적 최종 답 claim_id(구버전 행이면 null)
+     * @param answerText              명시적 최종 답 원문(구버전 행이면 null, 비공개 전달 전용)
      */
     record SolutionRow(UUID solutionId, String publicSolutionId, UUID assistantMessageId, String problemStatement,
-                       JsonNode claims, UUID revisesSolutionId, String revisesPublicSolutionId, boolean superseded) {
+                       JsonNode claims, UUID revisesSolutionId, String revisesPublicSolutionId, boolean superseded,
+                       String answerClaimId, String answerText) {
+
+        SolutionRow(UUID solutionId, String publicSolutionId, UUID assistantMessageId, String problemStatement,
+                    JsonNode claims, UUID revisesSolutionId, String revisesPublicSolutionId, boolean superseded) {
+            this(solutionId, publicSolutionId, assistantMessageId, problemStatement, claims, revisesSolutionId,
+                    revisesPublicSolutionId, superseded, null, null);
+        }
     }
 
     record AttachmentRow(UUID attachmentId, UUID sourceMessageId, int attachmentIndex, String sha256,

@@ -1,14 +1,14 @@
 {
   "repository": "Team-Proovy/proovy-brain",
-  "commit": "303a9e45943207cb22fc555452cc781fb8117d21",
+  "commit": "234912a2a360a85994df6671af8d8622c520fa29",
   "source_path": "tests/fixtures/contracts",
-  "consumer_version": "internal-run-fixtures-v2",
+  "consumer_version": "internal-run-fixtures-v3",
   "manifest": "internal-run-v1/manifest.json",
-  "manifest_sha256": "08135911aff5557324ba9d92e47bc9a160a650df59647b142204c3f902039dc4",
+  "manifest_sha256": "b26fed674a7e0d62b3c214e6c7a476aa9a543e0c7fccb236db125bcaab2adaf8",
   "files_note": "internal-run-v1 manifest에는 파일별 sha256이 없어, pin commit에서 복사한 직후 계산한 값을 적는다(README 갱신 절차).",
   "files": {
     "internal-run-v1/CATALOG.md": "7098b6be03d5a72b4ad6f8630fe7d044314c0555583a96f7c2c4833fb35a72c8",
-    "internal-run-v1/build_fixtures.py": "15d91bffbe89ebefed436bc303054fdbb937915232718c6689200219177693ac",
+    "internal-run-v1/build_fixtures.py": "09b549cc5ec7f2e072147214811be3ca83504f7114faa6513f2891988272ca84",
     "internal-run-v1/canonical.json": "a7805f713bc0818da88c3381ccaa52a2c40c340cbbf61070c5c5f23846077d9a",
     "internal-run-v1/decisions.json": "5e4fb33e0535f5db44b0d35b268dc60072056be247c6ec2fa44c8334cec36499",
     "internal-run-v1/fingerprint/base.json": "9dcb31ab39ffcb2b7f4a39ebca373efd32b1f75c1f6099b0ad0fbb43dc1c7ed7",
@@ -23,6 +23,7 @@
     "internal-run-v1/fingerprint/diff-limits.json": "42405a8acc1239676eff691d51eb615d0f1193debb1f76d26f288104d4a43a71",
     "internal-run-v1/fingerprint/diff-locale.json": "dff40ece4a4f9880061a2a9a272e24b6dad348233ea5c25d10e4755c8011d4ba",
     "internal-run-v1/fingerprint/diff-requested-tasks.json": "eaf3da90ab38e9ecf15fe43784effe0a6804d2ba79d8a0ee0a7f4da083ccc066",
+    "internal-run-v1/fingerprint/diff-solution-answer.json": "eebd4711f3acd607246f86f4c6a2fb683934e650431b086b3bed92e1c1bd5e8f",
     "internal-run-v1/fingerprint/diff-solution-content.json": "20c8619278ab06d8c2af431d5f78e4ec553e87742cdfa483c9aa1d5f1dbdcc32",
     "internal-run-v1/fingerprint/diff-solution-id.json": "4a6aba3adc214e1da898cf7713a6851535d9f9f724271455b998483d0111002b",
     "internal-run-v1/fingerprint/diff-text.json": "535ec4f05744e6fe098d7205040265158c3ccc5e38fcc7da61e08cf46889ac30",
@@ -55,10 +56,12 @@
     "internal-run-v1/invalid/metadata-field.json": "ea8414db2b471e73552bbeff31ff56e22539160f07f693fe49c7821d33491929",
     "internal-run-v1/invalid/naive-deadline.json": "2834144b7b5bd69d5c1dee4fd2d9f0000c87408f5878feebcfe752de4297e9dc",
     "internal-run-v1/invalid/pdf-with-pixels.json": "ec11715512c7d213cd5d13918f34f70a49ae2ef3ad2a6e735159ea9a9b2b5cda",
+    "internal-run-v1/invalid/phantom-solution-answer-claim.json": "30b17b32dac17015a6aadb1a08688e98dfde588c559a25df2194c3eae058ede0",
     "internal-run-v1/invalid/pixel-count-mismatch.json": "fc410d3e61d3fbd700cf2d3a78040a7d9c06abfe21995200a114b9262e0aeef3",
     "internal-run-v1/invalid/scope-note-mismatch.json": "d2065c8b683f62041dc215a79bdfdc657caab654d59b1b70420b196992310f72",
     "internal-run-v1/invalid/self-revising-solution.json": "bd3e33e5eccd3f0cbc992405bfe06d68093b8a93c899a76cd4a1f153087b5152",
     "internal-run-v1/invalid/unknown-input-field.json": "622714fa44b2f7fb2deb8a2ef6372d5a6935015389541be81d58b5e178aec2aa",
+    "internal-run-v1/invalid/unpaired-solution-answer.json": "740f0ff94004a9c208d745bb280aff56d1b837c32323630a3396c30b33bece7c",
     "internal-run-v1/invalid/viewer-page-out-of-range.json": "965e5d3c9b8e79272f025a278687a67ef959b5415aade772c9fd18672f6422ed",
     "internal-run-v1/invalid/wrong-contract-version.json": "e880912d1e88e22c7ec5a4ba7a95282d6a40e0e9cbd75db02afe2b6ddbde0655",
     "internal-run-v1/operations/cancel-accepted.json": "8394eb6ba48f30e7df4869551482d3d22796f9ce585e8fc2716c2a09b0ab1edd",
@@ -74,6 +77,7 @@
     "internal-run-v1/operations/status-terminal.json": "d8c79a4525484b3d3bdedf2e13e086ebe673bacc58b7ccfec9d02fc28c03ea3c",
     "internal-run-v1/operations/stream-request-id-bound.json": "a89aab67133042da1b9546ed7cd226d73f16f5bf9e995087685095cfbcc16dd9",
     "internal-run-v1/requests/full.json": "e4a080ba90b671ffc4017a92c262a078ed000a3622a951e9630bd78e376c1b3d",
-    "internal-run-v1/requests/minimal.json": "d79b96686b5102766326d993c9dbd478a0c3d90157597b81dccd18182727107f"
+    "internal-run-v1/requests/minimal.json": "d79b96686b5102766326d993c9dbd478a0c3d90157597b81dccd18182727107f",
+    "internal-run-v1/requests/with-answer-ref.json": "0325535668b8eabec435fe28e03469898f2d50ef889a1ca9bb5f3d4bcf559d1b"
   }
 }

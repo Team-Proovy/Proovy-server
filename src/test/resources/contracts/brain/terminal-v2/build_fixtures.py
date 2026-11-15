@@ -354,6 +354,17 @@ def review_golden_pairs() -> dict[str, dict]:
         ("conflict-substantive", substantive),
     ):
         result[name] = {**completed_pair(name, request), "progress_sources": progress}
+    answer_ref = deepcopy(completed_pair("hide-answer"))
+    answer_source = deepcopy(answer_ref["source"])
+    answer_source["payload"]["verified_solutions"][0]["answer_claim_id"] = "claim-1"
+    answer_source["payload"]["verified_solutions"][0]["answer_text"] = "$x=2$"
+    answer_event = parse_source_event(answer_source)
+    result["verified-answer-ref"] = {
+        "publication_request": answer_ref["publication_request"],
+        "source": to_source_event_payload(answer_event),
+        "browser": to_browser_event_payload(answer_event, **answer_ref["server"]),
+        "server": answer_ref["server"],
+    }
     return result
 
 
@@ -683,6 +694,31 @@ def build() -> None:
                 pair["browser_outcome"] = "ignore_additive"
             pair["browser_expected"] = existing["browser"]
         save(ROOT / "invalid" / f"{name}.json", pair)
+    answer_ref = review_pairs["verified-answer-ref"]
+    for name in (
+        "unpaired-answer-ref",
+        "phantom-answer-claim",
+        "missing-answer-text",
+    ):
+        source = deepcopy(answer_ref["source"])
+        artifact = source["payload"]["verified_solutions"][0]
+        if name == "unpaired-answer-ref":
+            del artifact["answer_text"]
+        elif name == "phantom-answer-claim":
+            artifact["answer_claim_id"] = "claim-99"
+        else:
+            artifact["answer_text"] = "없는 답"
+        save(
+            ROOT / "invalid" / f"{name}.json",
+            {
+                "source": source,
+                "browser": deepcopy(answer_ref["browser"]),
+                "source_outcome": "reject",
+                "browser_outcome": "valid_public_projection",
+                "browser_expected": answer_ref["browser"],
+                "schema_outcome": "accept",
+            },
+        )
     for name in ("missing-activity-kind", "missing-block-kind"):
         if name == "missing-activity-kind":
             source = json.loads(
@@ -716,13 +752,13 @@ def build() -> None:
     save(
         ROOT / "manifest.json",
         {
-            "consumer_version": "terminal-fixtures-v2.1",
+            "consumer_version": "terminal-fixtures-v2.2",
             "source_contract_version": "brain-source-v1",
             "assistant_response_version": "assistant-response-v1",
             "artifact_version": "verified-solution-v1",
             "original_path": "tests/fixtures/contracts/terminal-v2",
-            "change_reason": "Task 1.58: run.failed gains code invalid_attachment{reason} — attachment-inspection refusals (corrupt/forged/encrypted/oversized inputs) stop reporting budget_exceeded; failure_class=attachment, recoverable=false, reason is a fixed sub-code with a fixed safe message; Server consumes it for compensation and re-upload guidance.",
-            "consumption_policy": "Pin terminal-fixtures-v2.1 at original_path; changes require a new fixture version and reason.",
+            "change_reason": "Task 2.13 terminal-fixtures-v2.2: VerifiedSolution gains optional paired answer_claim_id and answer_text so prior final answers flow from producer through Server storage to internal-run references without browser leakage.",
+            "consumption_policy": "Pin terminal-fixtures-v2.2 at original_path; changes require a new fixture version and reason.",
             "ownership": {
                 "brain": [
                     "snake_case source",
@@ -772,6 +808,10 @@ def build() -> None:
                 {
                     "date": "2026-11-12",
                     "reason": "Task 2.07 review (still terminal-fixtures-v2.1, unmerged): run.completed source payload gains the optional Phase 2 completion extension response_kind/assurance_scope/solution_checks (all three or none; snake_case source, camelCase browser = browser-run-v1 CompletionExtension; per-solution disclosure, withheld steps). New pairs phase2-*, negatives extension-*. Existing pairs are byte-identical.",
+                },
+                {
+                    "date": "2026-11-15",
+                    "reason": "Task 2.13 terminal-fixtures-v2.2 (additive, directory stays terminal-v2): VerifiedSolution gains optional paired answer_claim_id and answer_text (verifying answer_claim_id belongs to claims and answer_text is verbatim in solution_text). New pair verified-answer-ref and negative cases unpaired-answer-ref / phantom-answer-claim / missing-answer-text; existing pairs stay byte-identical and browser events never carry verified_solutions.",
                 },
             ],
             "existing_reference_policy": "Caller supplies checked ID/version/claim coverage only, never the existing full answer. Public summaries select referenced claims inside assemble_response and retain disclosure checks. Storage/authentication/semantic claim matching are caller responsibilities, not implemented here.",

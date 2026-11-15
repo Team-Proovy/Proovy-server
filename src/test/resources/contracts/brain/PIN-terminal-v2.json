@@ -1,14 +1,14 @@
 {
   "repository": "Team-Proovy/proovy-brain",
-  "commit": "6b237b82f4de0af34fdd9ee1d7b4a7147f002f4e",
+  "commit": "234912a2a360a85994df6671af8d8622c520fa29",
   "source_path": "tests/fixtures/contracts",
-  "consumer_version": "terminal-fixtures-v2.1",
+  "consumer_version": "terminal-fixtures-v2.2",
   "manifest": "terminal-v2/manifest.json",
-  "manifest_sha256": "ea47ec53cfc274683b22263f1adfc4e1e2de46c901061a211580426bc388bb45",
+  "manifest_sha256": "c30dceca143f82bb1303d282098151e891fdb597cfc22bf51731a692db9cad52",
   "files_note": "terminal-v2 manifest에는 파일별 sha256이 없어, pin commit에서 복사한 직후 계산한 값을 적는다(README 갱신 절차). browser.schema.json은 PIN.json(browser-run-v1 dependency)도 소유한다.",
   "files": {
     "terminal-v2/browser.schema.json": "8af7574ae52bc242dc956c84d2a5f0189ddcd5c6b74cc1a015b1e89afdf017c5",
-    "terminal-v2/build_fixtures.py": "c6f18ab066045a5c2a7933b5726f1266e60f534e2d9808cf7bd8559cbe51f8da",
+    "terminal-v2/build_fixtures.py": "73168263a26aae5e5a1b3527a929a7a0f520a2f444879af74cbe065ecda8defb",
     "terminal-v2/invalid/attachment-message-mismatch.json": "ef498910d1ba3dc307c9a051af8f9f27905822a89812f8bd34364a8a5dd97d2b",
     "terminal-v2/invalid/attachment-missing-reason.json": "e8815446296f2175d9db9e57f5ba04c66447138b2d663ec7812076efc6c916cb",
     "terminal-v2/invalid/attachment-recoverable.json": "ca7308c0dddf32b233a0df5f74c624b60c4b4b2bfacf33045cb0a5a0bf2eed6f",
@@ -28,9 +28,11 @@
     "terminal-v2/invalid/kind-type-mismatch.json": "a5fdca499f0c2312e18b0f75a0cb17ca148cb5f8716c55b31a7c7dfa1673041f",
     "terminal-v2/invalid/metadata.json": "ee547079ba79b8f49f2f04d1777e32d76bfe8e22299636aa19e3e2ef53c23a6d",
     "terminal-v2/invalid/missing-activity-kind.json": "5fedf4297069c980b457bc06a4299e4e4188cb8d4cd9193764b91fdf6c883b8b",
+    "terminal-v2/invalid/missing-answer-text.json": "4c30242baeca27f79242cee52d04280dd26afc7050e0e9a20e975b8d0d6e8e03",
     "terminal-v2/invalid/missing-block-kind.json": "20737f1dd7249fac33f85147e2ccde00622b876b13a3835fb87ddcb8cd063e05",
     "terminal-v2/invalid/missing-selected-page.json": "fab43b8e17a8dd10734152f4ce73c86563f746c7eb1984244d98f8d2587ea4b3",
     "terminal-v2/invalid/overclaimed-coverage.json": "4ab57be03c499870f5ff9dc6090f41db70a302d09bbb587f78d976a1a96b9449",
+    "terminal-v2/invalid/phantom-answer-claim.json": "b06f790e53f4a3a4ee531dd88b654edb410ff0d0fd56ed991ff170b568182614",
     "terminal-v2/invalid/phantom-claim.json": "3c6a5cb97bd355986869f46778f07d3eddeeadafb43135b5872acfed8045ccdf",
     "terminal-v2/invalid/phantom-solution.json": "545595831b7658fbce6c550692a8b50c832cbfe93601ffc94aa09cef4e384de3",
     "terminal-v2/invalid/phantom-source.json": "8d9596c5c3d71cdb688acd36e6e86694ec8bd3c87e46cb270fdfee305d2d42a6",
@@ -39,6 +41,7 @@
     "terminal-v2/invalid/reason-on-non-attachment-code.json": "6b96261ade2c28883676230369bbcb16c159b3b0ebec8028423f4cea6707b886",
     "terminal-v2/invalid/source-version-conflict.json": "acd47e8d57876ceaec569b0eba80a77d1653ee99cc414fce0d56d184e32f43e2",
     "terminal-v2/invalid/stdout.json": "3cd4e5cf6a779d2d51ce12e0da7eae938114e786cf354ff68f1267cbd1248d98",
+    "terminal-v2/invalid/unpaired-answer-ref.json": "b8e454d9df99aa905c60766e610b8f314c373b8d1a4cb116f943270e549a66ae",
     "terminal-v2/invalid/unsafe-failure-message.json": "1981a93579874a7251d03865f6a6bc001ad4956b84b2a477dafb0c1faeb828e9",
     "terminal-v2/invalid/unverified-as-verified.json": "f6983f950bb03e348c4e8d488d9fb09d76d8be8f54f5d66d2aa92fa2f73d88b3",
     "terminal-v2/invalid/video_target.json": "434af00aaae838c4f8eb6301fc408f50746b44ec7a1ff0b82b3d9b2ee4264049",
@@ -61,8 +64,9 @@
     "terminal-v2/pairs/phase2-verified.json": "65b9c2e5af36b1a6c9370023325b8b66b871145f9d1341241843b4a495d40618",
     "terminal-v2/pairs/supporting-logical-move.json": "261a4cfddc99c43bc3479d9bac1bb2c72bb6f944204262d9b03d1ed3a6e0cc94",
     "terminal-v2/pairs/unsupported-only.json": "834d1c4bbfc10d11273d4eb894d241aff986d8de09fd982be48501e58e7ee258",
+    "terminal-v2/pairs/verified-answer-ref.json": "b176aa5c499270e7613edfb8b59823080e5bd9cbafd9a32f6c60e7ced64f75fa",
     "terminal-v2/pairs/zero-step-fallback.json": "1d4d5869c60b9281225fc4771589e3f023dabdf8a8060236c08214f1653d814f",
     "terminal-v2/redelivery.json": "44d6f0d5450ef68e1bf5c91b6c6c4e2c797070bdddc58cd441c82f8b9a9ee9c7",
-    "terminal-v2/source.schema.json": "f5364953f40d91190375396bf2b170fbefcf66ba4477c256423a80dc41059579"
+    "terminal-v2/source.schema.json": "a3f325a267bb3d0b0b7f9c2b62820dadd05ad76bad36bbb0377ff938b7b57630"
   }
 }

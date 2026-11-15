@@ -506,7 +506,7 @@ public final class TerminalAcceptance {
                     tree(artifact.marks().stream().map(Mark::toMap).toList()),
                     tree(artifact.verification().toMap()), TerminalModel.VERIFICATION_VERSION,
                     tree(artifact.sourceRefIds()), artifact.verification().overall(), sha256(artifact.toMap()),
-                    revisions.get(artifact.solutionId())));
+                    revisions.get(artifact.solutionId()), artifact.answerClaimId(), artifact.answerText()));
         }
         List<TerminalRecheck.CitedAsset> recheckAssets = citedAssets.values().stream()
                 .map(asset -> new TerminalRecheck.CitedAsset(asset.noteAssetId(), asset.currentContentVersion()))

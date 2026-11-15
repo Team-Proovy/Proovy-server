@@ -432,15 +432,15 @@ public class RunTerminalService {
                 INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id,
                     assistant_message_id, schema_version, solution_version, problem_statement, problem_conditions,
                     solution_text, claims, step_marks, verification_summary, verification_version, source_ref_ids,
-                    overall_coverage, content_sha256, revises_solution_id, created_at)
+                    overall_coverage, content_sha256, revises_solution_id, answer_claim_id, answer_text, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), ?, CAST(? AS jsonb), CAST(? AS jsonb),
-                        CAST(? AS jsonb), ?, CAST(? AS jsonb), ?, ?, ?, ?)
+                        CAST(? AS jsonb), ?, CAST(? AS jsonb), ?, ?, ?, ?, ?, ?)
                 """, solutionId, solution.publicSolutionId(), run.noteId(), run.runId(), run.assistantMessageId(),
                 solution.schemaVersion(), solution.solutionVersion(), solution.problemStatement(),
                 json(solution.problemConditions()), solution.solutionText(), json(solution.claims()),
                 json(solution.stepMarks()), json(solution.verificationSummary()), solution.verificationVersion(),
                 json(solution.sourceRefIds()), solution.overallCoverage().wireValue(), solution.contentSha256(),
-                solution.revisesSolutionId(), time(now));
+                solution.revisesSolutionId(), solution.answerClaimId(), solution.answerText(), time(now));
         if (solution.revisesSolutionId() != null) {
             // 이전 row는 content를 바꾸지 않고 상태·후속 ID만 기록한다(V1 trigger가 새 row의 revises 관계를 확인한다).
             int superseded = jdbc.update("""

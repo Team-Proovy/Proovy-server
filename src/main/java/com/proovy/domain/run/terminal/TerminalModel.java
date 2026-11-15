@@ -42,6 +42,7 @@ final class TerminalModel {
     static final int MAX_PROVENANCE = 200;
     static final int MAX_MODEL_LENGTH = 200;
     static final int MAX_FAILURE_MESSAGE_LENGTH = 500;
+    static final int MAX_ANSWER_TEXT_CHARS = 2_000;
 
     static final String RESPONSE_SCHEMA_VERSION = "assistant-response-v1";
     static final String ARTIFACT_SCHEMA_VERSION = "verified-solution-v1";
@@ -416,12 +417,13 @@ final class TerminalModel {
 
     record Artifact(String solutionId, String problemStatement, List<Condition> conditions, String solutionText,
             List<Claim> claims, List<Mark> marks, Summary verification, List<String> sourceRefIds,
-            String revisesSolutionId) {
+            String revisesSolutionId, String answerClaimId, String answerText) {
 
         static Artifact parse(JsonNode node, String path) {
             StrictJson json = StrictJson.object(node, path, Set.of("schema_version", "solution_id", "version",
                     "problem_statement", "problem_conditions", "solution_text", "claims", "step_marks",
-                    "verification", "verification_version", "source_ref_ids", "revises_solution_id"));
+                    "verification", "verification_version", "source_ref_ids", "revises_solution_id",
+                    "answer_claim_id", "answer_text"));
             json.literal("schema_version", ARTIFACT_SCHEMA_VERSION);
             json.literal("version", 1);
             json.literal("verification_version", VERIFICATION_VERSION);
@@ -451,7 +453,9 @@ final class TerminalModel {
             Artifact artifact = new Artifact(json.id("solution_id", SOLUTION_ID), markdown(json, "problem_statement"),
                     conditions, markdown(json, "solution_text"), claims, marks,
                     Summary.parse(json.required("verification"), json.path("verification")), sourceRefIds,
-                    json.optionalId("revises_solution_id", SOLUTION_ID));
+                    json.optionalId("revises_solution_id", SOLUTION_ID),
+                    json.optionalId("answer_claim_id", CLAIM_ID),
+                    json.optionalString("answer_text", 1, MAX_ANSWER_TEXT_CHARS));
             artifact.check(path);
             return artifact;
         }
@@ -508,6 +512,17 @@ final class TerminalModel {
                             "artifact markers require its source references");
                 }
             }
+            if ((answerClaimId == null) != (answerText == null)) {
+                throw verificationError(path, "artifact answer evidence requires claim id and text");
+            }
+            if (answerClaimId != null) {
+                if (!claimIds.contains(answerClaimId)) {
+                    throw verificationError(path, "artifact answer claim must be declared");
+                }
+                if (!solutionText.contains(answerText)) {
+                    throw verificationError(path, "artifact answer text must appear in solution");
+                }
+            }
         }
 
         List<String> texts() {
@@ -528,6 +543,8 @@ final class TerminalModel {
                     "verification", verification.toMap(), "verification_version", VERIFICATION_VERSION,
                     "source_ref_ids", List.copyOf(sourceRefIds));
             putIfPresent(out, "revises_solution_id", revisesSolutionId);
+            putIfPresent(out, "answer_claim_id", answerClaimId);
+            putIfPresent(out, "answer_text", answerText);
             return out;
         }
     }

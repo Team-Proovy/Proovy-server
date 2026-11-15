@@ -1,5 +1,7 @@
 package com.proovy.domain.run.brain;
 
+import static com.proovy.domain.run.brain.InternalRunContract.CLAIM_ID;
+import static com.proovy.domain.run.brain.InternalRunContract.MAX_ANSWER_TEXT_CHARS;
 import static com.proovy.domain.run.brain.InternalRunContract.MAX_IDENTIFIER_LENGTH;
 import static com.proovy.domain.run.brain.InternalRunContract.MAX_PROBLEM_SUMMARY_CHARS;
 import static com.proovy.domain.run.brain.InternalRunContract.MAX_REF_CLAIMS;
@@ -17,8 +19,9 @@ import com.fasterxml.jackson.annotation.Nulls;
 import java.util.List;
 
 /**
- * Server가 검증한 기존 Verified Solution 참조. fingerprint는 problem_summary·claims만 해시하고
- * status·revises_solution_id·source_message_id(수명주기 기록)는 제외한다.
+ * Server가 검증한 기존 Verified Solution 참조. fingerprint는 problem_summary·claims와
+ * (존재할 때) answer_claim_id·answer_text만 해시하고 status·revises_solution_id·
+ * source_message_id(수명주기 기록)는 제외한다.
  */
 public record VerifiedSolutionRef(
         String solutionId,
@@ -26,7 +29,9 @@ public record VerifiedSolutionRef(
         SolutionReferenceStatus status,
         String revisesSolutionId,
         String problemSummary,
-        @JsonSetter(nulls = Nulls.FAIL) List<VerifiedSolutionRefClaim> claims) {
+        @JsonSetter(nulls = Nulls.FAIL) List<VerifiedSolutionRefClaim> claims,
+        String answerClaimId,
+        String answerText) {
 
     public VerifiedSolutionRef {
         solutionId = matching(solutionId, "verified_solution_refs.solution_id", SOLUTION_ID, MAX_IDENTIFIER_LENGTH);
@@ -44,6 +49,18 @@ public record VerifiedSolutionRef(
         unique(claims, VerifiedSolutionRefClaim::claimId, "verified_solution_refs.claims.claim_id");
         if (solutionId.equals(revisesSolutionId)) {
             throw violation("verified_solution_refs.revises_solution_id", "cannot name the reference itself");
+        }
+        if ((answerClaimId == null) != (answerText == null)) {
+            throw violation("verified_solution_refs.answer_claim_id", "and answer_text must be paired");
+        }
+        if (answerClaimId != null) {
+            answerClaimId = matching(answerClaimId, "verified_solution_refs.answer_claim_id", CLAIM_ID,
+                    MAX_IDENTIFIER_LENGTH);
+            answerText = text(answerText, "verified_solution_refs.answer_text", 1, MAX_ANSWER_TEXT_CHARS);
+            String targetClaim = answerClaimId;
+            if (claims.stream().noneMatch(claim -> claim.claimId().equals(targetClaim))) {
+                throw violation("verified_solution_refs.answer_claim_id", "must name a declared claim");
+            }
         }
     }
 }

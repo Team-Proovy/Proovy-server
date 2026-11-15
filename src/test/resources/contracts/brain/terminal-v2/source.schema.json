@@ -3815,6 +3815,32 @@
           ],
           "default": null,
           "title": "Revises Solution Id"
+        },
+        "answer_claim_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Claim Id"
+        },
+        "answer_text": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Text"
         }
       },
       "required": [

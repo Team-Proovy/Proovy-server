@@ -353,6 +353,34 @@ class RunSnapshotFactoryTest {
                 NOW), RunAssetAccess.NONE).verifiedSolutionRefs()).isEmpty();
     }
 
+    @Test
+    void storedAnswerMetadataPropagatesToReferenceAndFingerprintWhileLegacyRowsStayNull() {
+        CompletedTurn hidden = sources.turn("x+1=3 답은 가리고 풀어줘", "풀이 단계만 안내했습니다.");
+        sources.solutions.add(new SolutionRow(UUID.randomUUID(), "solution-1", hidden.assistantMessageId(),
+                "x+1=3", claims("x=2"), null, null, false, "claim-1", "$x=2$"));
+        InternalRunRequest delivered = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("답이 99 아닌가요?", null), NOW), RunAssetAccess.NONE);
+        VerifiedSolutionRef ref = delivered.verifiedSolutionRefs().getFirst();
+        assertThat(ref.answerClaimId()).isEqualTo("claim-1");
+        assertThat(ref.answerText()).isEqualTo("$x=2$");
+        assertThat(delivered.history()).noneMatch(message -> message.text().contains("$x=2$"));
+
+        String fpOne = factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("답이 99 아닌가요?", null), NOW).requestFingerprint();
+        sources.solutions.set(0, new SolutionRow(sources.solutions.getFirst().solutionId(), "solution-1",
+                hidden.assistantMessageId(), "x+1=3", claims("x=2"), null, null, false, "claim-1", "$x=3$"));
+        String fpChanged = factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("답이 99 아닌가요?", null), NOW).requestFingerprint();
+        assertThat(fpChanged).isNotEqualTo(fpOne);
+
+        sources.solutions.set(0, new SolutionRow(sources.solutions.getFirst().solutionId(), "solution-1",
+                hidden.assistantMessageId(), "x+1=3", claims("x=2"), null, null, false));
+        VerifiedSolutionRef legacy = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("설명", null), NOW), RunAssetAccess.NONE).verifiedSolutionRefs().getFirst();
+        assertThat(legacy.answerClaimId()).isNull();
+        assertThat(legacy.answerText()).isNull();
+    }
+
     // ------------------------------------------------------------------
     // Viewer Focus·corpus·현재 첨부
     // ------------------------------------------------------------------
