@@ -1,11 +1,11 @@
 {
-  "consumer_version": "terminal-fixtures-v2",
+  "consumer_version": "terminal-fixtures-v2.1",
   "source_contract_version": "brain-source-v1",
   "assistant_response_version": "assistant-response-v1",
   "artifact_version": "verified-solution-v1",
   "original_path": "tests/fixtures/contracts/terminal-v2",
   "change_reason": "Task 1.58: run.failed gains code invalid_attachment{reason} — attachment-inspection refusals (corrupt/forged/encrypted/oversized inputs) stop reporting budget_exceeded; failure_class=attachment, recoverable=false, reason is a fixed sub-code with a fixed safe message; Server consumes it for compensation and re-upload guidance.",
-  "consumption_policy": "Pin terminal-fixtures-v2 at original_path; changes require a new fixture version and reason.",
+  "consumption_policy": "Pin terminal-fixtures-v2.1 at original_path; changes require a new fixture version and reason.",
   "ownership": {
     "brain": [
       "snake_case source",
@@ -43,7 +43,11 @@
     "explain-existing",
     "explain-existing-hide-answer",
     "conflict-clarification",
-    "conflict-substantive"
+    "conflict-substantive",
+    "phase2-verified",
+    "phase2-mixed-scope",
+    "phase2-hide-answer",
+    "phase2-re-explanation"
   ],
   "change_history": [
     {
@@ -58,6 +62,14 @@
     {
       "date": "2026-10-10",
       "reason": "Task 1.58 terminal-fixtures-v2: run.failed adds FailureCode invalid_attachment, FailureClass attachment, and the reason sub-code (AttachmentFailureReason mirrors the file-inspection refusal reasons); invalid_attachment carries a per-reason fixed message and recoverable=false. Prior codes keep v1 meaning; completed/failure pairs are byte-identical."
+    },
+    {
+      "date": "2026-11-12",
+      "reason": "Task 2.07 terminal-fixtures-v2.1 (additive, directory stays terminal-v2): the activity unions in source/browser schemas gain Activity Kind read_back (label reading_back_problems; completed carries problems[] of problemNumber/questionText/choices/figureDescription only — no step, formula, answer or problem id). Every existing pair, kind and field keeps its meaning; pairs are byte-identical."
+    },
+    {
+      "date": "2026-11-12",
+      "reason": "Task 2.07 review (still terminal-fixtures-v2.1, unmerged): run.completed source payload gains the optional Phase 2 completion extension response_kind/assurance_scope/solution_checks (all three or none; snake_case source, camelCase browser = browser-run-v1 CompletionExtension; per-solution disclosure, withheld steps). New pairs phase2-*, negatives extension-*. Existing pairs are byte-identical."
     }
   ],
   "existing_reference_policy": "Caller supplies checked ID/version/claim coverage only, never the existing full answer. Public summaries select referenced claims inside assemble_response and retain disclosure checks. Storage/authentication/semantic claim matching are caller responsibilities, not implemented here.",
@@ -74,6 +86,8 @@
     "existing-mismatched-claim",
     "existing-phantom",
     "existing-unchecked",
+    "extension-overstated-badge",
+    "extension-partial",
     "failure-with-answer",
     "guidance-with-sources",
     "kind-type-mismatch",

@@ -1,6 +1,7 @@
 # activity-v1 계약 fixture 목록
 
-버전: `activity-fixtures-v1` — 2026-10-01 생성 (태스크 1.27, ACT-01 최초 고정).
+버전: `activity-fixtures-v1.1` — 2026-11-12 additive 확장 (태스크 2.07, Activity Kind `read_back`).
+최초: `activity-fixtures-v1` — 2026-10-01 생성 (태스크 1.27, ACT-01 최초 고정).
 
 변경 이력:
 
@@ -9,6 +10,12 @@
   `pages`를 비워야 하는 규칙을 invalid fixture `no-match-with-pages.json`로
   고정하고, 금지 내용 fixture 7종에 `DO-NOT-LEAK` sentinel 값을 실제로
   주입해 누출 sweep이 실측을 검사하도록 했다.
+- 2026-11-12 `activity-fixtures-v1.1`(태스크 2.07, additive — 디렉터리는 `activity-v1` 그대로):
+  Phase 2 Read-back용 Activity Kind `read_back`(label `reading_back_problems`)을 더했다.
+  `completed`는 `problems[]`(`problem_number`·`question_text`·`choices`·
+  `figure_description`)만 가지며 풀이 단계·수식·답·내부 problem id는 표현할 수 없다.
+  기존 kind·파일은 byte 그대로이고 의미가 바뀌지 않아 새 디렉터리 대신 버전만 올렸다
+  (browser-run-fixtures-v1.1·terminal-fixtures-v2.1과 같은 PR).
 
 Activity v1 payload + Brain source envelope(`brain-source-v1`)의
 source(snake_case)·browser(camelCase) 표현을 고정하는 versioned fixture다.
@@ -37,6 +44,8 @@ source(snake_case)·browser(camelCase) 표현을 고정하는 versioned fixture�
 | verification-updated.json | `updated` — `method_label` + 측정 `progress{checked,total}` |
 | verification-completed.json | `completed` — 최종 `progress` |
 | note-retrieval-canceled.json | `canceled` — 종료 outcome |
+| read-back-started.json | (v1.1) `read_back` `started` — label `reading_back_problems` |
+| read-back-completed.json | (v1.1) `read_back` `completed` — `problems[]`: 객관식(번호·보기 5개)과 그림 설명이 있는 단답형(번호 없음, `choices: []`) |
 
 ## invalid/ — 거부되어야 하는 source 이벤트
 
@@ -61,6 +70,9 @@ source(snake_case)·browser(camelCase) 표현을 고정하는 versioned fixture�
 | bad-activity-id.json | 자유형(비중립) `activity_id` |
 | run-event-type.json | `run.*` 타입 — 이 레이어는 `activity.*`만 소유 |
 | seq-on-source-envelope.json | Server 소유 `seq`가 source envelope에 포함 |
+| read-back-answer-leak.json / read-back-steps-leak.json | (v1.1) Read-back에 답·풀이 단계 — 검증 전 Candidate 비공개 |
+| read-back-problem-id.json | (v1.1) Read-back 문제에 내부 `problem_id`·`answer_type` |
+| read-back-one-choice.json / read-back-no-problems.json | (v1.1) 보기 1개(0개 또는 2~5개만)·읽은 문제 없음 |
 
 ## browser/ — 브라우저 golden
 
@@ -68,3 +80,4 @@ source(snake_case)·browser(camelCase) 표현을 고정하는 versioned fixture�
 |---|---|
 | verification-updated.browser.json | `verification-updated.json`의 camelCase 표현 — `attempt`/`fence_token`/`source_event_id` 등 source 전용 필드가 빠지고 `contractVersion`·`runId`·`occurredAt`·`type`·`payload`만 남는다 |
 | asset-understanding-started.browser.json | `asset-understanding-started.json`의 camelCase 표현 — `responsePageId`·`pageStart`/`pageEnd` 매핑 확인용 |
+| read-back-completed.browser.json | (v1.1) `read-back-completed.json`의 camelCase 표현 — `problemNumber`·`questionText`·`figureDescription` |

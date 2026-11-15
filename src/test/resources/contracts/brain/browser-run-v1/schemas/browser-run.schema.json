@@ -1146,6 +1146,9 @@
       "allOf": [
         {
           "$ref": "#/$defs/NoInternalKeys"
+        },
+        {
+          "$ref": "#/$defs/CompletionExtension"
         }
       ]
     },
@@ -1934,6 +1937,1306 @@
               "$ref": "../../terminal-v2/browser.schema.json"
             }
           ]
+        },
+        {
+          "if": {
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "const": "run.completed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/CompletionExtension"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "type",
+              "payload"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "activity.started",
+                  "activity.updated",
+                  "activity.completed",
+                  "activity.failed",
+                  "activity.canceled"
+                ]
+              },
+              "payload": {
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "read_back"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/ReadBackGuard"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AssuranceScope": {
+      "description": "Response/solution badge (ADR 0017 §2): 검증됨·미검증·검증 대상 아님.",
+      "enum": [
+        "verified",
+        "unverified",
+        "not_applicable"
+      ]
+    },
+    "ResponseKind": {
+      "description": "re_explanation = 기존 풀이 재설명(검증 없이 스트리밍, Front는 '추가 설명' 표시). 부재는 이 확장 이전 응답이다.",
+      "enum": [
+        "standard",
+        "re_explanation"
+      ]
+    },
+    "StepKind": {
+      "enum": [
+        "define",
+        "given",
+        "claim",
+        "case",
+        "choose",
+        "argue"
+      ]
+    },
+    "Disclosure": {
+      "description": "The turn's answer-disclosure scope (Brain DisclosureScope; the same one assistantResponse was published under).",
+      "enum": [
+        "full",
+        "hide_answer",
+        "hide_solution"
+      ]
+    },
+    "StepCheckResult": {
+      "description": "verified=✓, falsified=✗, unparseable=검산 안 됨, not_checked=검산 대상 아님.",
+      "enum": [
+        "verified",
+        "falsified",
+        "unparseable",
+        "not_checked"
+      ]
+    },
+    "SympyStatement": {
+      "description": "The formula the deterministic checker checked; which fields matter depends on stepKind (define: name+value, given: cond, case: cond(+covers), claim: lhs+rhs(+name), choose: value(+choice)).",
+      "type": "object",
+      "additionalProperties": true,
+      "anyOf": [
+        {
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "required": [
+            "cond"
+          ]
+        },
+        {
+          "required": [
+            "covers"
+          ]
+        },
+        {
+          "required": [
+            "lhs"
+          ]
+        },
+        {
+          "required": [
+            "rhs"
+          ]
+        },
+        {
+          "required": [
+            "choice"
+          ]
+        }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "cond": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "covers": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "lhs": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "rhs": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "choice": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        }
+      }
+    },
+    "CheckableStep": {
+      "description": "One rendered solution step: the screen shows description (SafeMarkdown without source markers, or literal text when descriptionFormat is plain_text) with its ✓·✗ mark. withheld=true (disclosure hide_answer): kind and mark only — description, descriptionFormat and sympyStatement are null. checkReason never appears.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "stepIndex",
+        "withheld",
+        "description",
+        "descriptionFormat",
+        "sympyStatement",
+        "stepKind",
+        "checkResult"
+      ],
+      "properties": {
+        "stepIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 79
+        },
+        "withheld": {
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "descriptionFormat": {
+          "anyOf": [
+            {
+              "enum": [
+                "safe_markdown",
+                "plain_text"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sympyStatement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SympyStatement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stepKind": {
+          "$ref": "#/$defs/StepKind"
+        },
+        "checkResult": {
+          "$ref": "#/$defs/StepCheckResult"
+        }
+      },
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "checkReason"
+                ]
+              },
+              {
+                "required": [
+                  "check_reason"
+                ]
+              },
+              {
+                "required": [
+                  "evidence"
+                ]
+              },
+              {
+                "required": [
+                  "evidenceCode"
+                ]
+              },
+              {
+                "required": [
+                  "evidence_code"
+                ]
+              },
+              {
+                "required": [
+                  "independentAnswer"
+                ]
+              },
+              {
+                "required": [
+                  "independentAnswers"
+                ]
+              },
+              {
+                "required": [
+                  "failureReason"
+                ]
+              },
+              {
+                "required": [
+                  "failure_reason"
+                ]
+              },
+              {
+                "required": [
+                  "problemId"
+                ]
+              },
+              {
+                "required": [
+                  "problem_id"
+                ]
+              },
+              {
+                "required": [
+                  "candidate"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "withheld"
+            ],
+            "properties": {
+              "withheld": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "description": {
+                "type": "null"
+              },
+              "descriptionFormat": {
+                "type": "null"
+              },
+              "sympyStatement": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "descriptionFormat": {
+                "enum": [
+                  "safe_markdown",
+                  "plain_text"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "define"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkResult": {
+                "enum": [
+                  "unparseable",
+                  "not_checked"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "given"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkResult": {
+                "enum": [
+                  "unparseable",
+                  "not_checked"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "claim"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkResult": {
+                "enum": [
+                  "verified",
+                  "falsified",
+                  "unparseable"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "case"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkResult": {
+                "enum": [
+                  "verified",
+                  "falsified",
+                  "unparseable",
+                  "not_checked"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "choose"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkResult": {
+                "enum": [
+                  "verified",
+                  "falsified",
+                  "unparseable",
+                  "not_checked"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "argue"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkResult": {
+                "enum": [
+                  "not_checked"
+                ]
+              },
+              "sympyStatement": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind",
+              "checkResult",
+              "withheld"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "claim"
+              },
+              "checkResult": {
+                "const": "verified"
+              },
+              "withheld": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sympyStatement": {
+                "type": "object",
+                "required": [
+                  "lhs",
+                  "rhs"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind",
+              "checkResult",
+              "withheld"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "case"
+              },
+              "checkResult": {
+                "const": "verified"
+              },
+              "withheld": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sympyStatement": {
+                "type": "object",
+                "required": [
+                  "covers"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "stepKind",
+              "checkResult",
+              "withheld"
+            ],
+            "properties": {
+              "stepKind": {
+                "const": "choose"
+              },
+              "checkResult": {
+                "const": "verified"
+              },
+              "withheld": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sympyStatement": {
+                "type": "object",
+                "required": [
+                  "value",
+                  "choice"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CrossCheckSummary": {
+      "description": "Agreement flags only — the independent answer and its program stay internal (docs/plan/27).",
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "independentAnswerAgrees",
+        "stepCheckCompleted"
+      ],
+      "properties": {
+        "independentAnswerAgrees": {
+          "type": "boolean"
+        },
+        "stepCheckCompleted": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "checkReason"
+                ]
+              },
+              {
+                "required": [
+                  "check_reason"
+                ]
+              },
+              {
+                "required": [
+                  "evidence"
+                ]
+              },
+              {
+                "required": [
+                  "evidenceCode"
+                ]
+              },
+              {
+                "required": [
+                  "evidence_code"
+                ]
+              },
+              {
+                "required": [
+                  "independentAnswer"
+                ]
+              },
+              {
+                "required": [
+                  "independentAnswers"
+                ]
+              },
+              {
+                "required": [
+                  "failureReason"
+                ]
+              },
+              {
+                "required": [
+                  "failure_reason"
+                ]
+              },
+              {
+                "required": [
+                  "problemId"
+                ]
+              },
+              {
+                "required": [
+                  "problem_id"
+                ]
+              },
+              {
+                "required": [
+                  "candidate"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "SolutionCheck": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "One verified solution. Order = Read-back problems order = response order (problemNumber may be null for text input). disclosure is the turn's answer-disclosure scope: full = steps public; hide_answer = every step withheld (kind and mark only); hide_solution = no steps.",
+      "required": [
+        "problemNumber",
+        "assuranceScope",
+        "strategy",
+        "attempts",
+        "crossCheck",
+        "disclosure",
+        "checkableSteps"
+      ],
+      "properties": {
+        "problemNumber": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assuranceScope": {
+          "$ref": "#/$defs/AssuranceScope"
+        },
+        "strategy": {
+          "enum": [
+            "answer_cross_check",
+            "none"
+          ]
+        },
+        "attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "crossCheck": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CrossCheckSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "disclosure": {
+          "$ref": "#/$defs/Disclosure"
+        },
+        "checkableSteps": {
+          "type": "array",
+          "maxItems": 80,
+          "items": {
+            "$ref": "#/$defs/CheckableStep"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "checkReason"
+                ]
+              },
+              {
+                "required": [
+                  "check_reason"
+                ]
+              },
+              {
+                "required": [
+                  "evidence"
+                ]
+              },
+              {
+                "required": [
+                  "evidenceCode"
+                ]
+              },
+              {
+                "required": [
+                  "evidence_code"
+                ]
+              },
+              {
+                "required": [
+                  "independentAnswer"
+                ]
+              },
+              {
+                "required": [
+                  "independentAnswers"
+                ]
+              },
+              {
+                "required": [
+                  "failureReason"
+                ]
+              },
+              {
+                "required": [
+                  "failure_reason"
+                ]
+              },
+              {
+                "required": [
+                  "problemId"
+                ]
+              },
+              {
+                "required": [
+                  "problem_id"
+                ]
+              },
+              {
+                "required": [
+                  "candidate"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "disclosure"
+            ],
+            "properties": {
+              "disclosure": {
+                "enum": [
+                  "full"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkableSteps": {
+                "minItems": 1,
+                "items": {
+                  "properties": {
+                    "withheld": {
+                      "const": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "disclosure"
+            ],
+            "properties": {
+              "disclosure": {
+                "enum": [
+                  "hide_answer"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkableSteps": {
+                "minItems": 1,
+                "items": {
+                  "properties": {
+                    "withheld": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "disclosure"
+            ],
+            "properties": {
+              "disclosure": {
+                "enum": [
+                  "hide_solution"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "checkableSteps": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "strategy"
+            ],
+            "properties": {
+              "strategy": {
+                "enum": [
+                  "none"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assuranceScope": {
+                "const": "not_applicable"
+              },
+              "crossCheck": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "strategy"
+            ],
+            "properties": {
+              "strategy": {
+                "enum": [
+                  "answer_cross_check"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assuranceScope": {
+                "enum": [
+                  "verified",
+                  "unverified"
+                ]
+              },
+              "crossCheck": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "assuranceScope",
+              "strategy"
+            ],
+            "properties": {
+              "assuranceScope": {
+                "const": "verified"
+              },
+              "strategy": {
+                "const": "answer_cross_check"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "crossCheck": {
+                "properties": {
+                  "independentAnswerAgrees": {
+                    "const": true
+                  },
+                  "stepCheckCompleted": {
+                    "const": true
+                  }
+                }
+              },
+              "checkableSteps": {
+                "not": {
+                  "contains": {
+                    "properties": {
+                      "checkResult": {
+                        "const": "falsified"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "assuranceScope",
+              "strategy"
+            ],
+            "properties": {
+              "assuranceScope": {
+                "const": "unverified"
+              },
+              "strategy": {
+                "const": "answer_cross_check"
+              }
+            }
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": {
+                  "crossCheck": {
+                    "properties": {
+                      "independentAnswerAgrees": {
+                        "const": false
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "crossCheck": {
+                    "properties": {
+                      "stepCheckCompleted": {
+                        "const": false
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "checkableSteps": {
+                    "contains": {
+                      "properties": {
+                        "checkResult": {
+                          "const": "falsified"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "disclosure": {
+                    "const": "hide_solution"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "CompletionExtension": {
+      "description": "browser-run-fixtures-v1.1 additive fields of run.completed payload and conversation AssistantMessageContent. All three appear together or not at all (absent = response from before this extension). Badge (not_applicable solutions are left out of the count): unverified iff any solution is unverified; else verified iff any is verified; else not_applicable (all not_applicable, or none). solutionChecks order = Read-back problems order = response order.",
+      "type": "object",
+      "properties": {
+        "responseKind": {
+          "$ref": "#/$defs/ResponseKind"
+        },
+        "assuranceScope": {
+          "$ref": "#/$defs/AssuranceScope"
+        },
+        "solutionChecks": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/SolutionCheck"
+          }
+        }
+      },
+      "dependentRequired": {
+        "responseKind": [
+          "assuranceScope",
+          "solutionChecks"
+        ],
+        "assuranceScope": [
+          "responseKind",
+          "solutionChecks"
+        ],
+        "solutionChecks": [
+          "responseKind",
+          "assuranceScope"
+        ]
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "responseKind"
+            ],
+            "properties": {
+              "responseKind": {
+                "enum": [
+                  "re_explanation"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assuranceScope": {
+                "const": "not_applicable"
+              },
+              "solutionChecks": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "assuranceScope"
+            ],
+            "properties": {
+              "assuranceScope": {
+                "enum": [
+                  "verified"
+                ]
+              }
+            }
+          },
+          "then": {
+            "allOf": [
+              {
+                "properties": {
+                  "solutionChecks": {
+                    "contains": {
+                      "properties": {
+                        "assuranceScope": {
+                          "const": "verified"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "solutionChecks": {
+                    "not": {
+                      "contains": {
+                        "properties": {
+                          "assuranceScope": {
+                            "const": "unverified"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "assuranceScope"
+            ],
+            "properties": {
+              "assuranceScope": {
+                "enum": [
+                  "not_applicable"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "solutionChecks": {
+                "items": {
+                  "properties": {
+                    "assuranceScope": {
+                      "const": "not_applicable"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "assuranceScope"
+            ],
+            "properties": {
+              "assuranceScope": {
+                "enum": [
+                  "unverified"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "solutionChecks": {
+                "contains": {
+                  "properties": {
+                    "assuranceScope": {
+                      "const": "unverified"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ReadBackCompletedPayload": {
+      "description": "Activity Kind read_back (Phase 2 Read-back, '이렇게 읽었어요'): the activity.completed payload with problems[] of problemNumber/questionText/choices/figureDescription. Defined in terminal-v2 browser schema (generated from Brain activity.py).",
+      "$ref": "../../terminal-v2/browser.schema.json#/$defs/ReadBackCompleted"
+    },
+    "ReadBackGuard": {
+      "description": "A read-back precedes verification: no solution, step, formula, answer or internal problem id on it.",
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "answer"
+                ]
+              },
+              {
+                "required": [
+                  "finalAnswer"
+                ]
+              },
+              {
+                "required": [
+                  "steps"
+                ]
+              },
+              {
+                "required": [
+                  "checkableSteps"
+                ]
+              },
+              {
+                "required": [
+                  "solutionChecks"
+                ]
+              },
+              {
+                "required": [
+                  "sympyStatement"
+                ]
+              },
+              {
+                "required": [
+                  "assuranceScope"
+                ]
+              },
+              {
+                "required": [
+                  "candidate"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "problems": {
+              "items": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "answer"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "finalAnswer"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "answerType"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "answer_type"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "problemId"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "problem_id"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "steps"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "checkableSteps"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "sympyStatement"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "candidate"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
         }
       ]
     },

@@ -36,7 +36,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * activity-v1 fixture(pin 303a9e4)로 source→durable 변환을 Brain {@code parse_source_event}·
+ * activity-v1 fixture(pin 6b237b8, activity-fixtures-v1.1 — Read-back 포함)로 source→durable 변환을 Brain {@code parse_source_event}·
  * {@code to_browser_event_payload}와 대조한다. browser-run-v1 stream의 activity frame도 같은 변환을 통과해야 한다.
  */
 class SourceActivitiesContractTest {
@@ -59,7 +59,7 @@ class SourceActivitiesContractTest {
     @DisplayName("valid/ 모든 source event가 통과하고 camelCase payload는 같은 값을 보존한다")
     void validFixturesConvert() {
         List<Map.Entry<String, String>> valid = raw(FIXTURES.resolve("valid"));
-        assertThat(valid).hasSize(13);
+        assertThat(valid).hasSize(15);
         for (Map.Entry<String, String> fixture : valid) {
             SourceEvent event = source(fixture.getValue());
             ObjectNode payload = convert(event);
@@ -91,7 +91,7 @@ class SourceActivitiesContractTest {
     @DisplayName("invalid/ 모든 source event는 envelope 또는 activity 단계에서 거부되고 오류에 입력 값이 없다")
     void invalidFixturesRejected() {
         List<Map.Entry<String, String>> invalid = raw(FIXTURES.resolve("invalid"));
-        assertThat(invalid).hasSize(22);
+        assertThat(invalid).hasSize(27);
         for (Map.Entry<String, String> fixture : invalid) {
             Throwable error = catchThrowable(() -> convert(source(fixture.getValue())));
             assertThat(error).as(fixture.getKey())
@@ -105,7 +105,9 @@ class SourceActivitiesContractTest {
     void forbiddenContentRejectedByActivityLayer() {
         for (String name : new String[]{"code-field-in-payload", "stdout-in-payload", "verification-step-verdict",
                 "verification-answer-leak", "fake-percent", "unknown-label", "wrong-kind-label", "url-in-message",
-                "control-char-in-message", "bad-activity-id", "type-payload-mismatch", "run-event-type"}) {
+                "control-char-in-message", "bad-activity-id", "type-payload-mismatch", "run-event-type",
+                "read-back-answer-leak", "read-back-steps-leak", "read-back-problem-id", "read-back-one-choice",
+                "read-back-no-problems"}) {
             // envelope 검사(source_event_id 형식 등)를 통과시켜 activity 단계만 본다
             ObjectNode raw = (ObjectNode) read(FIXTURES.resolve("invalid/" + name + ".json"));
             raw.put("source_event_id", "run-7:fixture:" + name);
@@ -337,6 +339,109 @@ class SourceActivitiesContractTest {
             pages.add(page("asset-1", i));
         }
         expectViolation(tooMany, "activity.completed");
+    }
+
+    @Test
+    @DisplayName("Read-back 완료만 256KiB 저장 상한, 경계: 한글 6,000자 문제 4개는 통과하고 상한을 넘으면 거부")
+    void readBackStorageLimit() {
+        ObjectNode fits = completed("read_back");
+        ArrayNode problems = fits.putArray("problems");
+        for (int i = 0; i < 4; i++) {
+            problems.addObject().put("question_text", "가".repeat(6_000));
+        }
+        SourceEvent ok = source(envelope(UUID.randomUUID().toString(), "activity.completed", fits).toString());
+        assertThat(SourceActivities.storedLength(convert(ok))).isGreaterThan(SourceActivities.MAX_STORED_PAYLOAD_BYTES);
+        assertThat(SourceActivities.toDurable(ok).kind()).isEqualTo(ActivityKind.READ_BACK);
+
+        ObjectNode over = completed("read_back");
+        ArrayNode many = over.putArray("problems");
+        for (int i = 0; i < SourceActivities.MAX_READ_BACK_PROBLEMS; i++) {
+            many.addObject().put("question_text", "가".repeat(10_000)).put("figure_description", "가".repeat(10_000));
+        }
+        SourceEvent big = source(envelope(UUID.randomUUID().toString(), "activity.completed", over).toString());
+        assertThatThrownBy(() -> SourceActivities.toDurable(big)).isInstanceOf(ActivityContractViolation.class)
+                .hasMessage("payload is too large to store");
+    }
+
+    @Test
+    @DisplayName("read_back(2.07): 읽은 문제만 통과 — 줄바꿈은 내용, 제어 문자·보기 1개·21문제·빈 본문·답 필드는 거부")
+    void readBackProblems() {
+        ObjectNode ok = completed("read_back");
+        ObjectNode problem = ok.putArray("problems").addObject()
+                .put("problem_number", " 3 ").put("question_text", "  다음 식의 값은?\n$1+1$\t ");
+        problem.putArray("choices").add("$1$").add(" $2$ ");
+        ObjectNode browser = convert(ok, "activity.completed");
+        JsonNode read = browser.get("problems").get(0);
+        assertThat(read.get("problemNumber").asText()).isEqualTo("3");
+        assertThat(read.get("questionText").asText()).isEqualTo("다음 식의 값은?\n$1+1$");
+        assertThat(read.get("choices")).hasSize(2);
+        assertThat(read.get("choices").get(1).asText()).isEqualTo("$2$");
+        assertThat(read.has("figureDescription")).isFalse();
+
+        ObjectNode noChoices = completed("read_back");
+        noChoices.putArray("problems").addObject().put("question_text", "서술형");
+        assertThat(convert(noChoices, "activity.completed").at("/problems/0/choices")).isEmpty();
+
+        ObjectNode control = completed("read_back");
+        control.putArray("problems").addObject().put("question_text", "a\u000cb");
+        expectViolation(control, "activity.completed");
+
+        ObjectNode oneChoice = completed("read_back");
+        oneChoice.putArray("problems").addObject().put("question_text", "q").putArray("choices").add("①");
+        expectViolation(oneChoice, "activity.completed");
+
+        ObjectNode sixChoices = completed("read_back");
+        ArrayNode six = sixChoices.putArray("problems").addObject().put("question_text", "q").putArray("choices");
+        for (int i = 0; i < 6; i++) {
+            six.add("c" + i);
+        }
+        expectViolation(sixChoices, "activity.completed");
+
+        ObjectNode tooMany = completed("read_back");
+        ArrayNode problems = tooMany.putArray("problems");
+        for (int i = 0; i <= SourceActivities.MAX_READ_BACK_PROBLEMS; i++) {
+            problems.addObject().put("question_text", "q" + i);
+        }
+        expectViolation(tooMany, "activity.completed");
+
+        ObjectNode blank = completed("read_back");
+        blank.putArray("problems").addObject().put("question_text", "   ");
+        expectViolation(blank, "activity.completed");
+
+        ObjectNode answer = completed("read_back");
+        answer.putArray("problems").addObject().put("question_text", "q").put("answer", "3");
+        expectViolation(answer, "activity.completed");
+
+        // started는 고정 label만, 진행 단계는 문제 없이
+        assertThat(convert(started("read_back").put("label", "reading_back_problems"), "activity.started")
+                .get("label").asText()).isEqualTo("reading_back_problems");
+        expectViolation(started("read_back").put("label", "reading_input"), "activity.started");
+        ObjectNode updatedWithProblems = updated("read_back");
+        updatedWithProblems.putArray("problems").addObject().put("question_text", "q");
+        expectViolation(updatedWithProblems, "activity.updated");
+    }
+
+    @Test
+    @DisplayName("browser-run-v1 invalid stream의 Read-back 답·단계 누출 frame은 activity 변환에서 거부된다")
+    void readBackLeakStreamsRejected() {
+        for (String name : List.of("read-back-with-answer", "read-back-with-steps")) {
+            JsonNode stream = read(MIRROR.resolve("browser-run-v1/streams/invalid/" + name + ".json"));
+            int rejected = 0;
+            for (JsonNode frame : stream.get("frames")) {
+                String type = frame.get("type").asText();
+                if (!type.startsWith("activity.") || !"read_back".equals(frame.at("/payload/kind").asText())) {
+                    continue;
+                }
+                SourceEventType sourceType = SourceEventType.valueOf(type.replace('.', '_').toUpperCase());
+                Throwable error = catchThrowable(() ->
+                        SourceActivities.browserPayload(sourceType, snake(frame.get("payload"))));
+                if (error != null) {
+                    assertThat(error).as(name).isInstanceOf(ActivityContractViolation.class);
+                    rejected++;
+                }
+            }
+            assertThat(rejected).as(name).isPositive();
+        }
     }
 
     @Test

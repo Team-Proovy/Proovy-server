@@ -1,0 +1,28 @@
+{
+  "contractVersion": "brain-source-v1",
+  "runId": "run-7",
+  "occurredAt": "2026-10-01T09:00:02Z",
+  "type": "activity.completed",
+  "payload": {
+    "activityId": "activity-9",
+    "kind": "read_back",
+    "problems": [
+      {
+        "problemNumber": "15",
+        "questionText": "이차방정식 $x^2-5x+6=0$의 두 근의 합은?",
+        "choices": [
+          "$1$",
+          "$2$",
+          "$3$",
+          "$4$",
+          "$5$"
+        ]
+      },
+      {
+        "questionText": "그림과 같이 반지름이 $2$인 원에 내접하는 정삼각형의 넓이를 구하시오.",
+        "choices": [],
+        "figureDescription": "원 안에 꼭짓점이 원 위에 있는 정삼각형이 그려져 있다."
+      }
+    ]
+  }
+}

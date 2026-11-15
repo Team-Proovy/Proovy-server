@@ -42,14 +42,27 @@ import java.util.regex.Pattern;
 public final class SourceActivities {
 
     /** Server가 맞춰 둔 activity fixture 소비 버전(pin {@code PIN-activity-v1.json}). pin을 올리면 함께 올린다. */
-    public static final String CONSUMER_VERSION = "activity-fixtures-v1";
+    public static final String CONSUMER_VERSION = "activity-fixtures-v1.1";
     public static final int MAX_IDENTIFIER_LENGTH = 128;
     public static final int MAX_MESSAGE_LENGTH = 500;
     public static final int MAX_METHOD_LABEL_LENGTH = 200;
     public static final int MAX_TARGETS = 50;
     public static final int MAX_PAGES = 200;
+    /** Read-back 문제 수·본문 길이·보기 수(Brain {@code activity.py} {@code ReadBackProblem}, 2.06 ExtractedProblem 상한). */
+    public static final int MAX_READ_BACK_PROBLEMS = 20;
+    public static final int MAX_READ_BACK_TEXT_LENGTH = 10_000;
+    public static final int MAX_READ_BACK_PROBLEM_NUMBER_LENGTH = 32;
+    public static final int MIN_READ_BACK_CHOICES = 2;
+    public static final int MAX_READ_BACK_CHOICES = 5;
     /** {@code ck_ai_run_events_payload}: {@code octet_length(payload::TEXT) <= 16384}. */
     public static final int MAX_STORED_PAYLOAD_BYTES = 16_384;
+    /**
+     * Read-back 완료({@code activity.completed}, kind {@code read_back})만 더 큰 상한(V6 {@code ck_ai_run_events_payload}).
+     * Brain {@code ReadBackProblem}은 바이트 상한 없이 문제 20개 × 글 10,000자까지 허용해 16KB로는 시험지 몇 문제도 담지 못한다.
+     * 256KiB는 20문제 × 약 4,000자 한글(UTF-8 3바이트)을 담는다. 그보다 크면 지금처럼 거부한다 — Brain과 바이트 상한을
+     * 계약에 두는 일은 2.12 확인 필요.
+     */
+    public static final int MAX_STORED_READ_BACK_PAYLOAD_BYTES = 262_144;
     /** {@code ck_ai_run_events_source_event_id}는 128자다. brain-source-v1은 256자까지 허용한다. */
     public static final int MAX_STORED_SOURCE_EVENT_ID_LENGTH = 128;
     private static final String DIGEST_PREFIX = "sha256:";
@@ -57,6 +70,8 @@ public final class SourceActivities {
     private static final Pattern ACTIVITY_ID = neutral("activity");
     private static final Pattern PAGE_ID = neutral("page");
     private static final Pattern CONTROL = Pattern.compile("[\\x00-\\x1f\\x7f-\\x9f]");
+    /** Read-back 본문은 문제를 읽은 글이라 탭·줄바꿈·CR은 내용이고, 나머지 C0/C1 제어 문자는 거부한다(SafeMarkdown 집합). */
+    private static final Pattern READ_BACK_CONTROL = Pattern.compile("[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]");
     // Python re.IGNORECASE(str 패턴)는 Unicode case folding을 쓴다. UNICODE_CASE 없이 두면 U+212A(Kelvin) 같은 값이 빠진다.
     private static final Pattern URL_LIKE = Pattern.compile("(?:[a-z][a-z0-9+.-]*://|www\\.)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
@@ -95,7 +110,7 @@ public final class SourceActivities {
             throw violation("source_event_id", "uses the reserved digest prefix");
         }
         ObjectNode payload = browserPayload(event.type(), event.payload());
-        if (storedLength(payload) > MAX_STORED_PAYLOAD_BYTES) {
+        if (storedLength(payload) > maxStoredBytes(type, payload)) {
             throw violation("payload", "is too large to store");
         }
         return new DurableActivity(UUID.fromString(event.runId()), event.attempt(), event.fenceToken(),
@@ -103,6 +118,13 @@ public final class SourceActivities {
                         .orElseThrow(() -> violation("payload.kind", "is not a known activity kind")),
                 payload.get("activityId").textValue(), payload,
                 BrowserRunContract.wireTime(event.occurredAt().toInstant()));
+    }
+
+    /** 저장 한도: Read-back 완료만 {@link #MAX_STORED_READ_BACK_PAYLOAD_BYTES}, 나머지는 {@link #MAX_STORED_PAYLOAD_BYTES}. */
+    static int maxStoredBytes(AiRunEventType type, JsonNode payload) {
+        return type == AiRunEventType.ACTIVITY_COMPLETED
+                && ActivityKind.READ_BACK.wireValue().equals(payload.path("kind").textValue())
+                ? MAX_STORED_READ_BACK_PAYLOAD_BYTES : MAX_STORED_PAYLOAD_BYTES;
     }
 
     /**
@@ -213,6 +235,7 @@ public final class SourceActivities {
                 out.put("methodLabel", in.methodLabel());
                 out.set("progress", progress(in));
             }
+            case READ_BACK -> out.set("problems", readBackProblems(in));
             default -> {
             }
         }
@@ -272,6 +295,58 @@ public final class SourceActivities {
             }
         }
         return out;
+    }
+
+    /**
+     * Read-back 완료의 읽은 문제 1..20개(Brain {@code ReadBackProblem}). 번호·본문·보기·그림 설명만 있고 닫혀 있어
+     * problem id·답·단계·수식 필드는 거부된다. 보기는 없거나 2..5개다. browser 철자는 null 필드를 빼고 {@code choices}는
+     * 항상 둔다.
+     */
+    private static ArrayNode readBackProblems(Reader in) {
+        JsonNode raw = in.array("problems", true);
+        if (raw.isEmpty() || raw.size() > MAX_READ_BACK_PROBLEMS) {
+            throw violation("payload.problems", "has an invalid number of entries");
+        }
+        ArrayNode out = JsonNodeFactory.instance.arrayNode();
+        for (int i = 0; i < raw.size(); i++) {
+            Reader problem = new Reader(raw.get(i), "payload.problems[" + i + "]");
+            ObjectNode item = out.addObject();
+            putIfPresent(item, "problemNumber",
+                    problem.readBackText("problem_number", MAX_READ_BACK_PROBLEM_NUMBER_LENGTH, false));
+            item.put("questionText", problem.readBackText("question_text", MAX_READ_BACK_TEXT_LENGTH, true));
+            ArrayNode choices = item.putArray("choices");
+            JsonNode rawChoices = problem.array("choices", false);
+            if (rawChoices != null) {
+                if (rawChoices.size() > MAX_READ_BACK_CHOICES
+                        || (!rawChoices.isEmpty() && rawChoices.size() < MIN_READ_BACK_CHOICES)) {
+                    throw violation(problem.at("choices"), "must be empty or have 2 to 5 entries");
+                }
+                for (int c = 0; c < rawChoices.size(); c++) {
+                    choices.add(readBackText(rawChoices.get(c), problem.at("choices") + "[" + c + "]",
+                            MAX_READ_BACK_TEXT_LENGTH));
+                }
+            }
+            putIfPresent(item, "figureDescription",
+                    problem.readBackText("figure_description", MAX_READ_BACK_TEXT_LENGTH, false));
+            problem.closed();
+        }
+        return out;
+    }
+
+    /** strip 후 code point 길이 [1, max], 탭·줄바꿈 밖의 제어 문자 금지. */
+    private static String readBackText(JsonNode value, String path, int max) {
+        if (value == null || !value.isTextual()) {
+            throw violation(path, "must be a string");
+        }
+        String stripped = BrowserRunContract.strip(value.textValue());
+        int length = BrowserRunContract.codePointLength(stripped);
+        if (length < 1 || length > max) {
+            throw violation(path, "length is out of range");
+        }
+        if (READ_BACK_CONTROL.matcher(stripped).find()) {
+            throw violation(path, "cannot contain control characters");
+        }
+        return stripped;
     }
 
     /** 측정된 processed_pages ≤ total_pages. */
@@ -415,7 +490,7 @@ public final class SourceActivities {
             this.path = path;
         }
 
-        private String at(String field) {
+        String at(String field) {
             return path + "." + field;
         }
 
@@ -477,6 +552,11 @@ public final class SourceActivities {
                 throw violation(at(field), "length is out of range");
             }
             return stripped;
+        }
+
+        String readBackText(String field, int max, boolean required) {
+            JsonNode value = value(field, required);
+            return value == null ? null : SourceActivities.readBackText(value, at(field), max);
         }
 
         /** activity_id는 128자 상한이 있고 response_page_id는 형식만 있다(Brain과 같다). */

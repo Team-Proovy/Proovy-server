@@ -201,6 +201,38 @@ public final class TerminalAcceptance {
                 && (!payload.artifacts().isEmpty() || !payload.selected().isEmpty())) {
             throw disposition("guidance cannot carry internal answer artifacts");
         }
+        checkExtension(payload);
+    }
+
+    /**
+     * 확장과 artifact·참조의 정합. 앞의 규칙은 Brain {@code validate_completed}와 같고, 뒤 셋은 Server가 더 엄격하다(2.15 리뷰 m1, R2-M2).
+     * <ul>
+     *   <li>안내 응답에는 문제별 검산이 없다.</li>
+     *   <li>재설명은 새 Verified Solution을 만들지 않는다(ADR 0017 §6, 작업 문서).</li>
+     *   <li>새 Verified Solution은 verified 검산 수를 넘을 수 없다 — unverified·not_applicable·빈 검산의 영구 저장 금지.</li>
+     *   <li>verified 검산은 뒷받침하는 풀이(새 artifact 또는 기존 참조) 수를 넘을 수 없다 — 근거 없는 "검증됨" 배지 금지.</li>
+     * </ul>
+     */
+    private static void checkExtension(Completed payload) {
+        CompletionExtension extension = payload.extension();
+        if (extension == null) {
+            return;
+        }
+        if (!extension.solutionChecks().isEmpty() && payload.disposition() != ResponseDisposition.SUBSTANTIVE) {
+            throw disposition("guidance carries no solution checks");
+        }
+        if (extension.responseKind() == CompletionExtension.ResponseKind.RE_EXPLANATION
+                && !payload.artifacts().isEmpty()) {
+            throw verification("payload.verified_solutions", "a re-explanation creates no Verified Solution");
+        }
+        long verified = extension.solutionChecks().stream()
+                .filter(check -> check.scope() == CompletionExtension.AssuranceScope.VERIFIED).count();
+        if (payload.artifacts().size() > verified) {
+            throw verification("payload.verified_solutions", "a new Verified Solution requires a verified solution check");
+        }
+        if (verified > payload.artifacts().size() + payload.existingOrEmpty().size()) {
+            throw verification("payload.solution_checks", "a verified check needs a Verified Solution behind it");
+        }
     }
 
     /** Brain {@code _check_disposition}: clarification·unsupported는 rich_text 하나뿐이고 출처·검증이 없다. */
@@ -323,6 +355,9 @@ public final class TerminalAcceptance {
         }
         payload.labels().forEach(label -> texts.add(label.label()));
         payload.artifacts().forEach(artifact -> texts.addAll(artifact.texts()));
+        if (payload.extension() != null) {
+            texts.addAll(payload.extension().texts());
+        }
         for (String text : texts) {
             if (SIGNED_URL.matcher(text).find()) {
                 throw new TerminalRejection(TerminalRejectionReason.FORBIDDEN_CONTENT, "payload",
@@ -455,6 +490,8 @@ public final class TerminalAcceptance {
         String plainText = plainText(response);
         String contentSha256 = sha256(TerminalModel.map("response_pages", pages, "source_references", references,
                 "plain_text", plainText));
+        // 2.07 source wire에는 solution_checks와 verified_solutions를 잇는 solution_id 키가 없어 휴리스틱 짝짓기를 하지 않는다(R2-M1).
+        // 검산 전체는 chat_messages.solution_checks에 남고, Brain 계약에 solution_id가 추가되면 명시 키로 연결한다(2.12/2.18).
         List<VerifiedSolutionInput> solutions = new ArrayList<>();
         for (Artifact artifact : payload.artifacts()) {
             Map<String, SummaryCoverage> coverage = new HashMap<>();
@@ -465,7 +502,8 @@ public final class TerminalAcceptance {
             solutions.add(new VerifiedSolutionInput(artifact.solutionId(), TerminalModel.ARTIFACT_SCHEMA_VERSION, 1,
                     artifact.problemStatement(),
                     tree(artifact.conditions().stream().map(TerminalModel.Condition::toMap).toList()),
-                    artifact.solutionText(), tree(claims), tree(artifact.marks().stream().map(Mark::toMap).toList()),
+                    artifact.solutionText(), tree(claims),
+                    tree(artifact.marks().stream().map(Mark::toMap).toList()),
                     tree(artifact.verification().toMap()), TerminalModel.VERIFICATION_VERSION,
                     tree(artifact.sourceRefIds()), artifact.verification().overall(), sha256(artifact.toMap()),
                     revisions.get(artifact.solutionId())));
@@ -477,7 +515,8 @@ public final class TerminalAcceptance {
                 payload.clarificationReason(), tree(pages), tree(references), plainText, contentSha256,
                 tree(payload.summaries().stream().map(Summary::toMap).toList()), solutions, payload.model(),
                 payload.tier().name().toLowerCase(Locale.ROOT),
-                new TerminalRecheck(recheckAssets, referenced, List.copyOf(revisions.values())));
+                new TerminalRecheck(recheckAssets, referenced, List.copyOf(revisions.values())),
+                payload.extension());
     }
 
     /** Brain {@code derive_plain_text}: page title과 block body(render)만, 빈 부분은 건너뛰고 두 줄바꿈으로 잇는다. */
@@ -497,7 +536,7 @@ public final class TerminalAcceptance {
         return String.join("\n\n", pages);
     }
 
-    private static JsonNode tree(Object value) {
+    static JsonNode tree(Object value) {
         return JSON.valueToTree(value);
     }
 

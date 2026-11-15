@@ -349,13 +349,20 @@ public class RunTerminalService {
         long lastSeq = transition(run, "status = 'COMPLETED', response_disposition = ?, clarification_reason = ?, "
                 + RELEASE, args, guard);
 
+        // Phase 2 확장(2.07)은 메시지에 둔다: 배지·응답 종류·문제별 검산(V6). 확장 없는 terminal은 standard·NULL이다.
+        CompletionExtension extension = completion.extension();
         int message = jdbc.update("""
                 UPDATE chat_messages SET status = 'COMPLETED', response_pages = CAST(? AS jsonb),
                        source_references = CAST(? AS jsonb), plain_text = ?, content_sha256 = ?,
-                       verification_summary = CAST(? AS jsonb), completed_at = ?
+                       verification_summary = CAST(? AS jsonb), response_kind = ?, assurance_scope = ?,
+                       solution_checks = CAST(? AS jsonb), completed_at = ?
                 WHERE message_id = ? AND note_id = ? AND role = 'ASSISTANT' AND status IN ('PENDING', 'STREAMING')
                 """, json(pages), json(completion.sourceReferences()), completion.plainText(),
-                completion.contentSha256(), json(completion.verificationSummary()), time(now),
+                completion.contentSha256(), json(completion.verificationSummary()),
+                extension == null ? CompletionExtension.ResponseKind.STANDARD.wireValue()
+                        : extension.responseKind().wireValue(),
+                extension == null ? null : extension.assuranceScope().wireValue(),
+                extension == null ? null : json(extension.sourceChecks()), time(now),
                 run.assistantMessageId(), run.noteId());
         requireOne(message, "assistant message is not an open placeholder", run);
 
@@ -366,8 +373,10 @@ public class RunTerminalService {
         eventStore.appendTerminalEvents(run.runId(), lastSeq, completedEvents(run, completion, eventSourceId), now);
         UsageCompensationResult compensation = usageService.settle(run.userId(), run.requestId(),
                 RunTerminalOutcome.completed(completion.disposition()));
-        log.info("run completed: runId={}, disposition={}, solutions={}, compensation={}", run.runId(),
-                completion.disposition(), completion.verifiedSolutions().size(), compensation.outcome());
+        log.info("run completed: runId={}, disposition={}, assuranceScope={}, solutions={}, compensation={}",
+                run.runId(), completion.disposition(),
+                extension == null ? null : extension.assuranceScope().wireValue(),
+                completion.verifiedSolutions().size(), compensation.outcome());
         return TerminalSettlement.committed(run.runId(), AiRunStatus.COMPLETED, lastSeq, compensation);
     }
 

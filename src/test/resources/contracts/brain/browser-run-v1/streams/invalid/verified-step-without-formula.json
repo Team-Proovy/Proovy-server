@@ -1,0 +1,276 @@
+{
+  "rationale": "✓ 단계는 검산한 수식(claim: lhs·rhs)을 그대로 가진다.",
+  "violates": "S7",
+  "schema_rejects": true,
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "bea0e208-4efd-534e-87e3-1a4c05ce12c1",
+        "noteId": "123",
+        "userMessageId": "9a995c33-cb83-51cf-8619-cabce0278a35",
+        "assistantMessageId": "95bdeae4-0f4e-59bd-a782-ed3f0f909070",
+        "status": "PENDING",
+        "requestedTasks": [
+          "solve"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "label": "reading_back_problems"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-9",
+        "kind": "read_back",
+        "problems": [
+          {
+            "problemNumber": "23",
+            "questionText": "$\\displaystyle\\int_0^1 (2x+1)\\,dx$의 값을 구하시오.",
+            "choices": []
+          }
+        ]
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation",
+        "label": "drafting_solution"
+      },
+      "seq": 7
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-2",
+        "kind": "solution_generation"
+      },
+      "seq": 8
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "label": "verifying_steps",
+        "methodLabel": "단계별 함의 검사"
+      },
+      "seq": 9
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:09Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-7",
+        "status": "in_progress",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 2,
+          "total": 5
+        }
+      },
+      "seq": 10
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "occurredAt": "2026-10-17T09:00:10Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-7",
+        "kind": "verification",
+        "methodLabel": "단계별 함의 검사",
+        "progress": {
+          "checked": 5,
+          "total": 5
+        }
+      },
+      "seq": 11
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "seq": 12,
+      "occurredAt": "2026-10-17T09:00:11Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "95bdeae4-0f4e-59bd-a782-ed3f0f909070",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "seq": 13,
+      "occurredAt": "2026-10-17T09:00:12Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "95bdeae4-0f4e-59bd-a782-ed3f0f909070",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "555cfea4-7db7-593d-8011-4c0f74f9065b",
+      "seq": 14,
+      "occurredAt": "2026-10-17T09:00:13Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "인수분해는 맞다. 마지막 합산은 확인되지 않았다.",
+                  "kind": "solution",
+                  "verification": "unverified",
+                  "claimIds": [],
+                  "stepMarks": [
+                    {
+                      "stepId": "step-1",
+                      "status": "verified",
+                      "anchor": {
+                        "start": 0,
+                        "end": 9
+                      }
+                    },
+                    {
+                      "stepId": "step-2",
+                      "status": "unconfirmed",
+                      "reason": "검사 실행 증거가 없다"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "인수분해는 맞다. 마지막 합산은 확인되지 않았다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [],
+        "assistantMessageId": "95bdeae4-0f4e-59bd-a782-ed3f0f909070",
+        "responseKind": "standard",
+        "assuranceScope": "unverified",
+        "solutionChecks": [
+          {
+            "problemNumber": "23",
+            "assuranceScope": "unverified",
+            "strategy": "answer_cross_check",
+            "attempts": 1,
+            "crossCheck": {
+              "independentAnswerAgrees": false,
+              "stepCheckCompleted": true
+            },
+            "disclosure": "full",
+            "checkableSteps": [
+              {
+                "stepIndex": 0,
+                "stepKind": "claim",
+                "checkResult": "verified",
+                "withheld": false,
+                "description": "부정적분은 $x^2+x$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "x"
+                }
+              },
+              {
+                "stepIndex": 1,
+                "stepKind": "claim",
+                "checkResult": "falsified",
+                "withheld": false,
+                "description": "$[x^2+x]_0^1 = 2$",
+                "descriptionFormat": "safe_markdown",
+                "sympyStatement": {
+                  "lhs": "integrate(2*x+1, (x, 0, 1))",
+                  "rhs": "2"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

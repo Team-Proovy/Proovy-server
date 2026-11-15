@@ -568,12 +568,13 @@ final class TerminalModel {
 
     record Completed(ResponseDisposition disposition, ClarificationReason clarificationReason, Response response,
             List<Artifact> artifacts, List<Existing> existing, List<Selected> selected, String model, Tier tier,
-            List<Summary> summaries, List<Label> labels) {
+            List<Summary> summaries, List<Label> labels, CompletionExtension extension) {
 
         static Completed parse(JsonNode node) {
             StrictJson json = StrictJson.object(node, "payload", Set.of("response_disposition", "clarification_reason",
                     "assistant_response", "verified_solutions", "existing_solution_references",
-                    "selected_page_provenance", "model", "tier", "verification_summary", "source_labels"));
+                    "selected_page_provenance", "model", "tier", "verification_summary", "source_labels",
+                    "response_kind", "assurance_scope", "solution_checks"));
             List<Existing> existing = null;
             List<JsonNode> existingNodes = json.nullableArray("existing_solution_references", MAX_ARTIFACTS);
             if (existingNodes != null) {
@@ -595,7 +596,8 @@ final class TerminalModel {
                     items(json, "selected_page_provenance", MAX_PROVENANCE, Selected::parse),
                     model, json.enumValue("tier", Tier.class),
                     items(json, "verification_summary", MAX_ARTIFACTS, Summary::parse),
-                    items(json, "source_labels", MAX_SOURCE_REFERENCES, Label::parse));
+                    items(json, "source_labels", MAX_SOURCE_REFERENCES, Label::parse),
+                    CompletionExtension.parse(node));
         }
 
         List<Existing> existingOrEmpty() {

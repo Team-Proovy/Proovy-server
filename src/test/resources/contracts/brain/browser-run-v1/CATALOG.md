@@ -9,10 +9,11 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
 
 ## 버전
 
-- `consumer_version`: `browser-run-fixtures-v1` (2026-10-17 최초 고정, 단계 2 합의 D1~D10)
+- `consumer_version`: `browser-run-fixtures-v1.1` (2026-11-12, task 2.07 Phase 2 additive 확장 — 아래 "Phase 2 확장")
+  - 이전: `browser-run-fixtures-v1` (2026-10-17 최초 고정, 단계 2 합의 D1~D10). v1 fixture는 모두 byte 그대로 남아 있고 v1.1 schema도 통과한다.
 - `contract_version`: `browser-run-v1`
 - durable frame `contractVersion`: `brain-source-v1` (D1 — terminal-v2 browser schema의 `const`와 같은 값을 Server 소유 frame에도 사용)
-- 참조 계약: terminal-fixtures-v2 · activity-fixtures-v1 · assistant-response-v1 · internal-run-fixtures-v2(canonical JSON) · page-selection-v1
+- 참조 계약: terminal-fixtures-v2.1 · activity-fixtures-v1.1 · assistant-response-v1 · internal-run-fixtures-v2(canonical JSON) · page-selection-v1
 - 요청 fingerprint: `browser-request-sha256-canonical-json-v1`
 
 ## 소비 규칙
@@ -30,6 +31,50 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
 - 요청 body는 **closed**(알 수 없는/금지 필드 = `RUN4001`). 응답·이벤트는 additive-tolerant(알 수 없는 추가 필드 무시,
   알려진 필드 검증)이지만, 내부 키(`attempt`·`fenceToken`·`sourceEventId`·`failureClass`·`requestFingerprint`·`usage`·
   `deadline`과 snake_case 형)는 frame·payload와 Server 소유 응답 객체 모두에서 schema가 거부한다.
+
+## Phase 2 확장 (browser-run-fixtures-v1.1, task 2.07)
+
+spec 04·ADR 0017·`docs/plan/27`의 화면 wire다. `contract_version`은 `browser-run-v1` 그대로이고 모두 **선택 필드**라
+기존 frame·응답은 그대로 유효하다. 2.06 `SolutionVerification`을 Brain
+`proovy_brain.contracts.browser_solution_check.completion_extension`으로 투영한 값이 fixture에 들어 있다.
+
+- `run.completed` payload와 대화 조회 `AssistantMessageContent`에 세 필드가 **함께** 붙는다(`CompletionExtension`, 하나만 오면 거부).
+  세 필드가 없으면 이 확장 이전 응답이다.
+  - `responseKind`: `standard` | `re_explanation`. 재설명은 검증 없이 스트리밍하고 Front는 "추가 설명" 표시를 붙인다.
+    재설명은 항상 `assuranceScope: not_applicable`, `solutionChecks: []`다.
+  - `assuranceScope`(응답 배지): `not_applicable` solution은 집계에서 뺀다. 하나라도 `unverified`면 `unverified`,
+    아니고 `verified`가 있으면 `verified`, 전부 `not_applicable`(또는 없음)이면 `not_applicable`. 검증됨+검증 대상 아님
+    섞임은 `verified`다(사용자 결정 2026-11-12, `docs/plan/28`). 문제별 배지는 `solutionChecks[].assuranceScope`다.
+  - `solutionChecks[]`(최대 20): `problemNumber`(없으면 null — 텍스트 입력), `assuranceScope`, `strategy`
+    (`answer_cross_check`|`none`), `attempts`(1~3), `crossCheck`(일치 여부 플래그만, `none`이면 null),
+    `disclosure`, `checkableSteps[]`. **순서 = Read-back `problems` 순서 = 응답 순서**다(번호가 null인 문제는 순서로 맞춘다).
+  - `disclosure`(정답 공개 범위, Brain `DisclosureScope` — `assistantResponse`를 공개한 범위와 같다):
+    `full`은 단계 공개, `hide_answer`는 **모든 단계** `withheld: true`(종류·✓✗ 표시만, `description`·`descriptionFormat`·
+    `sympyStatement`는 null), `hide_solution`은 `checkableSteps: []`(배지·`crossCheck`만). 답을 정하는 단계만 골라
+    가리는 판단은 아직 없어 hide_answer는 전부 가린다.
+  - `checkableSteps[]`: `stepIndex`·`withheld`·`description`·`descriptionFormat`(`safe_markdown`|`plain_text`)·`sympyStatement`
+    (null 또는 `name`·`value`·`cond`·`covers`·`lhs`·`rhs`·`choice`)·`stepKind`(`define`·`given`·`claim`·`case`·
+    `choose`·`argue`)·`checkResult`(`verified` ✓·`falsified` ✗·`unparseable` 검산 안 됨·`not_checked` 검산 대상 아님).
+    `descriptionFormat: plain_text`는 Brain 경계에서 SafeMarkdown을 통과하지 못한 그 단계 설명이다 — 수식·markdown 없이
+    글자 그대로 그린다. `safe_markdown` 설명에는 `[[source:…]]` 마커가 없다(Brain이 지운다 — solutionChecks에는 출처 목록이
+    없다). 단계 종류별 허용 결과와 공개 ✓ 단계의 수식 필수 규칙은 2.06 모델과 같고 schema가 검사한다.
+- Brain → Server source(terminal-v2 `source.schema.json`의 `RunCompletedPayload`)에는 같은 값이 snake_case로 실린다:
+  `response_kind`·`assurance_scope`·`solution_checks[]`(`problem_number`·`assurance_scope`·`strategy`·`attempts`·
+  `cross_check{independent_answer_agrees, step_check_completed}`·`disclosure`·`checkable_steps[]{step_index, step_kind,
+  check_result, withheld, description, description_format, sympy_statement}`). source는 null 값 키를 생략하고, browser
+  변환(`to_browser_event_payload`)이 camelCase로 바꾸며 null 키를 채운다. terminal-v2 `pairs/phase2-*.json`이 그 예다.
+- Activity Kind `read_back`(Read-back, "이렇게 읽었어요"): 진행 Activity의 첫 단계. label `reading_back_problems`,
+  `activity.completed` payload `problems[]` = `problemNumber`(선택)·`questionText`·`choices`·`figureDescription`(선택).
+  정의는 terminal-v2 browser schema(`ReadBackCompleted`, Brain `activity.py`에서 생성)에 있고 여기서는
+  `ReadBackCompletedPayload`로 가리키며 `ReadBackGuard`가 답·단계·수식·내부 problem id를 거부한다.
+  사용자 확인을 기다리지 않는다(틀리면 Run Cancellation).
+- **비공개 원칙 유지**: `checkReason`, 독립 답 프로그램·값(`evidenceCode`·`independentAnswer`), `failureReason`,
+  `problemId`는 어디에도 없다(schema가 거부). 단계·수식은 검증이 끝난 `run.completed`에서만 오고 Activity에는 없다.
+- 기존 Phase 1 `verificationSummary`는 terminal-v2 그대로 남는다. `solutionChecks`가 있으면 화면 ✓·배지는 `solutionChecks`를 쓴다.
+- 확장 fixture: `streams/valid`의 `[v1.1]` 7건(객관식 검증됨+Read-back · 불일치 미검증 · 여러 문제 섞임 · 증명 검증 대상 아님 ·
+  재설명 · 정답 숨김 · 풀이 숨김), `streams/invalid`의 S7 19건, `responses/valid/conversation-verified-then-re-explanation`,
+  `responses/invalid/conversation-*`(v1.1) 2건. `[v1.1]` stream의 `assistantResponse` 본문은 terminal-v2 pair를 재사용한 예시라
+  `solutionChecks`의 문제와 내용이 같지 않다 — 구조 계약만 본다.
 
 ## 경로와 규칙 요약
 
@@ -84,7 +129,8 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
   terminal-v2 pair는 publication-v1 valid에서 조립되므로 clarification/unsupported_only/substantive의 공개 구조도 같다.
 - 대화 조회의 `assistantResponse`는 terminal-v2 `AssistantResponseV1`을 그대로 `$ref`한다. 대화 조회 예제는 메시지가 `createdAt`
   오름차순이고 assistant마다 run이 다르며, 각 assistant 앞에 같은 run의 user 메시지가 있다.
-- 기존 fixture의 의미·파일은 바꾸지 않았다. 참고: terminal-v2 browser schema의 opaque ID 패턴은 `$`로 끝난다(이 artifact 밖,
+- 기존 fixture의 의미·파일은 바꾸지 않았다(v1.1 확장 포함 — v1 fixture는 byte 그대로). `[v1.1]` stream의 `run.completed`는
+  terminal-v2 pair payload에 `responseKind`·`assuranceScope`·`solutionChecks`만 더한 값이다. 참고: terminal-v2 browser schema의 opaque ID 패턴은 `$`로 끝난다(이 artifact 밖,
   terminal-v2 변경 대상).
 
 ## 합의 초안 §11.1 예제와의 대응
@@ -217,36 +263,62 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
 | `clarification-completed` | COMPLETED | 7 | clarification_only — 1 page, source 없음, completed(보상은 Server 정책). |
 | `failed-invalid-attachment` | FAILED | 2 | invalid_attachment — reason sub-code만 추가. |
 | `failed-verification` | FAILED | 8 | verification_failed — page 이벤트·풀이 없음. |
+| `hide-answer-completed` | COMPLETED | 14 | [v1.1] 정답 숨김 요청(disclosure=hide_answer) → 배지·✓ 표시는 남고 모든 단계의 description·descriptionFormat·sympyStatement가 null(withheld=true). assistantResponse 본문은 terminal-v2 hide-answer 재사용(예시). |
+| `hide-solution-completed` | COMPLETED | 14 | [v1.1] 풀이 숨김 요청(disclosure=hide_solution) → solutionChecks에 배지·crossCheck만 남고 checkableSteps=[]. assistantResponse 본문은 terminal-v2 hide-answer 재사용(예시). |
+| `mixed-scope-completed` | COMPLETED | 16 | [v1.1] 여러 문제: 단답형 검증됨·검산 안 됨 단계가 있는 검증됨·텍스트 입력(번호 없음)·증명 검증 대상 아님 → not_applicable은 집계에서 빠지므로 전체 assuranceScope=verified(문제별 배지는 solutionChecks[].assuranceScope). |
+| `not-applicable-proof` | COMPLETED | 14 | [v1.1] 증명 답(strategy=none) → assuranceScope=not_applicable, crossCheck=null. |
+| `re-explanation-completed` | COMPLETED | 7 | [v1.1] 기존 풀이 재설명 — 검증·Read-back 없이 바로 스트리밍. responseKind=re_explanation, assuranceScope=not_applicable, solutionChecks=[]. Front는 '추가 설명' 표시. |
 | `replay-source-unavailable` | COMPLETED | 12 | 같은 run을 asset 삭제 후 replay — read-time available만 다르고 id·seq·label snapshot·plainText는 같다. |
 | `substantive-completed` | COMPLETED | 14 | substantive 2-page 완료 — page 경계 2쌍 뒤 run.completed(terminal-v2 multi-page). |
 | `substantive-with-source` | COMPLETED | 12 | source chip이 있는 substantive(terminal-v2 direct-verified, available=true). |
 | `unsupported-only-completed` | COMPLETED | 7 | 자연어 변형 요청의 unsupported_only 완료. |
+| `unverified-disagreement` | COMPLETED | 14 | [v1.1] 독립 답 불일치 + ✗ 단계(falsified) → 미검증. crossCheck.independentAnswerAgrees=false, assuranceScope=unverified. |
+| `verified-multiple-choice-with-read-back` | COMPLETED | 14 | [v1.1] Read-back(read_back Activity, 첫 단계) → 객관식 검증됨. solutionChecks 1건·단계별 ✓, assuranceScope=verified. assistantResponse 본문은 terminal-v2 direct-verified 재사용(예시). |
 
 ### streams/invalid
 
 | 파일 | 위반 규칙 | schema 거부 | 근거 |
 |---|---|---|---|
 | `activity-without-start` | S6 | 아니오(순서 규칙) | started 없는 activity 후속 이벤트. |
+| `argue-step-with-statement` | S7 | 예 | argue 단계는 수식이 없고 검산 대상 아님뿐이다. |
 | `assistant-message-id-mismatch` | S5 | 아니오(순서 규칙) | assistantMessageId가 run.created와 다름. |
 | `attempt-in-frame` | S7 | 예 | frame에 attempt. |
 | `cancel-message-mismatch` | S7 | 예 | cause별 고정 message와 다름. |
 | `cancel-unknown-cause` | S7 | 예 | 허용되지 않은 cancel cause. |
+| `check-reason-exposed` | S7 | 예 | 검산기 사유 코드(checkReason)는 내부 전용. |
 | `event-after-terminal` | S2 | 아니오(순서 규칙) | terminal 뒤 activity. |
+| `extension-without-response-kind` | S7 | 예 | responseKind·assuranceScope·solutionChecks는 함께 오거나 모두 없다. |
 | `failure-class-in-run-failed` | S7 | 예 | run.failed에 failureClass. |
 | `fence-token-in-payload` | S7 | 예 | payload에 fenceToken. |
 | `first-not-run-created` | S1 | 아니오(순서 규칙) | 첫 frame이 run.created가 아님. |
+| `hide-answer-public-step` | S7 | 예 | 정답 숨김(hide_answer)에서는 모든 단계가 withheld=true다. |
+| `hide-answer-step-leak` | S7 | 예 | 정답 숨김(hide_answer)에서 withheld 단계가 수식·설명을 실으면 거부 — choose 단계의 보기 번호가 정답이다. |
+| `hide-solution-with-steps` | S7 | 예 | 풀이 숨김(hide_solution)은 단계를 하나도 보내지 않는다. |
+| `independent-answer-exposed` | S7 | 예 | 독립 답 프로그램·값(evidenceCode·independentAnswer)은 내부 전용(미확정 Candidate). |
 | `non-uuid-run-id` | S7 | 예 | Server 소유 frame runId는 UUID. |
+| `overall-not-applicable-with-verified` | S7 | 예 | verified 풀이가 하나라도 있으면(unverified 없이) 전체는 verified — not_applicable 거부. |
+| `overall-unverified-without-unverified-solution` | S7 | 예 | not_applicable은 집계에서 빠진다 — 검증 대상이 모두 verified인데 전체 unverified 거부. |
 | `page-after-canceling` | S3 | 아니오(순서 규칙) | run.canceling 뒤 page 경계. |
 | `page-id-not-in-completed` | S4 | 아니오(순서 규칙) | page 경계 ID가 run.completed에 없음. |
 | `page-in-failed-run` | S4 | 아니오(순서 규칙) | failed run에 page 경계. |
 | `page-order-mismatch` | S4 | 아니오(순서 규칙) | pageIndex 순서가 run.completed pages와 다름. |
 | `page-unpaired` | S4 | 아니오(순서 규칙) | page.started만 있고 completed 없음. |
+| `proof-with-verified-scope` | S7 | 예 | strategy=none(증명·서술)은 항상 not_applicable. |
+| `re-explanation-verified-scope` | S7 | 예 | 재설명은 검증 대상 아님 — assuranceScope=verified 거부. |
+| `re-explanation-with-solution-checks` | S7 | 예 | 재설명은 solutionChecks가 비어 있어야 한다(검증 없이 스트리밍). |
+| `read-back-with-answer` | S7 | 예 | Read-back은 검증 전이다 — 문제에 답을 붙일 수 없다. |
+| `read-back-with-steps` | S7 | 예 | Read-back에 검증 전 풀이 단계를 실을 수 없다. |
 | `retrying-status-in-run-created` | S7 | 예 | 내부 RETRYING/비PENDING status 노출. |
 | `run-created-missing-note-id` | S7 | 예 | run.created에 noteId 누락. |
 | `run-id-mismatch` | S5 | 아니오(순서 규칙) | frame runId가 섞임. |
 | `seq-gap` | S1 | 아니오(순서 규칙) | seq 빈틈. |
+| `solution-check-without-disclosure` | S7 | 예 | solution check는 disclosure를 반드시 가진다(없으면 숨김 여부를 알 수 없다). |
 | `source-event-id-in-frame` | S7 | 예 | frame에 sourceEventId. |
 | `two-terminals` | S2 | 아니오(순서 규칙) | terminal 두 개. |
+| `unknown-assurance-scope` | S7 | 예 | AssuranceScope는 verified·unverified·not_applicable 세 값뿐. |
+| `unverified-without-cause` | S7 | 예 | 불일치·검산기 실패·✗ 단계가 없는데 unverified — 2.06 조건 위반. |
+| `verified-solution-with-falsified-step` | S7 | 예 | ✗ 단계가 있는 solution은 verified일 수 없다. |
+| `verified-step-without-formula` | S7 | 예 | ✓ 단계는 검산한 수식(claim: lhs·rhs)을 그대로 가진다. |
 
 ### cursors/cases.json
 
@@ -305,6 +377,7 @@ runs: `terminal` = `5e186280-06ec-5099-8087-8de875b2b83b` COMPLETED, lastDurable
 | `conversation-active-run` | `ConversationPageResponse` | 200 | – |
 | `conversation-clarification-failed-canceled` | `ConversationPageResponse` | 200 | – |
 | `conversation-completed` | `ConversationPageResponse` | 200 | – |
+| `conversation-verified-then-re-explanation` | `ConversationPageResponse` | 200 | – |
 | `error-auth4010` | `ErrorResponse` | 401 | – |
 | `error-auth4012` | `ErrorResponse` | 401 | – |
 | `error-auth4013` | `ErrorResponse` | 401 | – |
@@ -335,8 +408,10 @@ runs: `terminal` = `5e186280-06ec-5099-8087-8de875b2b83b` COMPLETED, lastDurable
 | `cancel-with-fence-token` | `RunCancelResponse` | 취소 응답에 fenceToken. |
 | `conversation-active-run-deadline` | `ConversationPageResponse` | activeRun에 deadline. |
 | `conversation-active-run-terminal-status` | `ConversationPageResponse` | activeRun은 PENDING\|RUNNING\|CANCELING만. |
+| `conversation-check-reason-exposed` | `ConversationPageResponse` | [v1.1] 저장·재조회 응답에도 검산기 사유 코드(checkReason)는 없다. |
 | `conversation-completed-without-response` | `ConversationPageResponse` | COMPLETED assistant는 assistantResponse 필수. |
 | `conversation-failure-class` | `ConversationPageResponse` | assistant failure에 failureClass. |
+| `conversation-re-explanation-verified` | `ConversationPageResponse` | [v1.1] 저장된 재설명 응답도 assuranceScope는 not_applicable뿐. |
 | `conversation-streaming-with-response` | `ConversationPageResponse` | STREAMING placeholder는 본문이 없다(Candidate 비공개). |
 | `error-active-run-without-result` | `ErrorResponse` | RUN4091은 activeRunId 필수. |
 | `error-message-mismatch` | `ErrorResponse` | code별 고정 message와 다름. |

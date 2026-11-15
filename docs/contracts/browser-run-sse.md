@@ -44,6 +44,8 @@ heartbeat(15초, live 연결에서만):
   0 frame 뒤 바로 닫는다.
 - payload별 원천: activity.*·run.created·run.canceling·run.canceled·response.page.*·run.failed는 저장 payload 그대로,
   `run.completed`는 저장 최소 요약 + canonical assistant message(`TerminalReplay.completedPayload`, 1.82).
+  Phase 2 확장(2.15): 메시지에 배지가 있으면 `responseKind`·`assuranceScope`·`solutionChecks`를 같은 함수가 메시지 열에서 붙인다.
+  Read-back Activity(`activity.* kind=read_back`)는 다른 Activity처럼 저장 payload 그대로 replay된다 — 진행 중 run을 다시 열어도 보인다.
   `sourceReferences[].available`만 read-time(같은 Note asset이 지금 `ACTIVE`면 true)이고 label·page snapshot·ID·plainText는 불변이다.
 - 전체 frame 예제: browser-run-v1 fixture `streams/valid/*.json`(10개 시나리오). 서버 출력이 그 형식과 S1~S7을 지키는지는
   `BrowserRunSsePostgresTest`가 실제 HTTP로 받은 frame에 `BrowserFrame` schema·S1~S7 검사기를 돌려 확인한다.
