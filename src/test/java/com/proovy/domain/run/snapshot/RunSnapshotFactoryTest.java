@@ -91,6 +91,20 @@ class RunSnapshotFactoryTest {
     }
 
     @Test
+    void newRunsDeliverTheBoundDefaultBudgetPolicy() {
+        RunSnapshotProperties bound = new org.springframework.boot.context.properties.bind.Binder(
+                new org.springframework.boot.context.properties.source.MapConfigurationPropertySource(Map.of()))
+                .bindOrCreate("proovy.run.snapshot", RunSnapshotProperties.class);
+        RunSnapshot snapshot = factory(bound).create(UUID.randomUUID(), USER, NOTE, request("q", null), NOW);
+        InternalRunRequest delivered = firstDelivery(snapshot, RunAssetAccess.NONE);
+
+        assertThat(delivered.executionOptions().budgetPolicyVersion()).isEqualTo("budget-v2");
+        assertThat(delivered.executionOptions().limits().maxLlmCalls()).isEqualTo(20);
+        assertThat(snapshot.policySnapshot().at("/limits/max_llm_calls").asLong()).isEqualTo(20);
+        assertThat(snapshot.requestFingerprint()).isEqualTo(delivered.fingerprint().sha256());
+    }
+
+    @Test
     void noteThatIsMissingForeignOrDeletingIsRejectedBeforeReadingAnything() {
         sources.ownedNote = false;
         assertThatThrownBy(() -> factory(defaults()).create(UUID.randomUUID(), USER, NOTE, request("q", null), NOW))

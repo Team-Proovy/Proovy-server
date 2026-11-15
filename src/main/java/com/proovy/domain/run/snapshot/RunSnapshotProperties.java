@@ -63,8 +63,8 @@ public record RunSnapshotProperties(
 
     /** 실행 상한. 0은 "그 자원을 쓰지 않음"이고 음수는 기동 실패다. */
     public record Budget(
-            @DefaultValue("budget-v1") String policyVersion,
-            @DefaultValue("80") long maxLlmCalls,
+            @DefaultValue("budget-v2") String policyVersion,
+            @DefaultValue("20") long maxLlmCalls,
             @DefaultValue("40") long maxToolCalls,
             @DefaultValue("100000") long maxOutputTokens,
             @DefaultValue("5000000") long maxCostMicros,
