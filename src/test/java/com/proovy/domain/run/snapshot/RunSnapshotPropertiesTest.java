@@ -12,12 +12,11 @@ import org.springframework.boot.context.properties.source.MapConfigurationProper
 class RunSnapshotPropertiesTest {
 
     @Test
-    void defaultBudgetAllowsEightyLlmCallsAndKeepsTheOtherLimits() {
+    void defaultBudgetAllowsTwentyLlmCallsAndKeepsTheOtherLimits() {
         RunSnapshotProperties properties = bind(Map.of());
-        // verify 라운드 상한이 (run 남은 호출) // 3이라 40이면 12회로 잘린다(task 1.106, 2026-10-24·25 재실측).
-        assertThat(properties.budget().policyVersion()).isEqualTo("budget-v1");
+        assertThat(properties.budget().policyVersion()).isEqualTo("budget-v2");
         assertThat(properties.budget().limits())
-                .isEqualTo(new ExecutionLimits(80, 40, 100_000, 5_000_000, 5, 10, 50));
+                .isEqualTo(new ExecutionLimits(20, 40, 100_000, 5_000_000, 5, 10, 50));
     }
 
     @Test
