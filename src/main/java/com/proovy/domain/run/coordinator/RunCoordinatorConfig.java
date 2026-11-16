@@ -33,11 +33,14 @@ public class RunCoordinatorConfig {
         return new RunClaimStore(jdbc, tx);
     }
 
-    /** S09/S10 전 기본값: grant·read URL 없음(run-snapshot-v1 R7). 발급처가 생기면 이 bean을 교체한다. */
+    /** 전달 시점마다 승인된 Viewer/Attachment asset에만 단기 GET read_url을 발급한다(run-snapshot-v1 R7). */
     @Bean
     @ConditionalOnMissingBean
-    public RunAssetAccessProvider runCoordinatorAssetAccess() {
-        return (run, claim) -> RunAssetAccess.NONE;
+    public RunAssetAccessProvider runCoordinatorAssetAccess(
+            JdbcTemplate jdbc,
+            com.proovy.global.infra.gcs.GcsService gcsService,
+            com.proovy.global.config.GcsProperties gcsProperties) {
+        return new StorageBackedRunAssetAccessProvider(jdbc, gcsService, gcsProperties.readUrlTtlMinutes());
     }
 
     @Bean

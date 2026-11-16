@@ -70,6 +70,14 @@ gcs:
   credentials-json: ${GCS_CREDENTIALS_JSON:}
   # 로컬 GCS 에뮬레이터 endpoint. 미설정 시 실제 GCS 사용
   endpoint: ${GCS_ENDPOINT:}
+  read-url-ttl-minutes: ${GCS_READ_URL_TTL_MINUTES:15}
+  # 로컬 Docker stack 사진 저장 opt-in 전용. 기본 false에서는 운영 GCS/ADC 경로가 그대로 유지된다.
+  local-emulator:
+    enabled: ${GCS_LOCAL_EMULATOR_ENABLED:false}
+    public-base-url: ${GCS_LOCAL_PUBLIC_BASE_URL:}
+    signer-private-key-path: ${GCS_LOCAL_SIGNER_KEY_PATH:}
+    signer-private-key-pem: ${GCS_LOCAL_SIGNER_KEY_PEM:}
+    signer-client-email: ${GCS_LOCAL_SIGNER_CLIENT_EMAIL:local-signer@proovy.local}
 
 # ===============================
 # OAuth 설정

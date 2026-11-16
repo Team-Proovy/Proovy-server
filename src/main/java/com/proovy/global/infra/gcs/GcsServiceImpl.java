@@ -1,11 +1,11 @@
 package com.proovy.global.infra.gcs;
 
 import com.google.cloud.storage.*;
+import com.proovy.global.config.GcsProperties;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.response.ErrorCode;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -13,22 +13,32 @@ import java.io.InputStream;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class GcsServiceImpl implements GcsService {
 
     private final Storage storage;
+    private final String bucketName;
+    private final String endpoint;
+    private final GcsLocalSigning localSigning;
 
-    @Value("${gcs.bucket}")
-    private String bucketName;
+    @Autowired
+    public GcsServiceImpl(Storage storage, GcsProperties gcsProperties, GcsLocalSigning localSigning) {
+        this(storage, gcsProperties.bucket(), gcsProperties.endpoint(), localSigning);
+    }
 
-    @Value("${gcs.endpoint:}")
-    private String endpoint;
+    public GcsServiceImpl(Storage storage, String bucketName, String endpoint, GcsLocalSigning localSigning) {
+        this.storage = Objects.requireNonNull(storage, "storage");
+        this.bucketName = Objects.requireNonNull(bucketName, "bucketName");
+        this.endpoint = endpoint;
+        this.localSigning = localSigning != null ? localSigning : GcsLocalSigning.disabled();
+    }
 
     @Override
     public void deleteFile(String gcsKey) {
@@ -99,6 +109,9 @@ public class GcsServiceImpl implements GcsService {
 
     @Override
     public String getFileUrl(String gcsKey) {
+        if (localSigning.isEnabled()) {
+            return localSigning.publicFileUrl(bucketName, gcsKey);
+        }
         String encodedKey = URLEncoder.encode(gcsKey, StandardCharsets.UTF_8)
                 .replace("+", "%20");
         String baseUrl = (endpoint != null && !endpoint.isBlank())
@@ -137,13 +150,13 @@ public class GcsServiceImpl implements GcsService {
                     .setContentType(contentType)
                     .build();
 
-            URL signedUrl = storage.signUrl(
+            URL signedUrl = signUrl(
                     blobInfo,
                     durationMinutes,
-                    TimeUnit.MINUTES,
-                    Storage.SignUrlOption.httpMethod(HttpMethod.PUT),
-                    Storage.SignUrlOption.withContentType(),
-                    Storage.SignUrlOption.withV4Signature()
+                    List.of(
+                            Storage.SignUrlOption.httpMethod(HttpMethod.PUT),
+                            Storage.SignUrlOption.withContentType()
+                    )
             );
 
             log.info("[GCS] Upload Signed URL 생성 성공: {}", gcsKey);
@@ -190,12 +203,7 @@ public class GcsServiceImpl implements GcsService {
                     .setContentDisposition(contentDisposition)
                     .build();
 
-            URL signedUrl = storage.signUrl(
-                    blobInfo,
-                    durationMinutes,
-                    TimeUnit.MINUTES,
-                    Storage.SignUrlOption.withV4Signature()
-            );
+            URL signedUrl = signUrl(blobInfo, durationMinutes, List.of());
 
             log.debug("[GCS] Download Signed URL 생성 성공: {}", gcsKey);
             return signedUrl.toString();
@@ -203,5 +211,42 @@ public class GcsServiceImpl implements GcsService {
             log.error("[GCS] Download Signed URL 생성 실패: {}, message={}", gcsKey, e.getMessage(), e);
             throw new BusinessException(ErrorCode.COMMON500);
         }
+    }
+
+    @Override
+    public String generatePresignedReadUrl(String gcsKey, int durationMinutes) {
+        if (gcsKey == null || gcsKey.isBlank() || durationMinutes <= 0) {
+            throw new BusinessException(ErrorCode.COMMON400);
+        }
+
+        try {
+            BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, gcsKey).build();
+            URL signedUrl = signUrl(
+                    blobInfo,
+                    durationMinutes,
+                    List.of(Storage.SignUrlOption.httpMethod(HttpMethod.GET))
+            );
+            log.debug("[GCS] Read Signed URL 생성 성공: {}", gcsKey);
+            return signedUrl.toString();
+        } catch (IllegalStateException | StorageException e) {
+            log.error("[GCS] Read Signed URL 생성 실패: {}, message={}", gcsKey, e.getMessage(), e);
+            throw new BusinessException(ErrorCode.COMMON500);
+        }
+    }
+
+    private URL signUrl(BlobInfo blobInfo, int durationMinutes, List<Storage.SignUrlOption> extraOptions) {
+        List<Storage.SignUrlOption> options = new ArrayList<>(extraOptions);
+        options.add(Storage.SignUrlOption.withV4Signature());
+        if (localSigning.isEnabled()) {
+            options.add(Storage.SignUrlOption.signWith(localSigning.signer()));
+            options.add(Storage.SignUrlOption.withHostName(localSigning.publicBaseUrl()));
+            options.add(Storage.SignUrlOption.withPathStyle());
+        }
+        return storage.signUrl(
+                blobInfo,
+                durationMinutes,
+                TimeUnit.MINUTES,
+                options.toArray(Storage.SignUrlOption[]::new)
+        );
     }
 }
