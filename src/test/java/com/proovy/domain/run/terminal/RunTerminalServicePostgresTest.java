@@ -589,6 +589,31 @@ class RunTerminalServicePostgresTest {
                 FROM verified_solutions WHERE source_run_id = ?
                 """, legacyRun.runId()))
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+
+        // R3-M1: 2,001자리 답도 V7 private 저장을 통과하고 20,001자는 V7 CHECK가 거부한다
+        String answer2001 = "1" + "0".repeat(2_000);
+        ObjectNode longSource = (ObjectNode) pair("verified-answer-ref").get("source").deepCopy();
+        ObjectNode longArtifact = (ObjectNode) longSource.at("/payload/verified_solutions/0");
+        longArtifact.put("solution_text", "답: " + answer2001);
+        longArtifact.put("answer_text", answer2001);
+        Run longRun = newRun(longSource, RunOptions.defaults());
+        assertThat(service.settle(event(bind(longSource, longRun))).outcome()).isEqualTo(Outcome.COMMITTED);
+        assertThat(jdbc.queryForObject("SELECT answer_text FROM verified_solutions WHERE source_run_id = ?",
+                String.class, longRun.runId())).isEqualTo(answer2001);
+        assertThat(message(longRun).get("plain_text").toString()).doesNotContain(answer2001);
+
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id,
+                    assistant_message_id, schema_version, solution_version, problem_statement, problem_conditions,
+                    solution_text, claims, step_marks, verification_summary, verification_version, source_ref_ids,
+                    overall_coverage, content_sha256, answer_claim_id, answer_text)
+                SELECT gen_random_uuid(), 'solution-95', note_id, source_run_id, assistant_message_id, schema_version,
+                       solution_version, problem_statement, problem_conditions, solution_text, claims, step_marks,
+                       verification_summary, verification_version, source_ref_ids, overall_coverage, content_sha256,
+                       'claim-1', repeat('0', 20001)
+                FROM verified_solutions WHERE source_run_id = ?
+                """, legacyRun.runId()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
     /** browser-run-v1.1 valid stream의 run.completed payload. */

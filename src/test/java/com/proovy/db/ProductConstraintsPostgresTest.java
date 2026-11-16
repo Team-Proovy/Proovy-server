@@ -644,7 +644,7 @@ class ProductConstraintsPostgresTest {
 
     @Test
     void reExplanationDeltaEventEnforcesV8Constraints() throws SQLException {
-        UUID runId = insertRunWithTurn(c, "req-delta-v7", ALICE, ALICE_NOTE);
+        UUID runId = insertRunWithTurn(c, "req-delta-v8", ALICE, ALICE_NOTE);
         claim(c, runId);
         allocateSeq(c, runId, 10);
 
@@ -674,6 +674,25 @@ class ProductConstraintsPostgresTest {
                 SELECT ?, note_id, 5, 're_explanation.delta', 'delta-str-idx', 1, NULL, '{"deltaIndex":"1","delta":"x"}'
                 FROM ai_runs WHERE run_id = ?
                 """, runId, runId));
+        for (String invalid : List.of(
+                "{}", "{\"delta\":\"x\"}", "{\"deltaIndex\":0}",
+                "{\"deltaIndex\":null,\"delta\":\"x\"}",
+                "{\"deltaIndex\":0,\"delta\":null}",
+                "{\"deltaIndex\":0.5,\"delta\":\"x\"}",
+                "{\"deltaIndex\":9223372036854775808,\"delta\":\"x\"}",
+                "{\"deltaIndex\":1,\"delta\":\"" + "x".repeat(4001) + "\"}")) {
+            expectViolation(CHECK_VIOLATION, "ck_ai_run_events_re_explanation_delta", () -> update(c, """
+                    INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                    SELECT ?, note_id, 6, 're_explanation.delta', 'delta-invalid', 1, NULL, ?::jsonb
+                    FROM ai_runs WHERE run_id = ?
+                    """, runId, invalid, runId));
+        }
+        String maxDelta = "{\"deltaIndex\":9223372036854775807,\"delta\":\"" + "😀".repeat(4000) + "\"}";
+        update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 6, 're_explanation.delta', 'delta-max', 1, NULL, ?::jsonb
+                FROM ai_runs WHERE run_id = ?
+                """, runId, maxDelta, runId);
     }
 
     // ------------------------------------------------------------------

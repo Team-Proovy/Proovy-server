@@ -191,6 +191,25 @@ class InternalRunRequestContractTest {
                         .map(com.proovy.domain.run.contract.MessageRole::wireValue).toList());
     }
 
+    @Test
+    @DisplayName("VerifiedSolutionRef.answer_text는 2,000·2,001·10,000·20,000자를 허용해 fingerprint에 반영하고 20,001자는 거부한다")
+    void longAnswerTextBoundsInSolutionRef() {
+        assertThat(InternalRunContract.MAX_ANSWER_TEXT_CHARS).isEqualTo(20_000);
+        java.util.Set<String> fingerprints = new java.util.HashSet<>();
+        for (int len : new int[] {2_000, 2_001, 10_000, InternalRunContract.MAX_ANSWER_TEXT_CHARS}) {
+            String longAnswer = "1" + "0".repeat(len - 1);
+            ObjectNode raw = (ObjectNode) load("requests/with-answer-ref.json").deepCopy();
+            ((ObjectNode) raw.at("/verified_solution_refs/0")).put("answer_text", longAnswer);
+            InternalRunRequest parsed = InternalRunWire.read(raw, InternalRunRequest.class);
+            assertThat(parsed.verifiedSolutionRefs().getFirst().answerText()).isEqualTo(longAnswer);
+            fingerprints.add(parsed.fingerprint().sha256());
+        }
+        assertThat(fingerprints).hasSize(4);
+
+        assertRejected(request -> ((ObjectNode) request.at("/verified_solution_refs/0"))
+                .put("answer_text", "1" + "0".repeat(InternalRunContract.MAX_ANSWER_TEXT_CHARS)));
+    }
+
     private static void assertRejected(java.util.function.Consumer<ObjectNode> mutation) {
         ObjectNode request = (ObjectNode) load("requests/full.json").deepCopy();
         mutation.accept(request);

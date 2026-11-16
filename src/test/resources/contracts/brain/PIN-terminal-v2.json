@@ -72,6 +72,6 @@
     "terminal-v2/pairs/verified-answer-ref.json": "b176aa5c499270e7613edfb8b59823080e5bd9cbafd9a32f6c60e7ced64f75fa",
     "terminal-v2/pairs/zero-step-fallback.json": "1d4d5869c60b9281225fc4771589e3f023dabdf8a8060236c08214f1653d814f",
     "terminal-v2/redelivery.json": "44d6f0d5450ef68e1bf5c91b6c6c4e2c797070bdddc58cd441c82f8b9a9ee9c7",
-    "terminal-v2/source.schema.json": "a3f325a267bb3d0b0b7f9c2b62820dadd05ad76bad36bbb0377ff938b7b57630"
+    "terminal-v2/source.schema.json": "e991607eb0b7700e55a2907308c08f116d520c728b37a365268fcf0762272439"
   }
 }

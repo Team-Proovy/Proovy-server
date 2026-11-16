@@ -166,6 +166,39 @@ class TerminalAcceptanceContractTest {
         assertThat(browserSurface).doesNotContain("answer_claim_id", "answer_text", "$x=2$", "x=2");
     }
 
+    @Test
+    @DisplayName("verified-answer-ref: 2,000/2,001/10,000 및 렌더링 확장 답(13,511~20,000)은 잘리지 않고 수락되며 20,001은 거부된다")
+    void verifiedAnswerRefAcceptsLongAndExpandedAnswersUpToSafeMarkdownCeiling() {
+        for (String longAnswer : List.of(
+                "1" + "0".repeat(1_999),
+                "1" + "0".repeat(2_000),
+                "1" + "0".repeat(9_999),
+                "$\\texttt{" + "x\\_".repeat(4_500) + "}$",
+                "1" + "0".repeat(SafeMarkdown.MAX_LENGTH - 1))) {
+            ObjectNode source = (ObjectNode) pair("verified-answer-ref").get("source").deepCopy();
+            ObjectNode artifact = (ObjectNode) source.at("/payload/verified_solutions/0");
+            String body = longAnswer.length() == SafeMarkdown.MAX_LENGTH ? longAnswer : "답: " + longAnswer;
+            artifact.put("solution_text", body);
+            artifact.put("answer_text", longAnswer);
+
+            AcceptedCompletion accepted = (AcceptedCompletion) TerminalAcceptance.accept(stored(source),
+                    seededScope(source));
+            VerifiedSolutionInput solution = accepted.verifiedSolutions().getFirst();
+            assertThat(solution.answerClaimId()).isEqualTo("claim-1");
+            assertThat(solution.answerText()).isEqualTo(longAnswer);
+            assertThat(solution.answerText()).hasSize(longAnswer.length());
+            String browserSurface = accepted.plainText() + "\n" + accepted.responsePages() + "\n"
+                    + accepted.verificationSummary();
+            assertThat(browserSurface).doesNotContain("answer_claim_id", "answer_text", longAnswer);
+        }
+
+        ObjectNode over = (ObjectNode) pair("verified-answer-ref").get("source").deepCopy();
+        ObjectNode overArtifact = (ObjectNode) over.at("/payload/verified_solutions/0");
+        overArtifact.put("answer_text", "1" + "0".repeat(SafeMarkdown.MAX_LENGTH));
+        assertThatThrownBy(() -> TerminalAcceptance.accept(stored(over), seededScope(over)))
+                .isInstanceOf(TerminalRejection.class);
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("pairs")
     @DisplayName("2.07 확장: phase2 pair는 배지·응답 종류·검산을 저장 입력으로 넘기고 browser 철자가 golden과 같다")

@@ -379,6 +379,17 @@ class RunSnapshotFactoryTest {
                 request("설명", null), NOW), RunAssetAccess.NONE).verifiedSolutionRefs().getFirst();
         assertThat(legacy.answerClaimId()).isNull();
         assertThat(legacy.answerText()).isNull();
+
+        // R3-M1: 2,001자리·렌더링 확장(13,511자)·20,000자 답도 잘리지 않고 그대로 snapshot→ref에 실린다
+        for (String longAnswer : List.of("1" + "0".repeat(2_000),
+                "$\\texttt{" + "x\\_".repeat(4_500) + "}$",
+                "1" + "0".repeat(19_999))) {
+            sources.solutions.set(0, new SolutionRow(sources.solutions.getFirst().solutionId(), "solution-1",
+                    hidden.assistantMessageId(), "10^n", claims("답 계산"), null, null, false, "claim-1", longAnswer));
+            VerifiedSolutionRef longRef = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                    request("답이 틀린 것 같아요", null), NOW), RunAssetAccess.NONE).verifiedSolutionRefs().getFirst();
+            assertThat(longRef.answerText()).isEqualTo(longAnswer);
+        }
     }
 
     // ------------------------------------------------------------------

@@ -291,6 +291,24 @@ class RunSnapshotPostgresTest {
         RunSnapshot otherSnapshot = factory.create(UUID.randomUUID(), ALICE, otherNote,
                 request(otherNote, "답이 99 아닌가요?", null), Instant.now());
         assertThat(otherSnapshot.requestFingerprint()).isNotEqualTo(snapshot.requestFingerprint());
+
+        // R3-M1: 2,001자리·렌더링 확장(13,511자) 답도 PG -> Snapshot -> Delivered VerifiedSolutionRef로 잘리지 않고 전달된다
+        long longNote = newNote(ALICE);
+        Turn longTurn = completedTurn(longNote, "10^2000 계산", "풀이 단계만 안내했습니다.");
+        String longAnswer = "1" + "0".repeat(2_000);
+        jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id, assistant_message_id,
+                       schema_version, solution_version, problem_statement, solution_text, claims, verification_summary,
+                       verification_version, overall_coverage, content_sha256, answer_claim_id, answer_text)
+                VALUES (?, 'solution-eeeeeeeeeeeeeeeeeeee-002', ?, ?, ?, 'verified-solution-v1', 1, '10^2000',
+                        ?, '[{"claim_id":"claim-1","statement":"거듭제곱 계산","coverage":"supporting"}]',
+                        '{}', 'chain-verification-report-v3', 'supporting', ?, 'claim-1', ?)
+                """, UUID.randomUUID(), longNote, longTurn.runId(), longTurn.assistantMessageId(),
+                "답: " + longAnswer, "e".repeat(64), longAnswer);
+        RunSnapshot longSnapshot = factory.create(UUID.randomUUID(), ALICE, longNote,
+                request(longNote, "답이 틀린 것 같아요", null), Instant.now());
+        InternalRunRequest longDelivered = RunSnapshotFactoryTest.firstDelivery(longSnapshot, RunAssetAccess.NONE);
+        assertThat(longDelivered.verifiedSolutionRefs().getFirst().answerText()).isEqualTo(longAnswer);
     }
 
     // ------------------------------------------------------------------

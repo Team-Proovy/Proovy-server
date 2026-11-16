@@ -18,5 +18,5 @@ ALTER TABLE verified_solutions
         answer_claim_id IS NULL OR answer_claim_id ~ '^claim-(?:[1-9][0-9]*|[0-9a-f]{20}-[0-9]{3})$'
     ),
     ADD CONSTRAINT ck_verified_solutions_answer_text CHECK (
-        answer_text IS NULL OR (char_length(answer_text) BETWEEN 1 AND 2000 AND btrim(answer_text) <> '')
+        answer_text IS NULL OR (char_length(answer_text) BETWEEN 1 AND 20000 AND btrim(answer_text) <> '')
     );

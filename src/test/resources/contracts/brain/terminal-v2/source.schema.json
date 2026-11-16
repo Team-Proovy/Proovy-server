@@ -3913,7 +3913,7 @@
         "answer_text": {
           "anyOf": [
             {
-              "maxLength": 2000,
+              "maxLength": 20000,
               "minLength": 1,
               "type": "string"
             },

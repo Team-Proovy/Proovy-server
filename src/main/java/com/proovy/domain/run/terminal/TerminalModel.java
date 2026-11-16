@@ -42,7 +42,7 @@ final class TerminalModel {
     static final int MAX_PROVENANCE = 200;
     static final int MAX_MODEL_LENGTH = 200;
     static final int MAX_FAILURE_MESSAGE_LENGTH = 500;
-    static final int MAX_ANSWER_TEXT_CHARS = 2_000;
+    static final int MAX_ANSWER_TEXT_CHARS = SafeMarkdown.MAX_LENGTH;
 
     static final String RESPONSE_SCHEMA_VERSION = "assistant-response-v1";
     static final String ARTIFACT_SCHEMA_VERSION = "verified-solution-v1";

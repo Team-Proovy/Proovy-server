@@ -36,7 +36,7 @@ public final class InternalRunContract {
     public static final int MAX_TURN_ATTACHMENTS = 10;
     public static final int MAX_PROBLEM_SUMMARY_CHARS = 4_000;
     public static final int MAX_CLAIM_STATEMENT_CHARS = 2_000;
-    public static final int MAX_ANSWER_TEXT_CHARS = 2_000;
+    public static final int MAX_ANSWER_TEXT_CHARS = 20_000;
     public static final int MAX_REF_CLAIMS = 50;
     public static final int MAX_DISPLAY_LABEL_CHARS = 200;
     public static final int MAX_READ_URL_CHARS = 4_096;
