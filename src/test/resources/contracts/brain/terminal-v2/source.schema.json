@@ -1991,6 +1991,88 @@
       "title": "QuotedSpan",
       "type": "object"
     },
+    "ReExplanationDeltaEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "run_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "fence_token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Fence Token",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "re_explanation.delta",
+          "default": "re_explanation.delta",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ReExplanationDeltaPayload"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt",
+        "fence_token",
+        "source_event_id",
+        "occurred_at",
+        "payload",
+        "type"
+      ],
+      "title": "ReExplanationDeltaEvent",
+      "type": "object"
+    },
+    "ReExplanationDeltaPayload": {
+      "additionalProperties": false,
+      "description": "One streamed body chunk of a validated re-explanation turn (task 2.14).\n\nSpaces and line breaks inside ``delta`` are preserved verbatim because\ntoken chunks and partial Markdown/math spans cross chunk boundaries.",
+      "properties": {
+        "delta_index": {
+          "minimum": 0,
+          "title": "Delta Index",
+          "type": "integer"
+        },
+        "delta": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Delta",
+          "type": "string"
+        }
+      },
+      "required": [
+        "delta_index",
+        "delta"
+      ],
+      "title": "ReExplanationDeltaPayload",
+      "type": "object"
+    },
     "ReadBackCanceled": {
       "additionalProperties": false,
       "properties": {
@@ -3862,6 +3944,7 @@
       "activity.failed": "#/$defs/ActivityFailedEvent",
       "activity.started": "#/$defs/ActivityStartedEvent",
       "activity.updated": "#/$defs/ActivityUpdatedEvent",
+      "re_explanation.delta": "#/$defs/ReExplanationDeltaEvent",
       "run.completed": "#/$defs/RunCompletedEvent",
       "run.failed": "#/$defs/RunFailedEvent"
     },
@@ -3882,6 +3965,9 @@
     },
     {
       "$ref": "#/$defs/ActivityCanceledEvent"
+    },
+    {
+      "$ref": "#/$defs/ReExplanationDeltaEvent"
     },
     {
       "$ref": "#/$defs/RunCompletedEvent"

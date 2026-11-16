@@ -54,6 +54,9 @@ public final class SourceActivities {
     public static final int MAX_READ_BACK_PROBLEM_NUMBER_LENGTH = 32;
     public static final int MIN_READ_BACK_CHOICES = 2;
     public static final int MAX_READ_BACK_CHOICES = 5;
+    /** 재설명 delta 본문 조각 상한(Brain {@code ReExplanationDeltaPayload}, task 2.14). */
+    public static final int MAX_RE_EXPLANATION_DELTA_LENGTH = 4_000;
+    public static final int MAX_RE_EXPLANATION_DELTA_BYTES = 16_384;
     /** {@code ck_ai_run_events_payload}: {@code octet_length(payload::TEXT) <= 16384}. */
     public static final int MAX_STORED_PAYLOAD_BYTES = 16_384;
     /**
@@ -74,6 +77,9 @@ public final class SourceActivities {
     private static final Pattern READ_BACK_CONTROL = Pattern.compile("[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f-\\x9f]");
     // Python re.IGNORECASE(str 패턴)는 Unicode case folding을 쓴다. UNICODE_CASE 없이 두면 U+212A(Kelvin) 같은 값이 빠진다.
     private static final Pattern URL_LIKE = Pattern.compile("(?:[a-z][a-z0-9+.-]*://|www\\.)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern DANGEROUS_SCHEME = Pattern.compile(
+            "\\b(?:javascript|vbscript|data|file|ftp)[ \\t]*:",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern CODE_FENCE = Pattern.compile("`{3,}|~{3,}");
     private static final String TRACEBACK_MARKER = "Traceback (most recent call last)";
@@ -113,10 +119,15 @@ public final class SourceActivities {
         if (storedLength(payload) > maxStoredBytes(type, payload)) {
             throw violation("payload", "is too large to store");
         }
+        ActivityKind kind = type == AiRunEventType.RE_EXPLANATION_DELTA
+                ? null
+                : ActivityKind.of(payload.get("kind").textValue())
+                        .orElseThrow(() -> violation("payload.kind", "is not a known activity kind"));
+        String activityId = type == AiRunEventType.RE_EXPLANATION_DELTA
+                ? null
+                : payload.get("activityId").textValue();
         return new DurableActivity(UUID.fromString(event.runId()), event.attempt(), event.fenceToken(),
-                storedSourceEventId(event.sourceEventId()), type, ActivityKind.of(payload.get("kind").textValue())
-                        .orElseThrow(() -> violation("payload.kind", "is not a known activity kind")),
-                payload.get("activityId").textValue(), payload,
+                storedSourceEventId(event.sourceEventId()), type, kind, activityId, payload,
                 BrowserRunContract.wireTime(event.occurredAt().toInstant()));
     }
 
@@ -153,6 +164,11 @@ public final class SourceActivities {
     public static ObjectNode browserPayload(SourceEventType type, JsonNode source) {
         AiRunEventType eventType = eventType(type);
         Reader in = new Reader(source, "payload");
+        if (eventType == AiRunEventType.RE_EXPLANATION_DELTA) {
+            ObjectNode delta = reExplanationDelta(in);
+            in.closed();
+            return delta;
+        }
         ActivityKind kind = in.kind();
         ObjectNode out = JsonNodeFactory.instance.objectNode();
         out.put("activityId", in.identifier("activity_id", ACTIVITY_ID, MAX_IDENTIFIER_LENGTH, true));
@@ -169,6 +185,31 @@ public final class SourceActivities {
         return out;
     }
 
+    private static ObjectNode reExplanationDelta(Reader in) {
+        long deltaIndex = in.integer("delta_index", 0, true);
+        String delta = in.string("delta", true);
+        int codePoints = BrowserRunContract.codePointLength(delta);
+        if (codePoints < 1 || codePoints > MAX_RE_EXPLANATION_DELTA_LENGTH) {
+            throw violation("payload.delta", "length is out of range");
+        }
+        if (READ_BACK_CONTROL.matcher(delta).find()) {
+            throw violation("payload.delta", "cannot contain control characters");
+        }
+        if (URL_LIKE.matcher(delta).find() || DANGEROUS_SCHEME.matcher(delta).find()) {
+            throw violation("payload.delta", "cannot contain a URL");
+        }
+        if (delta.contains(TRACEBACK_MARKER)) {
+            throw violation("payload.delta", "cannot contain a traceback marker");
+        }
+        if (delta.getBytes(StandardCharsets.UTF_8).length > MAX_RE_EXPLANATION_DELTA_BYTES) {
+            throw violation("payload.delta", "exceeds maximum byte length");
+        }
+        ObjectNode out = JsonNodeFactory.instance.objectNode();
+        out.set("deltaIndex", number(deltaIndex));
+        out.put("delta", delta);
+        return out;
+    }
+
     private static AiRunEventType eventType(SourceEventType type) {
         return switch (type) {
             case ACTIVITY_STARTED -> AiRunEventType.ACTIVITY_STARTED;
@@ -176,6 +217,7 @@ public final class SourceActivities {
             case ACTIVITY_COMPLETED -> AiRunEventType.ACTIVITY_COMPLETED;
             case ACTIVITY_FAILED -> AiRunEventType.ACTIVITY_FAILED;
             case ACTIVITY_CANCELED -> AiRunEventType.ACTIVITY_CANCELED;
+            case RE_EXPLANATION_DELTA -> AiRunEventType.RE_EXPLANATION_DELTA;
             // run.completed·run.failed는 terminal transaction(1.81·1.82)만 저장한다.
             case RUN_COMPLETED, RUN_FAILED -> throw violation("type", "is not an activity event");
         };

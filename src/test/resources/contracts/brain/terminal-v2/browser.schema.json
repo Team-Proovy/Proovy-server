@@ -1817,6 +1817,74 @@
       "title": "QuotedSpan",
       "type": "object"
     },
+    "ReExplanationDeltaEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "contractVersion": {
+          "const": "brain-source-v1",
+          "default": "brain-source-v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "runId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "occurredAt": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "type": {
+          "const": "re_explanation.delta",
+          "default": "re_explanation.delta",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ReExplanationDeltaPayload"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "runId",
+        "occurredAt",
+        "payload",
+        "type",
+        "seq",
+        "contractVersion"
+      ],
+      "title": "ReExplanationDeltaEvent",
+      "type": "object"
+    },
+    "ReExplanationDeltaPayload": {
+      "additionalProperties": true,
+      "description": "One streamed body chunk of a validated re-explanation turn (task 2.14).\n\nSpaces and line breaks inside ``delta`` are preserved verbatim because\ntoken chunks and partial Markdown/math spans cross chunk boundaries.",
+      "properties": {
+        "deltaIndex": {
+          "minimum": 0,
+          "title": "Delta Index",
+          "type": "integer"
+        },
+        "delta": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Delta",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deltaIndex",
+        "delta"
+      ],
+      "title": "ReExplanationDeltaPayload",
+      "type": "object"
+    },
     "ReadBackCanceled": {
       "additionalProperties": true,
       "properties": {
@@ -3394,6 +3462,9 @@
     },
     {
       "$ref": "#/$defs/ActivityCanceledEvent"
+    },
+    {
+      "$ref": "#/$defs/ReExplanationDeltaEvent"
     },
     {
       "$ref": "#/$defs/RunCompletedEvent"

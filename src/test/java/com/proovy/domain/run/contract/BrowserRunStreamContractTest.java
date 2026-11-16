@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** streams/·heartbeat fixture를 Java DTO와 stream 규칙 S1~S7 검사기로 재현한다. */
+/** streams/·heartbeat fixture를 Java DTO와 stream 규칙 S1~S8 검사기로 재현한다. */
 public class BrowserRunStreamContractTest {
 
     private static final Set<String> TERMINAL_TYPES = Set.of("run.completed", "run.failed", "run.canceled");
@@ -30,7 +30,7 @@ public class BrowserRunStreamContractTest {
             "activity.completed", "activity.failed", "activity.canceled", "run.canceled");
 
     @Test
-    @DisplayName("정상 stream은 S1~S7을 모두 지키고 frame·Server 소유 payload가 DTO로 왕복된다")
+    @DisplayName("정상 stream은 S1~S8을 모두 지키고 frame·Server 소유 payload가 DTO로 왕복된다")
     void validStreams() throws Exception {
         List<Map.Entry<String, JsonNode>> cases = entries("streams/valid");
         Set<String> finals = new HashSet<>();
@@ -69,7 +69,7 @@ public class BrowserRunStreamContractTest {
             }
             assertThat(schemaFails).as(entry.getKey()).isEqualTo(fixture.get("schema_rejects").asBoolean());
         }
-        assertThat(rules).containsExactlyInAnyOrder("S1", "S2", "S3", "S4", "S5", "S6", "S7");
+        assertThat(rules).containsExactlyInAnyOrder("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8");
     }
 
     @Test
@@ -133,7 +133,7 @@ public class BrowserRunStreamContractTest {
         }
     }
 
-    /** manifest stream_rules S1~S7 검사기. */
+    /** manifest stream_rules S1~S8 검사기. */
     public static Set<String> violations(JsonNode frames) {
         Set<String> found = new HashSet<>();
         int size = frames.size();
@@ -206,7 +206,38 @@ public class BrowserRunStreamContractTest {
                 found.add("S7");
             }
         }
+        if (!deltasAreOrdered(frames)) {
+            found.add("S8");
+        }
         return found;
+    }
+
+    private static boolean deltasAreOrdered(JsonNode frames) {
+        long expectedIndex = 0;
+        boolean blocked = false;
+        for (int i = 0; i < frames.size(); i++) {
+            JsonNode frame = frames.get(i);
+            String eventType = type(frame);
+            if ("response.page.started".equals(eventType)
+                    || "response.page.completed".equals(eventType)
+                    || "run.completed".equals(eventType)) {
+                blocked = true;
+                continue;
+            }
+            if (!"re_explanation.delta".equals(eventType)) {
+                continue;
+            }
+            if (i == 0 || blocked) {
+                return false;
+            }
+            JsonNode deltaIndex = frame.at("/payload/deltaIndex");
+            if (!deltaIndex.isIntegralNumber() || !deltaIndex.canConvertToLong()
+                    || deltaIndex.longValue() != expectedIndex) {
+                return false;
+            }
+            expectedIndex++;
+        }
+        return true;
     }
 
     private static boolean pagesMatchCompleted(JsonNode frames, int pageFrameCount) {

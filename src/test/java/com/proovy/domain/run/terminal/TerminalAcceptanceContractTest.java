@@ -45,6 +45,14 @@ class TerminalAcceptanceContractTest {
     void pairIsAccepted(String name) {
         JsonNode fixture = pair(name);
         JsonNode source = fixture.get("source");
+        if ("re_explanation.delta".equals(source.get("type").asText())) {
+            SourceEvent parsed = event(source);
+            assertThat(com.proovy.domain.run.event.SourceActivities.browserPayload(
+                    parsed.type(), parsed.payload())).isEqualTo(fixture.get("browser").get("payload"));
+            assertThatThrownBy(() -> TerminalAcceptance.accept(parsed, seededScope(source)))
+                    .isInstanceOf(TerminalRejection.class);
+            return;
+        }
         AcceptedTerminal accepted = TerminalAcceptance.accept(stored(source), seededScope(source));
         assertThat(TerminalAcceptance.accept(event(source), seededScope(source))).isEqualTo(accepted);
         assertThat(accepted.runId()).isEqualTo(source.get("run_id").asText());
@@ -97,6 +105,14 @@ class TerminalAcceptanceContractTest {
             return;
         }
         assertThat(name).isNotIn(ENVELOPE_REJECTED);
+        if ("re_explanation.delta".equals(source.get("type").asText())) {
+            assertThatThrownBy(() -> com.proovy.domain.run.event.SourceActivities.browserPayload(
+                    parsed.type(), parsed.payload()))
+                    .isInstanceOf(com.proovy.domain.run.event.ActivityContractViolation.class)
+                    .satisfies(error -> assertThat(error.getMessage())
+                            .doesNotContainPattern("[\\uAC00-\\uD7A3$]|https?://|Traceback"));
+            return;
+        }
         assertThatThrownBy(() -> TerminalAcceptance.accept(parsed, seededScope(source)))
                 .isInstanceOf(TerminalRejection.class)
                 // message에 payload 값(한국어 본문·math)이 들어가지 않는다.
@@ -218,11 +234,12 @@ class TerminalAcceptanceContractTest {
                     .isEqualTo(completed.get("solutionChecks"));
             valid++;
         }
-        assertThat(valid).isEqualTo(7);
+        assertThat(valid).isEqualTo(8);
         int invalid = 0;
         for (var entry : files("browser-run-v1/streams/invalid", ".json").entrySet()) {
             JsonNode completed = completedFrame(read(entry.getValue()));
             if (completed == null || entry.getKey().startsWith("read-back-")
+                    || entry.getKey().startsWith("re-explanation-delta-")
                     || EXTENSION_KEYS.stream().noneMatch(completed::has)) {
                 continue;
             }

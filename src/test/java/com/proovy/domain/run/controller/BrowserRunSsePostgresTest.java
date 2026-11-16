@@ -668,6 +668,106 @@ class BrowserRunSsePostgresTest {
         assertThat(all.at("/result/messages")).hasSize(6);
     }
 
+    @Test
+    @DisplayName("재설명 delta: live 스트리밍 -> Last-Event-ID 재접속 복구 -> run.completed 정합, 취소 시 이후 delta 차단 -> run.canceled")
+    void reExplanationDeltaLiveReplayAndCancel() throws Exception {
+        SeededRun base = seededRun(load("../terminal-v2/pairs/direct-verified.json").get("source"));
+        TerminalSettlement baseResult = terminals.settle(InternalRunWire.read(
+                bind(load("../terminal-v2/pairs/direct-verified.json").get("source"), base), SourceEvent.class));
+        assertThat(baseResult.outcome()).isEqualTo(TerminalSettlement.Outcome.COMMITTED);
+
+        UUID runId;
+        List<Block> live = new ArrayList<>();
+        try (Sse post = post(alice(), explainRequestBody(UUID.randomUUID().toString(), base.noteId()))) {
+            Block created = post.nextFrame();
+            live.add(created);
+            runId = UUID.fromString(created.json().get("runId").asText());
+            claim(runId);
+
+            assertThat(appendReExplanationDelta(runId, 0, "양변에 같은 연산을 ").outcome())
+                    .isEqualTo(ActivityAppendResult.Outcome.APPENDED);
+            assertThat(appendReExplanationDelta(runId, 1, "적용하는 이유를 설명합니다.").outcome())
+                    .isEqualTo(ActivityAppendResult.Outcome.APPENDED);
+
+            JsonNode reExplainSource = load("../terminal-v2/pairs/phase2-re-explanation.json").get("source");
+            TerminalSettlement completed = terminals.settle(InternalRunWire.read(
+                    bind(reExplainSource, new SeededRun(runId, base.noteId(), Map.of())), SourceEvent.class));
+            assertThat(completed.outcome()).isEqualTo(TerminalSettlement.Outcome.COMMITTED);
+
+            live.addAll(post.framesUntilEnd());
+        }
+        assertThat(types(live)).containsExactly(
+                "run.created", "re_explanation.delta", "re_explanation.delta",
+                "response.page.started", "response.page.completed", "run.completed");
+        assertStreamContract(live);
+
+        JsonNode completedPayload = live.get(live.size() - 1).json().get("payload");
+        assertThat(completedPayload.at("/responseKind").asText()).isEqualTo("re_explanation");
+        assertThat(completedPayload.at("/assuranceScope").asText()).isEqualTo("not_applicable");
+        String canonicalBody = completedPayload
+                .at("/assistantResponse/responsePages/0/resultBlocks/0/body").asText();
+        String streamedBody = live.get(1).json().at("/payload/delta").asText()
+                + live.get(2).json().at("/payload/delta").asText();
+        assertThat(streamedBody).isEqualTo(canonicalBody);
+        assertThat(count("SELECT count(*) FROM verified_solutions WHERE source_run_id = ?", runId)).isZero();
+
+        // deltaIndex=0(seq 2) 이후 Last-Event-ID 재접속 시 deltaIndex=1(seq 3)부터 terminal까지 빠짐없이 이어진다
+        try (Sse replay = events(alice(), runId, runId + ":2", null)) {
+            List<Block> resumed = replay.framesUntilEnd();
+            assertThat(seqs(resumed)).containsExactly(3L, 4L, 5L, 6L);
+            assertThat(types(resumed)).containsExactly(
+                    "re_explanation.delta", "response.page.started", "response.page.completed", "run.completed");
+            assertThat(resumed.get(0).json().at("/payload/deltaIndex").asInt()).isEqualTo(1);
+        }
+
+        // 취소 중/후 delta는 저장되지 않고 run.canceled로 종료된다
+        UUID cancelRunId;
+        List<Block> cancelFrames = new ArrayList<>();
+        try (Sse cancelPost = post(alice(), explainRequestBody(UUID.randomUUID().toString(), base.noteId()))) {
+            Block created = cancelPost.nextFrame();
+            cancelFrames.add(created);
+            cancelRunId = UUID.fromString(created.json().get("runId").asText());
+            claim(cancelRunId);
+
+            assertThat(appendReExplanationDelta(cancelRunId, 0, "부분 설명 ").outcome())
+                    .isEqualTo(ActivityAppendResult.Outcome.APPENDED);
+            Block firstDelta = cancelPost.nextFrame();
+            assertThat(firstDelta.event()).isEqualTo("re_explanation.delta");
+            cancelFrames.add(firstDelta);
+
+            HttpResponse<String> cancelResp = postCancel(alice(), cancelRunId);
+            assertThat(cancelResp.statusCode()).isEqualTo(200);
+            Block canceling = cancelPost.nextFrame();
+            assertThat(canceling.event()).isEqualTo("run.canceling");
+            cancelFrames.add(canceling);
+
+            assertThat(appendReExplanationDelta(cancelRunId, 1, "취소후").outcome())
+                    .isEqualTo(ActivityAppendResult.Outcome.NOT_ACCEPTING);
+
+            JsonNode canceledFixturePayload = load("streams/valid/canceled-during-re-explanation.json")
+                    .at("/frames/6/payload");
+            UUID assistantMessageId = jdbc.queryForObject(
+                    "SELECT assistant_message_id FROM ai_runs WHERE run_id = ?", UUID.class, cancelRunId);
+            ObjectNode canceledPayload = canceledFixturePayload.deepCopy();
+            canceledPayload.put("assistantMessageId", assistantMessageId.toString());
+            tx.executeWithoutResult(status -> {
+                long seq = jdbc.queryForObject("""
+                        UPDATE ai_runs SET status = 'CANCELED', completed_at = now(),
+                               lease_owner = NULL, lease_expires_at = NULL, last_event_seq = last_event_seq + 1
+                        WHERE run_id = ? AND status = 'CANCELING' RETURNING last_event_seq
+                        """, Long.class, cancelRunId);
+                jdbc.update("UPDATE chat_messages SET status = 'CANCELED', completed_at = now() WHERE message_id = ?", assistantMessageId);
+                store.appendTerminalEvents(cancelRunId, seq, List.of(
+                        com.proovy.domain.run.event.TerminalRunEvent.runCanceled(canceledPayload)), Instant.now());
+            });
+            cancelFrames.addAll(cancelPost.framesUntilEnd());
+        }
+        assertThat(types(cancelFrames)).containsExactly(
+                "run.created", "re_explanation.delta", "run.canceling", "run.canceled");
+        assertStreamContract(cancelFrames);
+        assertThat(count("SELECT count(*) FROM verified_solutions WHERE source_run_id = ?", cancelRunId)).isZero();
+    }
+
     // ------------------------------------------------------------------
     // fake producer (coordinator 대역 — production 저장 경로)
     // ------------------------------------------------------------------
@@ -702,6 +802,22 @@ class BrowserRunSsePostgresTest {
         envelope.set("payload", payload);
         ActivityAppendResult result = store.appendActivity(InternalRunWire.read(envelope.toString(), SourceEvent.class));
         assertThat(result.isStored()).as(result.outcome().toString()).isTrue();
+    }
+
+    private ActivityAppendResult appendReExplanationDelta(UUID runId, int deltaIndex, String delta) {
+        ObjectNode payload = JsonNodeFactory.instance.objectNode()
+                .put("delta_index", deltaIndex)
+                .put("delta", delta);
+        ObjectNode envelope = JsonNodeFactory.instance.objectNode();
+        envelope.put("contract_version", "brain-source-v1");
+        envelope.put("run_id", runId.toString());
+        envelope.put("attempt", 1);
+        envelope.put("fence_token", FENCE);
+        envelope.put("source_event_id", runId + ":delta:" + deltaIndex);
+        envelope.put("occurred_at", Instant.now().truncatedTo(ChronoUnit.MICROS).toString());
+        envelope.put("type", "re_explanation.delta");
+        envelope.set("payload", payload);
+        return store.appendActivity(InternalRunWire.read(envelope.toString(), SourceEvent.class));
     }
 
     private SourceEvent clarificationEvent(UUID runId) {
@@ -944,6 +1060,24 @@ class BrowserRunSsePostgresTest {
         body.putArray("requestedTasks").add("solve");
         body.putArray("requestedOutputs").add("text");
         return body.toString();
+    }
+
+    private static String explainRequestBody(String requestId, long noteId) {
+        ObjectNode body = JsonNodeFactory.instance.objectNode()
+                .put("requestId", requestId)
+                .put("noteId", String.valueOf(noteId))
+                .put("text", "양변에 같은 연산을 적용하는 이유를 다시 설명해줘");
+        body.putArray("requestedTasks").add("explain");
+        body.putArray("requestedOutputs").add("text");
+        return body.toString();
+    }
+
+    private HttpResponse<String> postCancel(String token, UUID runId) throws Exception {
+        return http.send(HttpRequest.newBuilder(uri("/api/ai-runs/" + runId + "/cancel"))
+                .header("Authorization", "Bearer " + token)
+                .timeout(Duration.ofSeconds(10))
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private URI uri(String path) {

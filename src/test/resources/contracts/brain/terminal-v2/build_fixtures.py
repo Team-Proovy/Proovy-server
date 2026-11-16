@@ -16,6 +16,7 @@ from proovy_brain.contracts.publication import (
 from proovy_brain.contracts.solution_verification import parse_solution_verification
 from proovy_brain.contracts.source_progress import (
     SourceEventType,
+    derive_re_explanation_delta_event_id,
     derive_source_event_id,
 )
 from proovy_brain.contracts.terminal import (
@@ -618,6 +619,58 @@ def build() -> None:
     extension_pairs = phase2_pairs(review_pairs)
     for name, pair in extension_pairs.items():
         save(ROOT / "pairs" / f"{name}.json", pair)
+    delta_event = parse_source_event(
+        {
+            **CONTEXT,
+            "source_event_id": derive_re_explanation_delta_event_id(
+                CONTEXT["run_id"], 0
+            ),
+            "type": "re_explanation.delta",
+            "payload": {
+                "delta_index": 0,
+                "delta": "양변에 같은 연산을 적용하는 이유를 설명합니다. ",
+            },
+        }
+    )
+    save(
+        ROOT / "pairs/re-explanation-delta.json",
+        {
+            "source": to_source_event_payload(delta_event),
+            "server": {"seq": 4},
+            "browser": to_browser_event_payload(delta_event, seq=4),
+        },
+    )
+    for neg_name, neg_payload, schema_reject in (
+        ("delta-empty", {"delta_index": 0, "delta": ""}, True),
+        ("delta-negative-index", {"delta_index": -1, "delta": "step"}, True),
+        (
+            "delta-url",
+            {"delta_index": 0, "delta": "https://DO-NOT-LEAK.invalid"},
+            False,
+        ),
+        (
+            "delta-traceback",
+            {"delta_index": 0, "delta": "Traceback (most recent call last):"},
+            False,
+        ),
+    ):
+        bad_source = deepcopy(to_source_event_payload(delta_event))
+        bad_browser = deepcopy(to_browser_event_payload(delta_event, seq=4))
+        bad_source["payload"] = deepcopy(neg_payload)
+        bad_browser["payload"] = {
+            "deltaIndex": neg_payload["delta_index"],
+            "delta": neg_payload["delta"],
+        }
+        save(
+            ROOT / "invalid" / f"{neg_name}.json",
+            {
+                "source": bad_source,
+                "browser": bad_browser,
+                "source_outcome": "reject",
+                "browser_outcome": "reject",
+                "schema_outcome": "reject" if schema_reject else "accept",
+            },
+        )
     phase2 = extension_pairs["phase2-verified"]
     for name, change in (
         ("extension-partial", lambda p: p.pop("response_kind")),
@@ -786,6 +839,7 @@ def build() -> None:
                 "failure-invalid-attachment",
                 *review_pairs,
                 *extension_pairs,
+                "re-explanation-delta",
             ],
             "change_history": [
                 {

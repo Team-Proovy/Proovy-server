@@ -1,0 +1,164 @@
+{
+  "rationale": "[v1.2] 기존 풀이 재설명 실시간 스트리밍 — Read-back 없이 re_explanation.delta deltaIndex 0..1 순서 전달 후 run.completed canonical 교체. responseKind=re_explanation, assuranceScope=not_applicable, solutionChecks=[].",
+  "finalStatus": "COMPLETED",
+  "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "95138399-6df4-5963-bc95-2d2310aa8b6b",
+        "noteId": "123",
+        "userMessageId": "4d0660b1-823d-577e-9e19-702993068942",
+        "assistantMessageId": "606666c6-3f2d-57b3-b97d-1a64af5de553",
+        "status": "PENDING",
+        "requestedTasks": [
+          "explain"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "re_explanation.delta",
+      "payload": {
+        "deltaIndex": 0,
+        "delta": "양변에 같은 연산을 "
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "re_explanation.delta",
+      "payload": {
+        "deltaIndex": 1,
+        "delta": "적용하기 때문입니다. $x = 2$"
+      },
+      "seq": 6
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "seq": 7,
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "response.page.started",
+      "payload": {
+        "assistantMessageId": "606666c6-3f2d-57b3-b97d-1a64af5de553",
+        "responsePageId": "page-1",
+        "presentation": "main",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "seq": 8,
+      "occurredAt": "2026-10-17T09:00:07Z",
+      "type": "response.page.completed",
+      "payload": {
+        "assistantMessageId": "606666c6-3f2d-57b3-b97d-1a64af5de553",
+        "responsePageId": "page-1",
+        "pageIndex": 0
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "febf7f78-8502-5139-80e2-1a944cc91600",
+      "seq": 9,
+      "occurredAt": "2026-10-17T09:00:08Z",
+      "type": "run.completed",
+      "payload": {
+        "responseDisposition": "substantive",
+        "assistantResponse": {
+          "responsePages": [
+            {
+              "responsePageId": "page-1",
+              "presentation": "main",
+              "resultBlocks": [
+                {
+                  "blockId": "block-1",
+                  "body": "양변에 같은 연산을 적용하는 이유를 설명합니다.",
+                  "kind": "explanation",
+                  "solutionId": "solution-1",
+                  "claimIds": [
+                    "claim-1"
+                  ]
+                }
+              ]
+            }
+          ],
+          "sourceReferences": [],
+          "plainText": "양변에 같은 연산을 적용하는 이유를 설명합니다."
+        },
+        "model": "fake/main-model",
+        "tier": "main",
+        "verificationSummary": [
+          {
+            "solutionId": "solution-1",
+            "overallCoverage": "direct",
+            "claims": [
+              {
+                "claimId": "claim-1",
+                "coverage": "direct",
+                "methodLabel": "모든 단계를 실행 검사로 확인",
+                "unconfirmedSteps": []
+              }
+            ]
+          }
+        ],
+        "assistantMessageId": "606666c6-3f2d-57b3-b97d-1a64af5de553",
+        "responseKind": "re_explanation",
+        "assuranceScope": "not_applicable",
+        "solutionChecks": []
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: febf7f78-8502-5139-80e2-1a944cc91600:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"95138399-6df4-5963-bc95-2d2310aa8b6b\",\"noteId\":\"123\",\"userMessageId\":\"4d0660b1-823d-577e-9e19-702993068942\",\"assistantMessageId\":\"606666c6-3f2d-57b3-b97d-1a64af5de553\",\"status\":\"PENDING\",\"requestedTasks\":[\"explain\"],\"requestedOutputs\":[\"text\"]}}\n\nevent: activity.started\nid: febf7f78-8502-5139-80e2-1a944cc91600:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-1\",\"responsePageId\":\"page-1\",\"kind\":\"input_analysis\",\"label\":\"analyzing_input\"},\"seq\":2}\n\nevent: activity.updated\nid: febf7f78-8502-5139-80e2-1a944cc91600:3\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"occurredAt\":\"2026-10-17T09:00:02Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-1\",\"status\":\"in_progress\",\"message\":\"입력을 읽고 있다\",\"kind\":\"input_analysis\"},\"seq\":3}\n\nevent: activity.completed\nid: febf7f78-8502-5139-80e2-1a944cc91600:4\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"occurredAt\":\"2026-10-17T09:00:03Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-1\",\"kind\":\"input_analysis\"},\"seq\":4}\n\nevent: re_explanation.delta\nid: febf7f78-8502-5139-80e2-1a944cc91600:5\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"occurredAt\":\"2026-10-17T09:00:04Z\",\"type\":\"re_explanation.delta\",\"payload\":{\"deltaIndex\":0,\"delta\":\"양변에 같은 연산을 \"},\"seq\":5}\n\nevent: re_explanation.delta\nid: febf7f78-8502-5139-80e2-1a944cc91600:6\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"occurredAt\":\"2026-10-17T09:00:05Z\",\"type\":\"re_explanation.delta\",\"payload\":{\"deltaIndex\":1,\"delta\":\"적용하기 때문입니다. $x = 2$\"},\"seq\":6}\n\nevent: response.page.started\nid: febf7f78-8502-5139-80e2-1a944cc91600:7\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"seq\":7,\"occurredAt\":\"2026-10-17T09:00:06Z\",\"type\":\"response.page.started\",\"payload\":{\"assistantMessageId\":\"606666c6-3f2d-57b3-b97d-1a64af5de553\",\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"pageIndex\":0}}\n\nevent: response.page.completed\nid: febf7f78-8502-5139-80e2-1a944cc91600:8\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"seq\":8,\"occurredAt\":\"2026-10-17T09:00:07Z\",\"type\":\"response.page.completed\",\"payload\":{\"assistantMessageId\":\"606666c6-3f2d-57b3-b97d-1a64af5de553\",\"responsePageId\":\"page-1\",\"pageIndex\":0}}\n\nevent: run.completed\nid: febf7f78-8502-5139-80e2-1a944cc91600:9\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"febf7f78-8502-5139-80e2-1a944cc91600\",\"seq\":9,\"occurredAt\":\"2026-10-17T09:00:08Z\",\"type\":\"run.completed\",\"payload\":{\"responseDisposition\":\"substantive\",\"assistantResponse\":{\"responsePages\":[{\"responsePageId\":\"page-1\",\"presentation\":\"main\",\"resultBlocks\":[{\"blockId\":\"block-1\",\"body\":\"양변에 같은 연산을 적용하는 이유를 설명합니다.\",\"kind\":\"explanation\",\"solutionId\":\"solution-1\",\"claimIds\":[\"claim-1\"]}]}],\"sourceReferences\":[],\"plainText\":\"양변에 같은 연산을 적용하는 이유를 설명합니다.\"},\"model\":\"fake/main-model\",\"tier\":\"main\",\"verificationSummary\":[{\"solutionId\":\"solution-1\",\"overallCoverage\":\"direct\",\"claims\":[{\"claimId\":\"claim-1\",\"coverage\":\"direct\",\"methodLabel\":\"모든 단계를 실행 검사로 확인\",\"unconfirmedSteps\":[]}]}],\"assistantMessageId\":\"606666c6-3f2d-57b3-b97d-1a64af5de553\",\"responseKind\":\"re_explanation\",\"assuranceScope\":\"not_applicable\",\"solutionChecks\":[]}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

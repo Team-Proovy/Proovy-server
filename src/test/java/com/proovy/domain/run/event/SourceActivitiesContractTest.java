@@ -457,6 +457,41 @@ class SourceActivitiesContractTest {
         assertThat(label.getMessage()).doesNotContain(LEAK_SENTINEL);
     }
 
+    @Test
+    @DisplayName("re_explanation.delta: 줄바꿈·공백·한국어·LaTeX·codePoint 상한(4000)은 보존하고, 음수·빈값·URL·scheme·제어문자·unknown key는 거부한다")
+    void reExplanationDeltaValidationAndEdgeCases() {
+        String mathSample = "단계 1:\n  $\\frac{1}{2}$ 입니다. ";
+        ObjectNode converted = convert(deltaPayload(0, mathSample), "re_explanation.delta");
+        assertThat(converted.get("deltaIndex").asInt()).isZero();
+        assertThat(converted.get("delta").asText()).isEqualTo(mathSample);
+
+        // surrogate pair는 UTF-16 length(5000)가 아니라 codePoint(2500/4000)로 검사한다
+        assertThat(convert(deltaPayload(1, "😀".repeat(2500)), "re_explanation.delta").get("delta").asText())
+                .hasSize(5000);
+        assertThat(convert(deltaPayload(2, "😀".repeat(4000)), "re_explanation.delta").get("delta").asText()
+                .codePointCount(0, 8000)).isEqualTo(4000);
+
+        expectViolation(deltaPayload(0, "a".repeat(4001)), "re_explanation.delta");
+        expectViolation(deltaPayload(-1, "음수"), "re_explanation.delta");
+        expectViolation(deltaPayload(0, ""), "re_explanation.delta");
+        expectViolation(deltaPayload(0, "https://DO-NOT-LEAK.invalid/a"), "re_explanation.delta");
+        expectViolation(deltaPayload(0, "gs://DO-NOT-LEAK.invalid/a"), "re_explanation.delta");
+        expectViolation(deltaPayload(0, "javascript:alert(1)"), "re_explanation.delta");
+        expectViolation(deltaPayload(0, "hello\u0007world"), "re_explanation.delta");
+        expectViolation(deltaPayload(0, "Traceback (most recent call last):"), "re_explanation.delta");
+        expectViolation(JsonNodeFactory.instance.objectNode().put("delta_index", "0").put("delta", "bad"),
+                "re_explanation.delta");
+
+        Throwable unknownKey = catchThrowable(() -> convert(
+                deltaPayload(0, "정상").put("secret_DO-NOT-LEAK", "val"), "re_explanation.delta"));
+        assertThat(unknownKey).isInstanceOf(ActivityContractViolation.class);
+        assertThat(unknownKey.getMessage()).doesNotContain(LEAK_SENTINEL);
+    }
+
+    private static ObjectNode deltaPayload(int deltaIndex, String delta) {
+        return JsonNodeFactory.instance.objectNode().put("delta_index", deltaIndex).put("delta", delta);
+    }
+
     // ------------------------------------------------------------------
 
     private static ObjectNode convert(ObjectNode payload, String type) {

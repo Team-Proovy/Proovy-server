@@ -1,0 +1,101 @@
+{
+  "rationale": "[v1.2] 재설명 delta 스트리밍 중 취소 — deltaIndex 0 전달 뒤 run.canceling → run.canceled. 이후 delta는 송신되지 않으며 부분 본문은 VerifiedSolution으로 승격되지 않는다.",
+  "finalStatus": "CANCELED",
+  "runId": "d210ce68-de97-56a2-b555-fec1dec5563c",
+  "frames": [
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d210ce68-de97-56a2-b555-fec1dec5563c",
+      "seq": 1,
+      "occurredAt": "2026-10-17T09:00:00Z",
+      "type": "run.created",
+      "payload": {
+        "requestId": "c801e468-f0aa-59c0-8ba2-cda91be671f8",
+        "noteId": "123",
+        "userMessageId": "57a515e0-ec81-5ba9-8b8d-8d36ac0737b3",
+        "assistantMessageId": "31529f99-16cc-59f1-a06a-795d2886997b",
+        "status": "PENDING",
+        "requestedTasks": [
+          "explain"
+        ],
+        "requestedOutputs": [
+          "text"
+        ]
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d210ce68-de97-56a2-b555-fec1dec5563c",
+      "occurredAt": "2026-10-17T09:00:01Z",
+      "type": "activity.started",
+      "payload": {
+        "activityId": "activity-1",
+        "responsePageId": "page-1",
+        "kind": "input_analysis",
+        "label": "analyzing_input"
+      },
+      "seq": 2
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d210ce68-de97-56a2-b555-fec1dec5563c",
+      "occurredAt": "2026-10-17T09:00:02Z",
+      "type": "activity.updated",
+      "payload": {
+        "activityId": "activity-1",
+        "status": "in_progress",
+        "message": "입력을 읽고 있다",
+        "kind": "input_analysis"
+      },
+      "seq": 3
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d210ce68-de97-56a2-b555-fec1dec5563c",
+      "occurredAt": "2026-10-17T09:00:03Z",
+      "type": "activity.completed",
+      "payload": {
+        "activityId": "activity-1",
+        "kind": "input_analysis"
+      },
+      "seq": 4
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d210ce68-de97-56a2-b555-fec1dec5563c",
+      "occurredAt": "2026-10-17T09:00:04Z",
+      "type": "re_explanation.delta",
+      "payload": {
+        "deltaIndex": 0,
+        "delta": "먼저 양변에서 3을 "
+      },
+      "seq": 5
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d210ce68-de97-56a2-b555-fec1dec5563c",
+      "seq": 6,
+      "occurredAt": "2026-10-17T09:00:05Z",
+      "type": "run.canceling",
+      "payload": {
+        "assistantMessageId": "31529f99-16cc-59f1-a06a-795d2886997b",
+        "status": "CANCELING"
+      }
+    },
+    {
+      "contractVersion": "brain-source-v1",
+      "runId": "d210ce68-de97-56a2-b555-fec1dec5563c",
+      "seq": 7,
+      "occurredAt": "2026-10-17T09:00:06Z",
+      "type": "run.canceled",
+      "payload": {
+        "assistantMessageId": "31529f99-16cc-59f1-a06a-795d2886997b",
+        "status": "CANCELED",
+        "cause": "user_requested",
+        "message": "답변 생성을 중단했습니다."
+      }
+    }
+  ],
+  "sse": "event: run.created\nid: d210ce68-de97-56a2-b555-fec1dec5563c:1\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d210ce68-de97-56a2-b555-fec1dec5563c\",\"seq\":1,\"occurredAt\":\"2026-10-17T09:00:00Z\",\"type\":\"run.created\",\"payload\":{\"requestId\":\"c801e468-f0aa-59c0-8ba2-cda91be671f8\",\"noteId\":\"123\",\"userMessageId\":\"57a515e0-ec81-5ba9-8b8d-8d36ac0737b3\",\"assistantMessageId\":\"31529f99-16cc-59f1-a06a-795d2886997b\",\"status\":\"PENDING\",\"requestedTasks\":[\"explain\"],\"requestedOutputs\":[\"text\"]}}\n\nevent: activity.started\nid: d210ce68-de97-56a2-b555-fec1dec5563c:2\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d210ce68-de97-56a2-b555-fec1dec5563c\",\"occurredAt\":\"2026-10-17T09:00:01Z\",\"type\":\"activity.started\",\"payload\":{\"activityId\":\"activity-1\",\"responsePageId\":\"page-1\",\"kind\":\"input_analysis\",\"label\":\"analyzing_input\"},\"seq\":2}\n\nevent: activity.updated\nid: d210ce68-de97-56a2-b555-fec1dec5563c:3\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d210ce68-de97-56a2-b555-fec1dec5563c\",\"occurredAt\":\"2026-10-17T09:00:02Z\",\"type\":\"activity.updated\",\"payload\":{\"activityId\":\"activity-1\",\"status\":\"in_progress\",\"message\":\"입력을 읽고 있다\",\"kind\":\"input_analysis\"},\"seq\":3}\n\nevent: activity.completed\nid: d210ce68-de97-56a2-b555-fec1dec5563c:4\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d210ce68-de97-56a2-b555-fec1dec5563c\",\"occurredAt\":\"2026-10-17T09:00:03Z\",\"type\":\"activity.completed\",\"payload\":{\"activityId\":\"activity-1\",\"kind\":\"input_analysis\"},\"seq\":4}\n\nevent: re_explanation.delta\nid: d210ce68-de97-56a2-b555-fec1dec5563c:5\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d210ce68-de97-56a2-b555-fec1dec5563c\",\"occurredAt\":\"2026-10-17T09:00:04Z\",\"type\":\"re_explanation.delta\",\"payload\":{\"deltaIndex\":0,\"delta\":\"먼저 양변에서 3을 \"},\"seq\":5}\n\nevent: run.canceling\nid: d210ce68-de97-56a2-b555-fec1dec5563c:6\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d210ce68-de97-56a2-b555-fec1dec5563c\",\"seq\":6,\"occurredAt\":\"2026-10-17T09:00:05Z\",\"type\":\"run.canceling\",\"payload\":{\"assistantMessageId\":\"31529f99-16cc-59f1-a06a-795d2886997b\",\"status\":\"CANCELING\"}}\n\nevent: run.canceled\nid: d210ce68-de97-56a2-b555-fec1dec5563c:7\ndata: {\"contractVersion\":\"brain-source-v1\",\"runId\":\"d210ce68-de97-56a2-b555-fec1dec5563c\",\"seq\":7,\"occurredAt\":\"2026-10-17T09:00:06Z\",\"type\":\"run.canceled\",\"payload\":{\"assistantMessageId\":\"31529f99-16cc-59f1-a06a-795d2886997b\",\"status\":\"CANCELED\",\"cause\":\"user_requested\",\"message\":\"답변 생성을 중단했습니다.\"}}\n\n",
+  "sseNote": "event/id 줄은 byte 비교, data 줄은 JSON 의미 비교(키 순서·공백은 구현 자유)."
+}

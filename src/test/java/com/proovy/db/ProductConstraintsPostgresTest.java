@@ -642,6 +642,40 @@ class ProductConstraintsPostgresTest {
                 .contains("uq_ai_run_events_seq");
     }
 
+    @Test
+    void reExplanationDeltaEventEnforcesV8Constraints() throws SQLException {
+        UUID runId = insertRunWithTurn(c, "req-delta-v7", ALICE, ALICE_NOTE);
+        claim(c, runId);
+        allocateSeq(c, runId, 10);
+
+        update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 1, 're_explanation.delta', 'delta-ok', 1, NULL, '{"deltaIndex":0,"delta":"안"}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId);
+
+        expectViolation(CHECK_VIOLATION, "ck_ai_run_events_activity", () -> update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 2, 're_explanation.delta', 'delta-act', 1, 'act-1', '{"deltaIndex":1,"delta":"x"}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId));
+        expectViolation(CHECK_VIOLATION, "ck_ai_run_events_re_explanation_delta", () -> update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 3, 're_explanation.delta', 'delta-neg', 1, NULL, '{"deltaIndex":-1,"delta":"x"}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId));
+        expectViolation(CHECK_VIOLATION, "ck_ai_run_events_re_explanation_delta", () -> update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 4, 're_explanation.delta', 'delta-empty', 1, NULL, '{"deltaIndex":1,"delta":""}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId));
+        expectViolation(CHECK_VIOLATION, "ck_ai_run_events_re_explanation_delta", () -> update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 5, 're_explanation.delta', 'delta-str-idx', 1, NULL, '{"deltaIndex":"1","delta":"x"}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId));
+    }
+
     // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------

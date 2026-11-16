@@ -12,6 +12,7 @@ public enum AiRunEventType implements WireValue {
     ACTIVITY_COMPLETED("activity.completed", false),
     ACTIVITY_FAILED("activity.failed", false),
     ACTIVITY_CANCELED("activity.canceled", false),
+    RE_EXPLANATION_DELTA("re_explanation.delta", false),
     RESPONSE_PAGE_STARTED("response.page.started", true),
     RESPONSE_PAGE_COMPLETED("response.page.completed", true);
 

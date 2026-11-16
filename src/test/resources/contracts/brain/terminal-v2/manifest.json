@@ -48,7 +48,8 @@
     "phase2-verified",
     "phase2-mixed-scope",
     "phase2-hide-answer",
-    "phase2-re-explanation"
+    "phase2-re-explanation",
+    "re-explanation-delta"
   ],
   "change_history": [
     {
@@ -85,6 +86,10 @@
     "attachment-unknown-reason",
     "attachment-wrong-class",
     "code",
+    "delta-empty",
+    "delta-negative-index",
+    "delta-traceback",
+    "delta-url",
     "duplicate-page",
     "existing-coverage-mismatch",
     "existing-full-answer-extra",

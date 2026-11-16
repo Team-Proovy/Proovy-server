@@ -13,6 +13,7 @@ public enum SourceEventType implements WireValue {
     ACTIVITY_COMPLETED("activity.completed"),
     ACTIVITY_FAILED("activity.failed"),
     ACTIVITY_CANCELED("activity.canceled"),
+    RE_EXPLANATION_DELTA("re_explanation.delta"),
     RUN_COMPLETED("run.completed"),
     RUN_FAILED("run.failed");
 

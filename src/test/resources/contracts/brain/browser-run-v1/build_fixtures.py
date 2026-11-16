@@ -44,6 +44,7 @@ from proovy_brain.contracts.solution_verification import (
 )
 from proovy_brain.contracts.source_progress import (
     SourceEventType,
+    derive_re_explanation_delta_event_id,
     derive_source_event_id,
     parse_source_event,
     to_browser_event_payload,
@@ -55,7 +56,7 @@ TERMINAL = CONTRACTS / "terminal-v2"
 ACTIVITY = CONTRACTS / "activity-v1/valid"
 SOLUTIONS = CONTRACTS / "solution-verification-v1/valid"
 
-CONSUMER_VERSION = "browser-run-fixtures-v1.1"
+CONSUMER_VERSION = "browser-run-fixtures-v1.2"
 INITIAL_CONSUMER_VERSION = "browser-run-fixtures-v1"
 CONTRACT_VERSION = "browser-run-v1"
 FRAME_CONTRACT_VERSION = "brain-source-v1"
@@ -2147,6 +2148,31 @@ class StreamBuilder:
         self.frames.append({**browser, "seq": seq})
         return self
 
+    def re_explanation_delta(self, delta_index: int, delta: str) -> StreamBuilder:
+        """Append a re_explanation.delta frame via Brain's browser serializer."""
+
+        seq, occurred = self._next()
+        event = parse_source_event(
+            {
+                "contract_version": FRAME_CONTRACT_VERSION,
+                "run_id": self.run_id,
+                "attempt": 1,
+                "fence_token": "fence-1",
+                "source_event_id": derive_re_explanation_delta_event_id(
+                    self.run_id, delta_index
+                ),
+                "occurred_at": occurred,
+                "type": SourceEventType.RE_EXPLANATION_DELTA.value,
+                "payload": {
+                    "delta_index": delta_index,
+                    "delta": delta,
+                },
+            }
+        )
+        browser = to_browser_event_payload(event)
+        self.frames.append({**browser, "seq": seq})
+        return self
+
     def terminal_pair(
         self, name: str, extension: dict[str, Any] | None = None
     ) -> StreamBuilder:
@@ -2509,6 +2535,33 @@ def streams() -> dict[str, dict[str, Any]]:
                 "explain-existing", _extension(ResponseKind.RE_EXPLANATION)
             ),
         ),
+        "re-explanation-streaming": (
+            "COMPLETED",
+            "[v1.2] 기존 풀이 재설명 실시간 스트리밍 — Read-back 없이 re_explanation.delta "
+            "deltaIndex 0..1 순서 전달 후 run.completed canonical 교체. responseKind=re_explanation, "
+            "assuranceScope=not_applicable, solutionChecks=[].",
+            _analysis(
+                StreamBuilder("phase2-re-explanation-streaming").created(
+                    tasks=["explain"]
+                )
+            )
+            .re_explanation_delta(0, "양변에 같은 연산을 ")
+            .re_explanation_delta(1, "적용하기 때문입니다. $x = 2$")
+            .terminal_pair("explain-existing", _extension(ResponseKind.RE_EXPLANATION)),
+        ),
+        "canceled-during-re-explanation": (
+            "CANCELED",
+            "[v1.2] 재설명 delta 스트리밍 중 취소 — deltaIndex 0 전달 뒤 run.canceling → "
+            "run.canceled. 이후 delta는 송신되지 않으며 부분 본문은 VerifiedSolution으로 승격되지 않는다.",
+            _analysis(
+                StreamBuilder("phase2-re-explanation-canceled").created(
+                    tasks=["explain"]
+                )
+            )
+            .re_explanation_delta(0, "먼저 양변에서 3을 ")
+            .canceling()
+            .canceled(),
+        ),
         "hide-answer-completed": (
             "COMPLETED",
             "[v1.1] 정답 숨김 요청(disclosure=hide_answer) → 배지·✓ 표시는 남고 모든 "
@@ -2584,6 +2637,8 @@ def invalid_streams(valid: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any
     completed = valid["substantive-completed"]["frames"]
     canceled = valid["canceled-running"]["frames"]
     failed = valid["failed-verification"]["frames"]
+    re_explain_stream = valid["re-explanation-streaming"]["frames"]
+    re_explain_canceled = valid["canceled-during-re-explanation"]["frames"]
 
     def mutate(frames: list[dict[str, Any]], change) -> list[dict[str, Any]]:
         value = deepcopy(frames)
@@ -2774,6 +2829,54 @@ def invalid_streams(valid: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any
             "S7",
             "Server 소유 frame runId는 UUID.",
             mutate(canceled, lambda f: [frame.update(runId="run-7") for frame in f]),
+            True,
+        ),
+        "re-explanation-delta-after-canceling": (
+            "S3",
+            "run.canceling 뒤에 re_explanation.delta가 올 수 없다.",
+            mutate(
+                re_explain_canceled,
+                lambda f: (
+                    f.insert(
+                        len(f) - 1,
+                        {
+                            **deepcopy(re_explain_stream[5]),
+                            "runId": f[0]["runId"],
+                        },
+                    ),
+                    renumber(f),
+                ),
+            ),
+            False,
+        ),
+        "re-explanation-delta-gap": (
+            "S8",
+            "re_explanation.delta deltaIndex는 0부터 빈틈없이 +1이어야 한다.",
+            mutate(
+                re_explain_stream,
+                lambda f: f[5]["payload"].update(deltaIndex=2),
+            ),
+            False,
+        ),
+        "re-explanation-delta-after-page": (
+            "S8",
+            "re_explanation.delta는 response.page.* 또는 run.completed 뒤에 올 수 없다.",
+            mutate(
+                re_explain_stream,
+                lambda f: (
+                    f.insert(len(f) - 1, f.pop(5)),
+                    renumber(f),
+                ),
+            ),
+            False,
+        ),
+        "re-explanation-delta-empty": (
+            "S7",
+            "re_explanation.delta payload.delta는 빈 문자열일 수 없다.",
+            mutate(
+                re_explain_stream,
+                lambda f: f[4]["payload"].update(delta=""),
+            ),
             True,
         ),
     }
@@ -3039,6 +3142,7 @@ STREAM_RULES = {
     "S5": "모든 frame runId가 같고 모든 assistantMessageId가 run.created의 값과 같다.",
     "S6": "activity 후속 이벤트는 같은 activityId·kind의 앞선 activity.started를 가리키고 activity terminal 뒤에는 그 activity의 이벤트가 없다.",
     "S7": "각 frame은 BrowserFrame schema를 통과한다(내부 필드 금지·Server 소유 payload).",
+    "S8": "re_explanation.delta는 run.created 뒤부터 response.page.*와 run.completed 앞까지 deltaIndex 0부터 빈틈없이 +1.",
 }
 
 
@@ -3930,11 +4034,11 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
 
 ## 버전
 
-- `consumer_version`: `browser-run-fixtures-v1.1` (2026-11-12, task 2.07 Phase 2 additive 확장 — 아래 "Phase 2 확장")
-  - 이전: `browser-run-fixtures-v1` (2026-10-17 최초 고정, 단계 2 합의 D1~D10). v1 fixture는 모두 byte 그대로 남아 있고 v1.1 schema도 통과한다.
+- `consumer_version`: `browser-run-fixtures-v1.2` (2026-11-15, task 2.14 `re_explanation.delta` 스트리밍 채널 additive 확장 — 아래 "Phase 2 확장")
+  - 이전: `browser-run-fixtures-v1.1` (2026-11-12, task 2.07), `browser-run-fixtures-v1` (2026-10-17 최초 고정, 단계 2 합의 D1~D10). v1/v1.1 fixture는 모두 유효하며 v1.2 schema도 통과한다.
 - `contract_version`: `browser-run-v1`
 - durable frame `contractVersion`: `brain-source-v1` (D1 — terminal-v2 browser schema의 `const`와 같은 값을 Server 소유 frame에도 사용)
-- 참조 계약: terminal-fixtures-v2.1 · activity-fixtures-v1.1 · assistant-response-v1 · internal-run-fixtures-v2(canonical JSON) · page-selection-v1
+- 참조 계약: terminal-fixtures-v2.2 · activity-fixtures-v1.1 · assistant-response-v1 · internal-run-fixtures-v2(canonical JSON) · page-selection-v1
 - 요청 fingerprint: `browser-request-sha256-canonical-json-v1`
 
 ## 소비 규칙
@@ -4020,7 +4124,8 @@ spec 04·ADR 0017·`docs/plan/27`의 화면 wire다. `contract_version`은 `brow
   userMessageId·assistantMessageId를 공유하고, 다른 시나리오는 다른 runId를 쓴다. 따라서 소비자가 valid fixture를 runId로
   교차 색인해도 충돌하지 않는다(`test_fixtures_describing_one_run_agree_by_run_id`). 진행 중 run은 시점 snapshot이라
   non-terminal 상태가 서로 다를 수 있다(예: `status-running` RUNNING → `cancel-accepted-running` CANCELING). invalid fixture는 색인 대상이 아니다.
-- stream 규칙 S1~S7: `manifest.stream_rules`. replay와 live의 유일한 허용 차이는 read-time `sourceReferences[].available`.
+- [v1.2, task 2.14] `re_explanation.delta` 본문 delta 프레임 추가(`terminal-v2/browser.schema.json` `ReExplanationDeltaBrowserEvent`): `deltaIndex`(0..N 연속 정수)·`delta`(SafeMarkdown 누적 본문 조각). 재설명 turn에서 `DisclosureScope.FULL`일 때만 송신하며 `run.completed`에서 canonical `assistantResponse`로 대체된다. `re-explanation-streaming`·`canceled-during-re-explanation` fixture 및 규칙 `S8` 추가.
+- stream 규칙 S1~S8: `manifest.stream_rules`. replay와 live의 유일한 허용 차이는 read-time `sourceReferences[].available`.
 
 ## 형식·경계 판정
 
@@ -4293,7 +4398,7 @@ def manifest(files: dict[str, str]) -> dict[str, Any]:
         "frame_contract_version": FRAME_CONTRACT_VERSION,
         "fingerprint_algorithm": FINGERPRINT_ALGORITHM,
         "references": {
-            "terminal": "terminal-fixtures-v2.1",
+            "terminal": "terminal-fixtures-v2.2",
             "activity": "activity-fixtures-v1.1",
             "response": "assistant-response-v1",
             "internal_run": "internal-run-fixtures-v2",
@@ -4328,7 +4433,7 @@ def manifest(files: dict[str, str]) -> dict[str, Any]:
             },
             {
                 "date": "2026-11-12",
-                "consumer_version": CONSUMER_VERSION,
+                "consumer_version": "browser-run-fixtures-v1.1",
                 "reason": "Task 2.07 additive (contract_version stays browser-run-v1): "
                 "run.completed payload and conversation AssistantMessageContent gain "
                 "optional responseKind (standard|re_explanation), assuranceScope "
@@ -4339,6 +4444,15 @@ def manifest(files: dict[str, str]) -> dict[str, Any]:
                 "(terminal-v2 browser schema, guarded here). Every v1 fixture is "
                 "byte-identical and still valid; absent fields mean a response from "
                 "before the extension.",
+            },
+            {
+                "date": "2026-11-15",
+                "consumer_version": CONSUMER_VERSION,
+                "reason": "Task 2.14 additive (contract_version stays browser-run-v1, "
+                "references terminal-fixtures-v2.2): add re_explanation.delta "
+                "stream frame support (deltaIndex/delta via terminal-v2 browser "
+                "schema), streaming and canceled re-explanation stream fixtures, "
+                "S8 deltaIndex contiguity rule, and negative delta cases.",
             },
         ],
         "files": dict(sorted(digests.items())),
