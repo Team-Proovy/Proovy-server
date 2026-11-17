@@ -23,7 +23,7 @@ class TerminalContractMirrorTest {
     @ParameterizedTest(name = "{0}")
     @CsvSource({
             // terminal-v2는 2.13(234912a)에서 v2.2로 올렸고, response-v1·publication-v1은 바뀌지 않아 303a9e4 그대로다.
-            "terminal-v2, terminal-fixtures-v2.2, 51be19d7a9493e3f17a1fb43188f9ceb5dba42a8",
+            "terminal-v2, terminal-fixtures-v2.2, 7af862460e59fbe325918ea4188f315223253ed6",
             "response-v1, response-fixtures-v1, 303a9e45943207cb22fc555452cc781fb8117d21",
             "publication-v1, publication-fixtures-v1.2, 303a9e45943207cb22fc555452cc781fb8117d21"})
     void mirrorMatchesPin(String artifact, String consumerVersion, String commit) throws Exception {
