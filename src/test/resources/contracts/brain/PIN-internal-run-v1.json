@@ -1,6 +1,6 @@
 {
   "repository": "Team-Proovy/proovy-brain",
-  "commit": "234912a2a360a85994df6671af8d8622c520fa29",
+  "commit": "51be19d7a9493e3f17a1fb43188f9ceb5dba42a8",
   "source_path": "tests/fixtures/contracts",
   "consumer_version": "internal-run-fixtures-v3",
   "manifest": "internal-run-v1/manifest.json",

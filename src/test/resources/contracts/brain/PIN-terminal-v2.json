@@ -1,14 +1,14 @@
 {
   "repository": "Team-Proovy/proovy-brain",
-  "commit": "234912a2a360a85994df6671af8d8622c520fa29",
+  "commit": "51be19d7a9493e3f17a1fb43188f9ceb5dba42a8",
   "source_path": "tests/fixtures/contracts",
   "consumer_version": "terminal-fixtures-v2.2",
   "manifest": "terminal-v2/manifest.json",
-  "manifest_sha256": "c30dceca143f82bb1303d282098151e891fdb597cfc22bf51731a692db9cad52",
+  "manifest_sha256": "c309c0e311460b6ba052141151ccc32a8044d7a5adbd1d0d128f7b77c92cea99",
   "files_note": "terminal-v2 manifest에는 파일별 sha256이 없어, pin commit에서 복사한 직후 계산한 값을 적는다(README 갱신 절차). browser.schema.json은 PIN.json(browser-run-v1 dependency)도 소유한다.",
   "files": {
-    "terminal-v2/browser.schema.json": "8af7574ae52bc242dc956c84d2a5f0189ddcd5c6b74cc1a015b1e89afdf017c5",
-    "terminal-v2/build_fixtures.py": "73168263a26aae5e5a1b3527a929a7a0f520a2f444879af74cbe065ecda8defb",
+    "terminal-v2/browser.schema.json": "8126cbcd1f3a4d92d797c0347b6a0d31a5f4d03b642054fb5aa86a447400d2cd",
+    "terminal-v2/build_fixtures.py": "3d622c37d8da58c1e87c24f6a7611e61b35a1e1ce1e766b6b5041ffd08ccd972",
     "terminal-v2/invalid/attachment-message-mismatch.json": "ef498910d1ba3dc307c9a051af8f9f27905822a89812f8bd34364a8a5dd97d2b",
     "terminal-v2/invalid/attachment-missing-reason.json": "e8815446296f2175d9db9e57f5ba04c66447138b2d663ec7812076efc6c916cb",
     "terminal-v2/invalid/attachment-recoverable.json": "ca7308c0dddf32b233a0df5f74c624b60c4b4b2bfacf33045cb0a5a0bf2eed6f",
@@ -72,6 +72,6 @@
     "terminal-v2/pairs/verified-answer-ref.json": "b176aa5c499270e7613edfb8b59823080e5bd9cbafd9a32f6c60e7ced64f75fa",
     "terminal-v2/pairs/zero-step-fallback.json": "1d4d5869c60b9281225fc4771589e3f023dabdf8a8060236c08214f1653d814f",
     "terminal-v2/redelivery.json": "44d6f0d5450ef68e1bf5c91b6c6c4e2c797070bdddc58cd441c82f8b9a9ee9c7",
-    "terminal-v2/source.schema.json": "e991607eb0b7700e55a2907308c08f116d520c728b37a365268fcf0762272439"
+    "terminal-v2/source.schema.json": "d9db16587c985df4dff52727a612cea477f7b560c338027142aec5c81ffa093c"
   }
 }

@@ -1,6 +1,6 @@
 {
   "repository": "Team-Proovy/proovy-brain",
-  "commit": "6c7a8527aebe7a6af2f5c01d99b87b408a76dd92",
+  "commit": "51be19d7a9493e3f17a1fb43188f9ceb5dba42a8",
   "source_path": "tests/fixtures/contracts",
   "consumer_version": "browser-run-fixtures-v1.2",
   "manifest": "browser-run-v1/manifest.json",

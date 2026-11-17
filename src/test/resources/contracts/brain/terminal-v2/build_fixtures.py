@@ -810,7 +810,7 @@ def build() -> None:
             "assistant_response_version": "assistant-response-v1",
             "artifact_version": "verified-solution-v1",
             "original_path": "tests/fixtures/contracts/terminal-v2",
-            "change_reason": "Task 2.13 terminal-fixtures-v2.2: VerifiedSolution gains optional paired answer_claim_id and answer_text so prior final answers flow from producer through Server storage to internal-run references without browser leakage.",
+            "change_reason": "Task 2.13/2.14 terminal-fixtures-v2.2: re_explanation.delta streaming is added; VerifiedSolution gains optional paired answer_claim_id and answer_text so prior final answers flow from producer through Server storage to internal-run references without browser leakage.",
             "consumption_policy": "Pin terminal-fixtures-v2.2 at original_path; changes require a new fixture version and reason.",
             "ownership": {
                 "brain": [
@@ -865,7 +865,7 @@ def build() -> None:
                 },
                 {
                     "date": "2026-11-15",
-                    "reason": "Task 2.13 terminal-fixtures-v2.2 (additive, directory stays terminal-v2): VerifiedSolution gains optional paired answer_claim_id and answer_text (verifying answer_claim_id belongs to claims and answer_text is verbatim in solution_text). New pair verified-answer-ref and negative cases unpaired-answer-ref / phantom-answer-claim / missing-answer-text; existing pairs stay byte-identical and browser events never carry verified_solutions.",
+                    "reason": "Task 2.13/2.14 terminal-fixtures-v2.2 (additive, directory stays terminal-v2): re_explanation.delta streaming is added; VerifiedSolution gains optional paired answer_claim_id and answer_text (verifying answer_claim_id belongs to claims and answer_text is verbatim in solution_text). New pair verified-answer-ref and negative cases unpaired-answer-ref / phantom-answer-claim / missing-answer-text; existing pairs stay byte-identical and browser events never carry verified_solutions.",
                 },
             ],
             "existing_reference_policy": "Caller supplies checked ID/version/claim coverage only, never the existing full answer. Public summaries select referenced claims inside assemble_response and retain disclosure checks. Storage/authentication/semantic claim matching are caller responsibilities, not implemented here.",
