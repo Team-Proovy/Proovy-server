@@ -13,10 +13,17 @@ public final class HashUtils {
         if (input == null || input.isEmpty()) {
             return "";
         }
+        return sha256(input.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static String sha256(byte[] input) {
+        if (input == null) {
+            return "";
+        }
 
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            byte[] hash = digest.digest(input);
             return bytesToHex(hash);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 algorithm not found", e);

@@ -247,6 +247,40 @@ class ProductConstraintsPostgresTest {
                 """, ALICE_PDF);
     }
 
+    @Test
+    void assetPixelDimensionsRequireConsistencyAndMatchMimeKind() throws SQLException {
+        // 부분 NULL 거부
+        expectViolation(CHECK_VIOLATION, "ck_assets_pixel_dimensions", () -> update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    pixel_width, pixel_height, created_at, updated_at)
+                VALUES (?, ?, 'bad1.png', 100, 'image/png', 'k1', 'upload', 'ACTIVE', 800, 600, now(), now())
+                """, ALICE, ALICE_NOTE));
+        // pixel_count != pixel_width * pixel_height 거부
+        expectViolation(CHECK_VIOLATION, "ck_assets_pixel_dimensions", () -> update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'bad2.png', 100, 'image/png', 'k2', 'upload', 'ACTIVE', 800, 600, 100, now(), now())
+                """, ALICE, ALICE_NOTE));
+        // PDF에 pixel 설정 거부
+        expectViolation(CHECK_VIOLATION, "ck_assets_pixel_dimensions", () -> update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'bad.pdf', 100, 'application/pdf', 'k3', 'upload', 'ACTIVE', 800, 600, 480000, now(), now())
+                """, ALICE, ALICE_NOTE));
+        // 이미지에 page_count 설정 거부
+        expectViolation(CHECK_VIOLATION, "ck_assets_pixel_dimensions", () -> update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    page_count, created_at, updated_at)
+                VALUES (?, ?, 'bad3.png', 100, 'image/png', 'k4', 'upload', 'ACTIVE', 2, now(), now())
+                """, ALICE, ALICE_NOTE));
+        // 정상 이미지 픽셀 수락
+        update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    sha256, pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'ok.png', 100, 'image/png', 'k5', 'upload', 'ACTIVE', ?, 800, 600, 480000, now(), now())
+                """, ALICE, ALICE_NOTE, "d".repeat(64));
+    }
+
     // ------------------------------------------------------------------
     // Note 삭제 cascade · source snapshot 분리
     // ------------------------------------------------------------------

@@ -2,6 +2,7 @@ package com.proovy.global.infra.thumbnail;
 
 import com.proovy.domain.asset.entity.Asset;
 import com.proovy.domain.asset.repository.AssetRepository;
+import com.proovy.domain.asset.service.AssetContentValidator;
 import com.proovy.global.exception.BusinessException;
 import com.proovy.global.infra.gcs.GcsService;
 import com.proovy.global.response.ErrorCode;
@@ -9,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
@@ -19,8 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -28,6 +33,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.concurrent.Semaphore;
 
 @Slf4j
 @Service
@@ -45,7 +51,11 @@ public class ThumbnailService {
     private static final int THUMBNAIL_HEIGHT = 400;
     private static final float THUMBNAIL_QUALITY = 0.85f;
     private static final int PDF_DPI = 150;
+    private static final int MAX_PDF_RENDER_EDGE_PX = 2048;
+    private static final long MAX_PDF_RENDER_PIXELS = 4_194_304L; // 2048 * 2048
+    private static final int MAX_CONCURRENT_THUMBNAIL_RENDERS = 2;
     private static final long MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 제한
+    private final Semaphore renderPermits = new Semaphore(MAX_CONCURRENT_THUMBNAIL_RENDERS);
 
     /**
      * 셀프 프록시 주입 (트랜잭션 AOP 적용용)
@@ -69,14 +79,36 @@ public class ThumbnailService {
 
             // 1. 원본 파일 직접 읽기 (private 버킷 지원)
             byte[] fileBytes = readFileWithSizeCheck(s3Key);
+            return generateThumbnailSync(fileBytes, s3Key, mimeType);
 
-            // 2. 썸네일 생성
+        } catch (Exception e) {
+            log.error("[Thumbnail] 썸네일 생성 실패 (동기) - s3Key: {}, error: {}", s3Key, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * 이미 검증·고정된 이미지 바이트로 동기 썸네일 생성 (mutable key 재조회 방지)
+     */
+    public String generateThumbnailSync(byte[] fileBytes, String s3Key, String mimeType) {
+        try {
+            log.info("[Thumbnail] 썸네일 생성 시작 (동기, 검증 바이트) - s3Key: {}, mimeType: {}", s3Key, mimeType);
+
+            if (mimeType == null || !mimeType.startsWith("image/")) {
+                log.warn("[Thumbnail] 동기 처리는 이미지만 지원 - mimeType: {}", mimeType);
+                return null;
+            }
+            if (fileBytes == null || fileBytes.length == 0 || fileBytes.length > MAX_FILE_SIZE_BYTES) {
+                throw new BusinessException(ErrorCode.ASSET4002);
+            }
+
+            // 1. 썸네일 생성 (디코딩 전 픽셀 상한 preflight 포함)
             byte[] thumbnailBytes = createImageThumbnail(fileBytes);
 
-            // 4. 썸네일 S3 키 생성
+            // 2. 썸네일 S3 키 생성
             String thumbnailS3Key = generateThumbnailS3Key(s3Key);
 
-            // 5. 썸네일 S3 업로드
+            // 3. 썸네일 S3 업로드
             try (InputStream thumbnailStream = new ByteArrayInputStream(thumbnailBytes)) {
                 s3Service.uploadFile(thumbnailS3Key, thumbnailStream,
                         thumbnailBytes.length, "image/jpeg");
@@ -154,34 +186,87 @@ public class ThumbnailService {
     }
 
     /**
-     * PDF 첫 페이지를 썸네일로 변환
+     * PDF 첫 페이지를 썸네일로 변환 (고해상도 대형 페이지 OOM 방지를 위해 스케일·동시성 제한 적용)
      */
-    private byte[] createPdfThumbnail(byte[] pdfBytes) throws Exception {
+    byte[] createPdfThumbnail(byte[] pdfBytes) throws Exception {
+        renderPermits.acquire();
         try (PDDocument document = Loader.loadPDF(pdfBytes)) {
             if (document.getNumberOfPages() == 0) {
                 throw new IllegalArgumentException("PDF에 페이지가 없습니다.");
             }
 
-            // 첫 페이지를 이미지로 렌더링
+            PDPage firstPage = document.getPage(0);
+            PDRectangle box = firstPage.getCropBox() != null
+                    ? firstPage.getCropBox()
+                    : firstPage.getMediaBox();
+            if (box == null
+                    || !Float.isFinite(box.getWidth())
+                    || !Float.isFinite(box.getHeight())
+                    || box.getWidth() <= 0f
+                    || box.getHeight() <= 0f) {
+                throw new IllegalArgumentException("PDF 페이지 크기가 올바르지 않습니다.");
+            }
+
+            float widthPt = Math.max(1f, box.getWidth());
+            float heightPt = Math.max(1f, box.getHeight());
+            float baseScale = PDF_DPI / 72f;
+            float edgeScale = Math.min(
+                    (float) MAX_PDF_RENDER_EDGE_PX / widthPt,
+                    (float) MAX_PDF_RENDER_EDGE_PX / heightPt);
+            float areaScale = (float) Math.sqrt((double) MAX_PDF_RENDER_PIXELS / ((double) widthPt * heightPt));
+            float scale = Math.min(baseScale, Math.min(edgeScale, areaScale));
+            if (!Float.isFinite(scale) || scale <= 0f) {
+                throw new IllegalArgumentException("PDF 페이지 스케일이 올바르지 않습니다.");
+            }
+
+            // 첫 페이지 내장 이미지·SMask·Mask 픽셀 상한 preflight (전면 디코딩 OOM 방지)
+            AssetContentValidator.validatePdfPageEmbeddedImages(firstPage);
+
+            // 첫 페이지를 subsampling 활성 + 제한된 스케일로 렌더링
             PDFRenderer pdfRenderer = new PDFRenderer(document);
-            BufferedImage image = pdfRenderer.renderImageWithDPI(0, PDF_DPI);
+            pdfRenderer.setSubsamplingAllowed(true);
+            BufferedImage image = pdfRenderer.renderImage(0, scale);
 
             // 리사이즈 및 JPEG 변환
             return resizeAndConvertToJpeg(image);
+        } finally {
+            renderPermits.release();
         }
     }
 
     /**
-     * 이미지를 썸네일로 리사이즈
+     * 이미지를 썸네일로 리사이즈 (디코딩 전 ImageReader 헤더 픽셀 상한 preflight 적용)
      */
-    private byte[] createImageThumbnail(byte[] imageBytes) throws Exception {
-        try (InputStream is = new ByteArrayInputStream(imageBytes)) {
-            BufferedImage image = ImageIO.read(is);
-            if (image == null) {
+    byte[] createImageThumbnail(byte[] imageBytes) throws Exception {
+        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(imageBytes))) {
+            if (iis == null) {
                 throw new IllegalArgumentException("이미지를 읽을 수 없습니다.");
             }
-
-            return resizeAndConvertToJpeg(image);
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            if (!readers.hasNext()) {
+                throw new IllegalArgumentException("이미지를 읽을 수 없습니다.");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(iis, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width < 1 || height < 1) {
+                    throw new IllegalArgumentException("이미지 크기가 올바르지 않습니다.");
+                }
+                if (width > AssetContentValidator.IMAGE_MAX_DIMENSION_PX
+                        || height > AssetContentValidator.IMAGE_MAX_DIMENSION_PX
+                        || (long) width * height > AssetContentValidator.IMAGE_MAX_PIXELS) {
+                    throw new BusinessException(ErrorCode.ASSET4002);
+                }
+                BufferedImage image = reader.read(0);
+                if (image == null) {
+                    throw new IllegalArgumentException("이미지를 읽을 수 없습니다.");
+                }
+                return resizeAndConvertToJpeg(image);
+            } finally {
+                reader.dispose();
+            }
         }
     }
 
@@ -197,8 +282,8 @@ public class ThumbnailService {
         double heightRatio = (double) THUMBNAIL_HEIGHT / originalHeight;
         double ratio = Math.min(widthRatio, heightRatio);
 
-        int newWidth = (int) (originalWidth * ratio);
-        int newHeight = (int) (originalHeight * ratio);
+        int newWidth = Math.max(1, (int) Math.round(originalWidth * ratio));
+        int newHeight = Math.max(1, (int) Math.round(originalHeight * ratio));
 
         // 고품질 리사이즈 (TYPE_INT_RGB로 생성)
         BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
@@ -243,15 +328,7 @@ public class ThumbnailService {
      * GCS에서 파일 직접 읽기 - 크기 체크 포함 (private 버킷 지원)
      */
     private byte[] readFileWithSizeCheck(String gcsKey) {
-        byte[] bytes = s3Service.readFileBytes(gcsKey);
-
-        if (bytes.length > MAX_FILE_SIZE_BYTES) {
-            throw new IllegalArgumentException(
-                    String.format("파일 크기가 너무 큽니다: %d bytes (최대 %d bytes)",
-                            bytes.length, MAX_FILE_SIZE_BYTES));
-        }
-
-        return bytes;
+        return s3Service.readFileBytesBounded(gcsKey, MAX_FILE_SIZE_BYTES, ErrorCode.ASSET4002);
     }
 
     /**

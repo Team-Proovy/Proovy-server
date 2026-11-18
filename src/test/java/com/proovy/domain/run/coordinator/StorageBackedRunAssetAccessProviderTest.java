@@ -61,7 +61,11 @@ class StorageBackedRunAssetAccessProviderTest {
         UUID unapprovedAttachmentId = UUID.randomUUID();
 
         ObjectNode snapshot = MAPPER.createObjectNode();
-        snapshot.putObject("viewer_context").put("asset_id", "301");
+        String viewerSha = "a".repeat(64);
+        snapshot.putObject("viewer_context")
+                .put("asset_id", "301")
+                .put("sha256", viewerSha)
+                .put("byte_size", 1024L);
         ArrayNode attachments = snapshot.putArray("turn_attachments");
         attachments.addObject().put("attachment_id", approvedAttachmentId.toString());
         attachments.addObject().put("attachment_id", unapprovedAttachmentId.toString());
@@ -69,7 +73,8 @@ class StorageBackedRunAssetAccessProviderTest {
         AiRun run = mockRun(runId, 10L, 20L, snapshot, NOW.plusSeconds(180));
 
         when(jdbc.query(anyString(), any(RowMapper.class), eq(runId), eq(20L), eq(301L), eq(10L), eq(10L)))
-                .thenReturn(List.of("users/10/notes/20/assets/viewer.pdf"));
+                .thenAnswer(inv -> mapViewerAssetRow(
+                        inv.getArgument(1), "users/10/notes/20/assets/viewer.pdf", viewerSha, 1024L));
         when(jdbc.query(anyString(), any(RowMapper.class),
                 eq(20L), eq(10L), eq(approvedAttachmentId), eq(unapprovedAttachmentId)))
                 .thenAnswer(inv -> {
@@ -120,17 +125,32 @@ class StorageBackedRunAssetAccessProviderTest {
     void ttlClampsToDefaultMaxMinutes() {
         UUID runId = UUID.randomUUID();
         ObjectNode snapshot = MAPPER.createObjectNode();
-        snapshot.putObject("viewer_context").put("asset_id", "55");
+        String viewerSha = "b".repeat(64);
+        snapshot.putObject("viewer_context")
+                .put("asset_id", "55")
+                .put("sha256", viewerSha)
+                .put("byte_size", 2048L);
         AiRun run = mockRun(runId, 1L, 2L, snapshot, NOW.plusSeconds(7200));
 
         when(jdbc.query(anyString(), any(RowMapper.class), eq(runId), eq(2L), eq(55L), eq(1L), eq(1L)))
-                .thenReturn(List.of("users/1/notes/2/assets/x.pdf"));
+                .thenAnswer(inv -> mapViewerAssetRow(
+                        inv.getArgument(1), "users/1/notes/2/assets/x.pdf", viewerSha, 2048L));
         when(gcsService.generatePresignedReadUrl(anyString(), anyInt()))
                 .thenReturn("https://mac.ts.net/bucket/users/1/notes/2/assets/x.pdf?sig=x");
 
         provider.accessFor(run, null);
 
         verify(gcsService).generatePresignedReadUrl("users/1/notes/2/assets/x.pdf", 15);
+    }
+
+    private static List<Object> mapViewerAssetRow(
+            RowMapper<?> mapper, String objectKey, String sha256, long fileSize) throws java.sql.SQLException {
+        java.sql.ResultSet rs = mock(java.sql.ResultSet.class);
+        when(rs.getString("object_key")).thenReturn(objectKey);
+        when(rs.getString("sha256")).thenReturn(sha256);
+        when(rs.getLong("file_size")).thenReturn(fileSize);
+        when(rs.wasNull()).thenReturn(false);
+        return List.of(mapper.mapRow(rs, 0));
     }
 
     private static AiRun mockRun(UUID runId, long userId, long noteId, ObjectNode snapshot, Instant deadline) {

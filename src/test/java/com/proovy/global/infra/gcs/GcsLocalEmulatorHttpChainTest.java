@@ -16,6 +16,7 @@ import com.proovy.global.config.GcsConfig;
 import com.proovy.global.config.GcsProperties;
 import com.proovy.global.config.GcsProperties.LocalEmulator;
 import com.proovy.global.infra.thumbnail.ThumbnailService;
+import com.proovy.global.util.HashUtils;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.awt.Color;
@@ -127,8 +128,12 @@ class GcsLocalEmulatorHttpChainTest {
             JdbcTemplate jdbc = mock(JdbcTemplate.class);
             UUID runId = UUID.randomUUID();
             UUID attId = UUID.randomUUID();
+            String originalSha256 = HashUtils.sha256(originalJpeg);
             ObjectNode snapshot = MAPPER.createObjectNode();
-            snapshot.putObject("viewer_context").put("asset_id", "101");
+            snapshot.putObject("viewer_context")
+                    .put("asset_id", "101")
+                    .put("sha256", originalSha256)
+                    .put("byte_size", (long) originalJpeg.length);
             snapshot.putArray("turn_attachments").addObject().put("attachment_id", attId.toString());
 
             AiRun run = mock(AiRun.class);
@@ -138,11 +143,20 @@ class GcsLocalEmulatorHttpChainTest {
             when(run.getRequestSnapshot()).thenReturn(snapshot);
             when(run.getRequestDeadlineAt()).thenReturn(Instant.now().plusSeconds(300));
 
-            when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<RowMapper<String>>any(),
+            when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<RowMapper<?>>any(),
                     org.mockito.ArgumentMatchers.eq(runId), org.mockito.ArgumentMatchers.eq(42L),
                     org.mockito.ArgumentMatchers.eq(101L), org.mockito.ArgumentMatchers.eq(7L),
                     org.mockito.ArgumentMatchers.eq(7L)))
-                    .thenReturn(List.of(assetKey));
+                    .thenAnswer(inv -> {
+                        @SuppressWarnings("unchecked")
+                        RowMapper<Object> mapper = inv.getArgument(1);
+                        java.sql.ResultSet rs = mock(java.sql.ResultSet.class);
+                        when(rs.getString("object_key")).thenReturn(assetKey);
+                        when(rs.getString("sha256")).thenReturn(originalSha256);
+                        when(rs.getLong("file_size")).thenReturn((long) originalJpeg.length);
+                        when(rs.wasNull()).thenReturn(false);
+                        return List.of(mapper.mapRow(rs, 0));
+                    });
             when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<RowMapper<?>>any(),
                     org.mockito.ArgumentMatchers.eq(42L), org.mockito.ArgumentMatchers.eq(7L),
                     org.mockito.ArgumentMatchers.eq(attId)))

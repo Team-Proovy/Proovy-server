@@ -171,6 +171,41 @@ class StorageBackedRunAssetAccessPostgresTest {
                 """, UUID.randomUUID(), ALICE_PDF);
         assertThat(accessProvider.accessFor(aliceRun, null).viewerReadUrl()).isNull();
 
+        // snapshot sha256/byte_size 검증: 일치할 때만 서명 URL 발급, DB 변경(불일치) 시 거부
+        jdbc.update(
+                "UPDATE ai_runs SET status = 'FAILED', completed_at = now(), "
+                        + "failure_code = 'internal_error', failure_class = 'infrastructure' WHERE run_id = ?",
+                aliceRunId);
+        UUID aliceShaRunId = UUID.randomUUID();
+        UUID shaUserMsg = UUID.randomUUID();
+        UUID shaAssistantMsg = UUID.randomUUID();
+        insertTurnMessages(ALICE_NOTE, shaUserMsg, shaAssistantMsg);
+        String alicePdfSha = "e".repeat(64);
+        long alicePdfSize = 54_321L;
+        jdbc.update("UPDATE assets SET sha256 = ?, file_size = ? WHERE id = ?", alicePdfSha, alicePdfSize, ALICE_PDF);
+        jdbc.update("UPDATE assets SET status = 'ACTIVE', deletion_operation_id = NULL, deletion_requested_at = NULL WHERE id = ?", ALICE_PDF);
+        String shaSnapshot = """
+                {
+                  "input": {"text": "이 문서 풀어줘"},
+                  "viewer_context": {
+                    "asset_id": "%d",
+                    "page": 1,
+                    "sha256": "%s",
+                    "byte_size": %d
+                  }
+                }
+                """.formatted(ALICE_PDF, alicePdfSha, alicePdfSize);
+        insertPendingRun(aliceShaRunId, "req-218-sha-check", ALICE, ALICE_NOTE, shaUserMsg, shaAssistantMsg, shaSnapshot);
+        jdbc.update("""
+                INSERT INTO run_asset_dependencies (run_id, note_id, asset_id, dependency_kind, content_version)
+                VALUES (?, ?, ?, 'VIEWER_FOCUS', 1)
+                """, aliceShaRunId, ALICE_NOTE, ALICE_PDF);
+        AiRun aliceShaRun = aiRunRepository.findById(aliceShaRunId).orElseThrow();
+        assertThat(accessProvider.accessFor(aliceShaRun, null).viewerReadUrl()).isNotNull();
+
+        jdbc.update("UPDATE assets SET sha256 = ? WHERE id = ?", "f".repeat(64), ALICE_PDF);
+        assertThat(accessProvider.accessFor(aliceShaRun, null).viewerReadUrl()).isNull();
+
         // 텍스트 전용 run은 RunAssetAccess.NONE 반환
         UUID textUserMsg = UUID.randomUUID();
         UUID textAssistantMsg = UUID.randomUUID();

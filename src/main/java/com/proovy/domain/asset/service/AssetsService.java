@@ -63,4 +63,9 @@ public interface AssetsService {
      * @param thumbnailS3Key 썸네일 S3 키
      */
     void updateAssetThumbnail(Long assetId, String thumbnailS3Key);
+
+    /**
+     * GCS 정리가 남아 있는 FAILED 업로드 자산을 재시도해 정리한다.
+     */
+    void cleanupFailedUploadAssets();
 }

@@ -1,5 +1,6 @@
 package com.proovy.global.infra.gcs;
 
+import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.*;
 import com.proovy.global.config.GcsProperties;
 import com.proovy.global.exception.BusinessException;
@@ -8,10 +9,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,13 +45,27 @@ public class GcsServiceImpl implements GcsService {
 
     @Override
     public void deleteFile(String gcsKey) {
+        deleteFile(gcsKey, null);
+    }
+
+    @Override
+    public void deleteFile(String gcsKey, Long generation) {
         if (gcsKey == null || gcsKey.isBlank()) return;
 
         try {
-            storage.delete(BlobId.of(bucketName, gcsKey));
-            log.info("[GCS] 파일 삭제 성공: {}", gcsKey);
+            BlobId blobId = generation != null
+                    ? BlobId.of(bucketName, gcsKey, generation)
+                    : BlobId.of(bucketName, gcsKey);
+            storage.delete(blobId);
+            log.info("[GCS] 파일 삭제 성공: {}, generation={}", gcsKey, generation);
         } catch (StorageException e) {
-            log.error("[GCS] 파일 삭제 실패: {}, code={}, message={}", gcsKey, e.getCode(), e.getMessage(), e);
+            if (e.getCode() == 404 || (generation != null && e.getCode() == 412)) {
+                log.info("[GCS] 삭제 대상 generation 부재/선행 교체로 건너뜀: {}, generation={}, code={}",
+                        gcsKey, generation, e.getCode());
+                return;
+            }
+            log.error("[GCS] 파일 삭제 실패: {}, generation={}, code={}, message={}",
+                    gcsKey, generation, e.getCode(), e.getMessage(), e);
             throw new BusinessException(ErrorCode.COMMON500);
         }
     }
@@ -181,6 +198,57 @@ public class GcsServiceImpl implements GcsService {
             return bytes;
         } catch (StorageException e) {
             log.error("[GCS] 파일 읽기 실패: {}, message={}", gcsKey, e.getMessage(), e);
+            throw new BusinessException(ErrorCode.COMMON500);
+        }
+    }
+
+    @Override
+    public byte[] readFileBytesBounded(String gcsKey, long maxBytes, ErrorCode exceedErrorCode) {
+        return readFileBytesBoundedPinned(gcsKey, maxBytes, exceedErrorCode).bytes();
+    }
+
+    @Override
+    public PinnedBlobBytes readFileBytesBoundedPinned(String gcsKey, long maxBytes, ErrorCode exceedErrorCode) {
+        if (gcsKey == null || gcsKey.isBlank() || maxBytes < 0) {
+            throw new BusinessException(ErrorCode.COMMON400);
+        }
+
+        try {
+            Blob blob = storage.get(BlobId.of(bucketName, gcsKey));
+            if (blob == null || !blob.exists()) {
+                throw new BusinessException(ErrorCode.ASSET4007);
+            }
+            Long declaredSize = blob.getSize();
+            if (declaredSize != null && declaredSize > maxBytes) {
+                throw new BusinessException(exceedErrorCode);
+            }
+
+            int initialCapacity = declaredSize != null && declaredSize > 0
+                    ? (int) Math.min(declaredSize, maxBytes)
+                    : 4096;
+            ByteArrayOutputStream out = new ByteArrayOutputStream(initialCapacity);
+            byte[] buffer = new byte[8192];
+            ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
+            long total = 0L;
+            try (ReadChannel channel = storage.reader(blob.getBlobId())) {
+                while (true) {
+                    byteBuffer.clear();
+                    int read = channel.read(byteBuffer);
+                    if (read == -1) {
+                        break;
+                    }
+                    total += read;
+                    if (total > maxBytes) {
+                        throw new BusinessException(exceedErrorCode);
+                    }
+                    out.write(buffer, 0, read);
+                }
+            }
+            return new PinnedBlobBytes(out.toByteArray(), blob.getGeneration());
+        } catch (BusinessException e) {
+            throw e;
+        } catch (StorageException | IOException e) {
+            log.error("[GCS] 제한 바이트 파일 읽기 실패: {}, message={}", gcsKey, e.getMessage(), e);
             throw new BusinessException(ErrorCode.COMMON500);
         }
     }

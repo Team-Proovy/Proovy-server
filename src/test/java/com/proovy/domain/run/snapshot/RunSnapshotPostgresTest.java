@@ -350,6 +350,56 @@ class RunSnapshotPostgresTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_runs WHERE note_id = ?", Long.class, note)).isZero();
     }
 
+    @Test
+    void confirmedImageAssetIsAcceptedForViewerFocusAndRejectedWhenPageOrLimitsExceed() {
+        long note = newNote(ALICE);
+        String imageSha = "1".repeat(64);
+        long confirmedPng = jdbc.queryForObject("""
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    content_version, sha256, pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'problem.png', 4096, 'image/png', 'users/1001/problem.png', 'upload', 'ACTIVE',
+                        1, ?, 1280, 960, 1228800, now(), now())
+                RETURNING id
+                """, Long.class, ALICE, note, imageSha);
+
+        UUID runId = UUID.randomUUID();
+        ConversationRunRequest req = request(note, "사진 문제 풀어줘",
+                new ViewerFocus(String.valueOf(confirmedPng), 1, new PageSelection(0.1, 0.1, 0.9, 0.9)));
+        RunSnapshot snapshot = admit(runId, note, req, Instant.now());
+        InternalRunRequest delivered = RunSnapshotFactoryTest.firstDelivery(snapshot,
+                new RunAssetAccess(null, VIEWER_URL, Map.of()));
+
+        assertThat(delivered.viewerContext()).isNotNull();
+        assertThat(delivered.viewerContext().assetId()).isEqualTo(String.valueOf(confirmedPng));
+        assertThat(delivered.viewerContext().sha256()).isEqualTo(imageSha);
+        assertThat(delivered.viewerContext().page()).isEqualTo(1);
+        assertThat(delivered.viewerContext().pageCount()).isNull();
+        assertThat(delivered.viewerContext().pixelWidth()).isEqualTo(1280);
+        assertThat(delivered.viewerContext().pixelHeight()).isEqualTo(960);
+        assertThat(delivered.viewerContext().pixelCount()).isEqualTo(1228800L);
+        assertThat(jdbc.queryForList("""
+                SELECT asset_id, dependency_kind FROM run_asset_dependencies WHERE run_id = ?
+                ORDER BY dependency_kind
+                """, runId)).containsExactly(
+                Map.of("asset_id", confirmedPng, "dependency_kind", "CORPUS_SNAPSHOT"),
+                Map.of("asset_id", confirmedPng, "dependency_kind", "VIEWER_FOCUS"));
+
+        // 이미지는 page=2 거부(RUN4221)
+        assertRejected(ALICE, note, request(note, "q", new ViewerFocus(String.valueOf(confirmedPng), 2, null)),
+                ErrorCode.RUN4221);
+
+        // 15MB 초과 이미지는 거부(RUN4221)
+        long oversizedPng = jdbc.queryForObject("""
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    content_version, sha256, pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'huge.png', 16777216, 'image/png', 'users/1001/huge.png', 'upload', 'ACTIVE',
+                        1, ?, 1000, 1000, 1000000, now(), now())
+                RETURNING id
+                """, Long.class, ALICE, note, "2".repeat(64));
+        assertRejected(ALICE, note, request(note, "q", new ViewerFocus(String.valueOf(oversizedPng), 1, null)),
+                ErrorCode.RUN4221);
+    }
+
     // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------

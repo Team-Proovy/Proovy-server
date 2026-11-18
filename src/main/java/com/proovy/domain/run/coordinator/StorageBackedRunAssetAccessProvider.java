@@ -30,7 +30,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 public class StorageBackedRunAssetAccessProvider implements RunAssetAccessProvider {
 
     private static final String APPROVED_VIEWER_OBJECT_KEY_SQL = """
-            SELECT a.object_key
+            SELECT a.object_key, a.sha256, a.file_size
             FROM run_asset_dependencies d
             JOIN assets a ON a.id = d.asset_id AND a.note_id = d.note_id
             JOIN notes n ON n.note_id = d.note_id
@@ -43,6 +43,9 @@ public class StorageBackedRunAssetAccessProvider implements RunAssetAccessProvid
               AND n.user_id = ?
               AND n.status = 'ACTIVE'
             """;
+
+    private record ApprovedViewerAsset(String objectKey, String sha256, Long fileSize) {
+    }
 
     private final JdbcTemplate jdbc;
     private final GcsService gcsService;
@@ -90,23 +93,44 @@ public class StorageBackedRunAssetAccessProvider implements RunAssetAccessProvid
     }
 
     private String resolveViewerReadUrl(AiRun run, long viewerAssetId, int ttlMinutes) {
-        List<String> keys = jdbc.query(
+        JsonNode viewerNode = run.getRequestSnapshot().path("viewer_context");
+        String expectedSha256 = viewerNode.path("sha256").isTextual()
+                ? viewerNode.path("sha256").asText()
+                : null;
+        Long expectedByteSize = viewerNode.path("byte_size").isIntegralNumber()
+                ? viewerNode.path("byte_size").asLong()
+                : null;
+
+        List<ApprovedViewerAsset> rows = jdbc.query(
                 APPROVED_VIEWER_OBJECT_KEY_SQL,
-                (rs, rowNum) -> rs.getString("object_key"),
+                (rs, rowNum) -> {
+                    long rawSize = rs.getLong("file_size");
+                    return new ApprovedViewerAsset(
+                            rs.getString("object_key"),
+                            rs.getString("sha256"),
+                            rs.wasNull() ? null : rawSize
+                    );
+                },
                 run.getId(),
                 run.getNoteId(),
                 viewerAssetId,
                 run.getUserId(),
                 run.getUserId()
         );
-        if (keys == null || keys.isEmpty()) {
+        if (rows == null || rows.isEmpty()) {
             return null;
         }
-        String objectKey = keys.getFirst();
-        if (objectKey == null || objectKey.isBlank()) {
+        ApprovedViewerAsset row = rows.getFirst();
+        if (row.objectKey() == null || row.objectKey().isBlank()) {
             return null;
         }
-        return gcsService.generatePresignedReadUrl(objectKey, ttlMinutes);
+        if (expectedSha256 != null && !expectedSha256.equals(row.sha256())) {
+            return null;
+        }
+        if (expectedByteSize != null && (row.fileSize() == null || !expectedByteSize.equals(row.fileSize()))) {
+            return null;
+        }
+        return gcsService.generatePresignedReadUrl(row.objectKey(), ttlMinutes);
     }
 
     private Map<String, String> resolveAttachmentReadUrls(AiRun run, List<UUID> attachmentIds, int ttlMinutes) {

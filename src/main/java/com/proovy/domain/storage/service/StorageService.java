@@ -1,6 +1,7 @@
 package com.proovy.domain.storage.service;
 
 import com.proovy.domain.asset.entity.Asset;
+import com.proovy.domain.asset.entity.AssetStatus;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.note.entity.Note;
 import com.proovy.domain.note.repository.NoteRepository;
@@ -142,8 +143,10 @@ public class StorageService {
             notes = noteRepository.findByUserIdOrderByCreatedAtDesc(userId);
         }
 
-        // 전체 자산 조회
-        List<Asset> allAssets = assetRepository.findAllByUserId(userId);
+        // 전체 자산 조회 (실패 업로드 정리 추적 행 제외)
+        List<Asset> allAssets = assetRepository.findAllByUserId(userId).stream()
+                .filter(asset -> asset.getStatus() != AssetStatus.FAILED)
+                .toList();
 
         // 노트별 자산 그룹화
         Map<Long, List<Asset>> assetsByNoteId = allAssets.stream()
