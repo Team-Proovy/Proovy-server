@@ -1,12 +1,12 @@
 {
-  "consumer_version": "browser-run-fixtures-v1.1",
+  "consumer_version": "browser-run-fixtures-v1.2",
   "contract_version": "browser-run-v1",
   "original_path": "tests/fixtures/contracts/browser-run-v1",
   "meaning_owner": "Proovy-server (task 1.75, Team-Proovy/Proovy-server#214)",
   "frame_contract_version": "brain-source-v1",
   "fingerprint_algorithm": "browser-request-sha256-canonical-json-v1",
   "references": {
-    "terminal": "terminal-fixtures-v2.1",
+    "terminal": "terminal-fixtures-v2.2",
     "activity": "activity-fixtures-v1.1",
     "response": "assistant-response-v1",
     "internal_run": "internal-run-fixtures-v2",
@@ -30,7 +30,8 @@
     "S4": "response.page.*는 completed run에만, 모든 page의 started→completed 쌍이 pageIndex 0..n-1 순서로 run.completed 바로 앞에 연속하고 ID·presentation·title이 run.completed pages와 일치.",
     "S5": "모든 frame runId가 같고 모든 assistantMessageId가 run.created의 값과 같다.",
     "S6": "activity 후속 이벤트는 같은 activityId·kind의 앞선 activity.started를 가리키고 activity terminal 뒤에는 그 activity의 이벤트가 없다.",
-    "S7": "각 frame은 BrowserFrame schema를 통과한다(내부 필드 금지·Server 소유 payload)."
+    "S7": "각 frame은 BrowserFrame schema를 통과한다(내부 필드 금지·Server 소유 payload).",
+    "S8": "re_explanation.delta는 run.created 뒤부터 response.page.*와 run.completed 앞까지 deltaIndex 0부터 빈틈없이 +1."
   },
   "consumption_policy": "Consumers pin a merged proovy-brain commit + consumer_version. A copy is allowed only as a verified mirror: every file listed in `files` must match its sha256, and the pinned manifest sha256 must match. Brain stays the single source of truth; changes require a new consumer_version with a change_history entry.",
   "change_history": [
@@ -43,12 +44,17 @@
       "date": "2026-11-12",
       "consumer_version": "browser-run-fixtures-v1.1",
       "reason": "Task 2.07 additive (contract_version stays browser-run-v1): run.completed payload and conversation AssistantMessageContent gain optional responseKind (standard|re_explanation), assuranceScope (verified|unverified|not_applicable) and solutionChecks[] with per-solution disclosure (full|hide_answer|hide_solution) and checkableSteps[] (stepIndex/withheld/description/descriptionFormat/sympyStatement/stepKind/checkResult); Activity Kind read_back (terminal-v2 browser schema, guarded here). Every v1 fixture is byte-identical and still valid; absent fields mean a response from before the extension."
+    },
+    {
+      "date": "2026-11-15",
+      "consumer_version": "browser-run-fixtures-v1.2",
+      "reason": "Task 2.14 additive (contract_version stays browser-run-v1, references terminal-fixtures-v2.2): add re_explanation.delta stream frame support (deltaIndex/delta via terminal-v2 browser schema), streaming and canceled re-explanation stream fixtures, S8 deltaIndex contiguity rule, and negative delta cases."
     }
   ],
   "files": {
-    "browser-run-v1/CATALOG.md": "4a4ba8c0c8e4e04ce15b3923190b2b2514776b83055d9cf94fdaba1a5ff35d2d",
+    "browser-run-v1/CATALOG.md": "14b446d21aefb31663011f9ab1d60c68dabfb7d959388798634652b98bebcfab",
     "browser-run-v1/admission/decisions.json": "e1a2e635bd5ef5b5679c91fbf07c9986d4524b895e943aafbe54cba523ee3f17",
-    "browser-run-v1/build_fixtures.py": "10fa115f3d32919d94c8c3ccef6f90101805a45e82fcb6fe8740d0b1c1128d69",
+    "browser-run-v1/build_fixtures.py": "154c6af7bf224924641af6f218de6bcf7eddea31fdde0837d7af6ea5122b58fe",
     "browser-run-v1/cancel/cases.json": "5922e570198fbc1fe5590a232f005eb53a97e12c267942a8ade4ca0a3f30f5d1",
     "browser-run-v1/cursors/cases.json": "84ca79c922bf40b82ab354ae65db8f030001e6704ac84096034d9920f5ab5232",
     "browser-run-v1/fingerprint/different-attachment.json": "d62b651eb90be126c8edefa8b57fb743407713527f10a85e3bf3bae2b378076d",
@@ -195,6 +201,10 @@
     "browser-run-v1/streams/invalid/page-order-mismatch.json": "ded9f8bea6d407c5324383ba5a8625159cf327a9f0cdca792e684d661605880e",
     "browser-run-v1/streams/invalid/page-unpaired.json": "9a32a880d3d7abb1eb82ef94af4158f8da17258a9016a754dc6db7d63235304d",
     "browser-run-v1/streams/invalid/proof-with-verified-scope.json": "557b3026a38aa786d37960ec61c494ad868094511ff01d57fc9fe88dec27537c",
+    "browser-run-v1/streams/invalid/re-explanation-delta-after-canceling.json": "605852614e40be7e027dd1707b2e3cd58f2e1d23b484b1dd12583a8fe0338ee4",
+    "browser-run-v1/streams/invalid/re-explanation-delta-after-page.json": "980862e0fc85420d932ffbcaa683fe5cfae13c9ba3aff7569aed2faea7b59791",
+    "browser-run-v1/streams/invalid/re-explanation-delta-empty.json": "ca34607e5c34e9ba6ae3182d83ab35d41f67be5c355b070fa625efa68a0afe1e",
+    "browser-run-v1/streams/invalid/re-explanation-delta-gap.json": "1ab9f91034a246272eae9290f5a63907b1a039a3c5a05bbb88a785e2ed906939",
     "browser-run-v1/streams/invalid/re-explanation-verified-scope.json": "2bb7d5f852f2833111da4ba7fd8b42a128498df3eb4683509cf98d0b9e50ac3a",
     "browser-run-v1/streams/invalid/re-explanation-with-solution-checks.json": "9208ddcb293c7fe75daa0c884e8f7077b56067fe09d97e5e03de17c962396a4e",
     "browser-run-v1/streams/invalid/read-back-with-answer.json": "9e38b7f1c9cc5ea527e6c21374d1ab08d687d71ce0b9f053c844f5aa3812d21d",
@@ -211,6 +221,7 @@
     "browser-run-v1/streams/invalid/verified-solution-with-falsified-step.json": "69c416710a6fe717c2646a0432654a695fe9680814dd0bc0b9098eb8da2698c8",
     "browser-run-v1/streams/invalid/verified-step-without-formula.json": "81f51c4869b1d7b0a31a3a92ac9b77e2568e7cb73581c6891ef1255fb9bd1367",
     "browser-run-v1/streams/valid/canceled-asset-deleting.json": "37cf1c5353f81236bf46ea51b5068e6e85547371ebb2233322a8c7a93117261b",
+    "browser-run-v1/streams/valid/canceled-during-re-explanation.json": "144fdde1a83f0d442fb1d1e6d98114fa42c29cbe5356f3abc127bbd90139c69d",
     "browser-run-v1/streams/valid/canceled-pending.json": "104f74aaf4f743e6b0c79eacb178ae0d95070550f923907bf83f110ea8758275",
     "browser-run-v1/streams/valid/canceled-running.json": "44d14b95f66a4b27b6884025bcad1bf63ecfad6d176feecbb24cb9a5a04a3ff7",
     "browser-run-v1/streams/valid/clarification-completed.json": "dd460403e8f533949b674c8b748b4b5962cb9c5db8683b8f9079a0d2c7aa67ab",
@@ -221,6 +232,7 @@
     "browser-run-v1/streams/valid/mixed-scope-completed.json": "2613e4ea6d7f82ad88507cff376f0f8bfafb0ee5863d5a3169afcf921e88dd54",
     "browser-run-v1/streams/valid/not-applicable-proof.json": "d1981c7ebf352618b2aa7855c871987aec4d578e7a0b16b59994b0dc65b2d5c2",
     "browser-run-v1/streams/valid/re-explanation-completed.json": "c909fafe6a478d85a651172815cc5ee29d2ad02ba298e49c9c138948a7352cd9",
+    "browser-run-v1/streams/valid/re-explanation-streaming.json": "8ebb67fab402b706f2822378b66eb86899c65bbd5abe1ba807613d7e190eb622",
     "browser-run-v1/streams/valid/replay-source-unavailable.json": "c097b5ff341f5b94caccbcb48c4367835aaed37f08d2aa7ab67244593f68bbd4",
     "browser-run-v1/streams/valid/substantive-completed.json": "1e65b881ed4c7ad4e0213ba33685d50f1febe02105d391c4aca2a14252198d24",
     "browser-run-v1/streams/valid/substantive-with-source.json": "5a2348ebec89ba31960f87379b523e8414017b42e1d293d8a93d6cad476646a5",
@@ -229,6 +241,6 @@
     "browser-run-v1/streams/valid/verified-multiple-choice-with-read-back.json": "1d86322b59d3bcbb9b45ab6ef566adf8e64a2cd3e3d23bc0b917b014d510bc08"
   },
   "dependencies": {
-    "terminal-v2/browser.schema.json": "8af7574ae52bc242dc956c84d2a5f0189ddcd5c6b74cc1a015b1e89afdf017c5"
+    "terminal-v2/browser.schema.json": "8126cbcd1f3a4d92d797c0347b6a0d31a5f4d03b642054fb5aa86a447400d2cd"
   }
 }

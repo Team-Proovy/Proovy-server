@@ -254,6 +254,63 @@ class RunSnapshotPostgresTest {
         assertThat(snapshot.policySnapshot().at("/history/estimated_tokens").asInt()).isEqualTo(30_008);
     }
 
+    @Test
+    void storedAnswerMetadataRoundTripsIntoDeliveredReferenceAndAltersFingerprint() {
+        long note = newNote(ALICE);
+        Turn hiddenTurn = completedTurn(note, "x+1=3을 답만 가리고 풀어줘", "풀이 단계만 안내했습니다.");
+        UUID firstSolution = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id, assistant_message_id,
+                       schema_version, solution_version, problem_statement, solution_text, claims, verification_summary,
+                       verification_version, overall_coverage, content_sha256, answer_claim_id, answer_text)
+                VALUES (?, 'solution-eeeeeeeeeeeeeeeeeeee-001', ?, ?, ?, 'verified-solution-v1', 1, 'x+1=3',
+                        '양변에서 1을 빼면 $x=2$이다.', '[{"claim_id":"claim-1","statement":"해를 구한다","coverage":"direct"}]',
+                        '{}', 'chain-verification-report-v3', 'direct', ?, 'claim-1', '$x=2$')
+                """, firstSolution, note, hiddenTurn.runId(), hiddenTurn.assistantMessageId(), "d".repeat(64));
+
+        RunSnapshot snapshot = admit(UUID.randomUUID(), note, request(note, "답이 99 아닌가요?", null), Instant.now());
+        InternalRunRequest delivered = RunSnapshotFactoryTest.firstDelivery(snapshot, RunAssetAccess.NONE);
+
+        assertThat(delivered.verifiedSolutionRefs()).hasSize(1);
+        VerifiedSolutionRef ref = delivered.verifiedSolutionRefs().getFirst();
+        assertThat(ref.answerClaimId()).isEqualTo("claim-1");
+        assertThat(ref.answerText()).isEqualTo("$x=2$");
+        assertThat(delivered.history()).noneMatch(message -> message.text().contains("$x=2$"));
+
+        // 동일 problem_statement·claims라도 answer_text가 달라지면 snapshot fingerprint가 달라진다
+        long otherNote = newNote(ALICE);
+        Turn otherTurn = completedTurn(otherNote, "x+1=3을 답만 가리고 풀어줘", "풀이 단계만 안내했습니다.");
+        jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id, assistant_message_id,
+                       schema_version, solution_version, problem_statement, solution_text, claims, verification_summary,
+                       verification_version, overall_coverage, content_sha256, answer_claim_id, answer_text)
+                VALUES (?, 'solution-eeeeeeeeeeeeeeeeeeee-001', ?, ?, ?, 'verified-solution-v1', 1, 'x+1=3',
+                        '양변에서 1을 빼면 $x=3$이다.', '[{"claim_id":"claim-1","statement":"해를 구한다","coverage":"direct"}]',
+                        '{}', 'chain-verification-report-v3', 'direct', ?, 'claim-1', '$x=3$')
+                """, UUID.randomUUID(), otherNote, otherTurn.runId(), otherTurn.assistantMessageId(), "d".repeat(64));
+        RunSnapshot otherSnapshot = factory.create(UUID.randomUUID(), ALICE, otherNote,
+                request(otherNote, "답이 99 아닌가요?", null), Instant.now());
+        assertThat(otherSnapshot.requestFingerprint()).isNotEqualTo(snapshot.requestFingerprint());
+
+        // R3-M1: 2,001자리·렌더링 확장(13,511자) 답도 PG -> Snapshot -> Delivered VerifiedSolutionRef로 잘리지 않고 전달된다
+        long longNote = newNote(ALICE);
+        Turn longTurn = completedTurn(longNote, "10^2000 계산", "풀이 단계만 안내했습니다.");
+        String longAnswer = "1" + "0".repeat(2_000);
+        jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id, assistant_message_id,
+                       schema_version, solution_version, problem_statement, solution_text, claims, verification_summary,
+                       verification_version, overall_coverage, content_sha256, answer_claim_id, answer_text)
+                VALUES (?, 'solution-eeeeeeeeeeeeeeeeeeee-002', ?, ?, ?, 'verified-solution-v1', 1, '10^2000',
+                        ?, '[{"claim_id":"claim-1","statement":"거듭제곱 계산","coverage":"supporting"}]',
+                        '{}', 'chain-verification-report-v3', 'supporting', ?, 'claim-1', ?)
+                """, UUID.randomUUID(), longNote, longTurn.runId(), longTurn.assistantMessageId(),
+                "답: " + longAnswer, "e".repeat(64), longAnswer);
+        RunSnapshot longSnapshot = factory.create(UUID.randomUUID(), ALICE, longNote,
+                request(longNote, "답이 틀린 것 같아요", null), Instant.now());
+        InternalRunRequest longDelivered = RunSnapshotFactoryTest.firstDelivery(longSnapshot, RunAssetAccess.NONE);
+        assertThat(longDelivered.verifiedSolutionRefs().getFirst().answerText()).isEqualTo(longAnswer);
+    }
+
     // ------------------------------------------------------------------
     // 거부
     // ------------------------------------------------------------------
@@ -291,6 +348,56 @@ class RunSnapshotPostgresTest {
         jdbc.update("UPDATE notes SET status = 'DELETING', deletion_requested_at = now() WHERE note_id = ?", note);
         assertRejected(ALICE, note, request(note, "q", null), ErrorCode.RUN4041);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_runs WHERE note_id = ?", Long.class, note)).isZero();
+    }
+
+    @Test
+    void confirmedImageAssetIsAcceptedForViewerFocusAndRejectedWhenPageOrLimitsExceed() {
+        long note = newNote(ALICE);
+        String imageSha = "1".repeat(64);
+        long confirmedPng = jdbc.queryForObject("""
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    content_version, sha256, pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'problem.png', 4096, 'image/png', 'users/1001/problem.png', 'upload', 'ACTIVE',
+                        1, ?, 1280, 960, 1228800, now(), now())
+                RETURNING id
+                """, Long.class, ALICE, note, imageSha);
+
+        UUID runId = UUID.randomUUID();
+        ConversationRunRequest req = request(note, "사진 문제 풀어줘",
+                new ViewerFocus(String.valueOf(confirmedPng), 1, new PageSelection(0.1, 0.1, 0.9, 0.9)));
+        RunSnapshot snapshot = admit(runId, note, req, Instant.now());
+        InternalRunRequest delivered = RunSnapshotFactoryTest.firstDelivery(snapshot,
+                new RunAssetAccess(null, VIEWER_URL, Map.of()));
+
+        assertThat(delivered.viewerContext()).isNotNull();
+        assertThat(delivered.viewerContext().assetId()).isEqualTo(String.valueOf(confirmedPng));
+        assertThat(delivered.viewerContext().sha256()).isEqualTo(imageSha);
+        assertThat(delivered.viewerContext().page()).isEqualTo(1);
+        assertThat(delivered.viewerContext().pageCount()).isNull();
+        assertThat(delivered.viewerContext().pixelWidth()).isEqualTo(1280);
+        assertThat(delivered.viewerContext().pixelHeight()).isEqualTo(960);
+        assertThat(delivered.viewerContext().pixelCount()).isEqualTo(1228800L);
+        assertThat(jdbc.queryForList("""
+                SELECT asset_id, dependency_kind FROM run_asset_dependencies WHERE run_id = ?
+                ORDER BY dependency_kind
+                """, runId)).containsExactly(
+                Map.of("asset_id", confirmedPng, "dependency_kind", "CORPUS_SNAPSHOT"),
+                Map.of("asset_id", confirmedPng, "dependency_kind", "VIEWER_FOCUS"));
+
+        // 이미지는 page=2 거부(RUN4221)
+        assertRejected(ALICE, note, request(note, "q", new ViewerFocus(String.valueOf(confirmedPng), 2, null)),
+                ErrorCode.RUN4221);
+
+        // 15MB 초과 이미지는 거부(RUN4221)
+        long oversizedPng = jdbc.queryForObject("""
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    content_version, sha256, pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'huge.png', 16777216, 'image/png', 'users/1001/huge.png', 'upload', 'ACTIVE',
+                        1, ?, 1000, 1000, 1000000, now(), now())
+                RETURNING id
+                """, Long.class, ALICE, note, "2".repeat(64));
+        assertRejected(ALICE, note, request(note, "q", new ViewerFocus(String.valueOf(oversizedPng), 1, null)),
+                ErrorCode.RUN4221);
     }
 
     // ------------------------------------------------------------------

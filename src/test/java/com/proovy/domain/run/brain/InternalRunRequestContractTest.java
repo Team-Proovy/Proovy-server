@@ -30,10 +30,10 @@ class InternalRunRequestContractTest {
     }
 
     @Test
-    @DisplayName("거부 요청 23종은 모두 계약 위반이고 오류에 grant·URL·입력 값이 없다")
+    @DisplayName("거부 요청 25종은 모두 계약 위반이고 오류에 grant·URL·입력 값이 없다")
     void invalidRequestsRejected() {
         var invalid = entries("invalid");
-        assertThat(invalid).hasSize(23);
+        assertThat(invalid).hasSize(25);
         for (Map.Entry<String, JsonNode> entry : invalid) {
             JsonNode request = entry.getValue().get("request");
             assertThatThrownBy(() -> InternalRunWire.read(request, InternalRunRequest.class))
@@ -78,10 +78,10 @@ class InternalRunRequestContractTest {
     }
 
     @Test
-    @DisplayName("fingerprint 27쌍: canonical·sha256이 Python과 같고 same/different 관계가 base와 맞는다")
+    @DisplayName("fingerprint 28쌍: canonical·sha256이 Python과 같고 same/different 관계가 base와 맞는다")
     void fingerprintFixtures() {
         var cases = entries("fingerprint");
-        assertThat(cases).hasSize(27);
+        assertThat(cases).hasSize(28);
         InternalRunFingerprint base = InternalRunWire.read(load("fingerprint/base.json").get("request"),
                 InternalRunRequest.class).fingerprint();
         for (Map.Entry<String, JsonNode> entry : cases) {
@@ -189,6 +189,25 @@ class InternalRunRequestContractTest {
                 .containsExactlyInAnyOrderElementsOf(java.util.Arrays.stream(
                         com.proovy.domain.run.contract.MessageRole.values())
                         .map(com.proovy.domain.run.contract.MessageRole::wireValue).toList());
+    }
+
+    @Test
+    @DisplayName("VerifiedSolutionRef.answer_text는 2,000·2,001·10,000·20,000자를 허용해 fingerprint에 반영하고 20,001자는 거부한다")
+    void longAnswerTextBoundsInSolutionRef() {
+        assertThat(InternalRunContract.MAX_ANSWER_TEXT_CHARS).isEqualTo(20_000);
+        java.util.Set<String> fingerprints = new java.util.HashSet<>();
+        for (int len : new int[] {2_000, 2_001, 10_000, InternalRunContract.MAX_ANSWER_TEXT_CHARS}) {
+            String longAnswer = "1" + "0".repeat(len - 1);
+            ObjectNode raw = (ObjectNode) load("requests/with-answer-ref.json").deepCopy();
+            ((ObjectNode) raw.at("/verified_solution_refs/0")).put("answer_text", longAnswer);
+            InternalRunRequest parsed = InternalRunWire.read(raw, InternalRunRequest.class);
+            assertThat(parsed.verifiedSolutionRefs().getFirst().answerText()).isEqualTo(longAnswer);
+            fingerprints.add(parsed.fingerprint().sha256());
+        }
+        assertThat(fingerprints).hasSize(4);
+
+        assertRejected(request -> ((ObjectNode) request.at("/verified_solution_refs/0"))
+                .put("answer_text", "1" + "0".repeat(InternalRunContract.MAX_ANSWER_TEXT_CHARS)));
     }
 
     private static void assertRejected(java.util.function.Consumer<ObjectNode> mutation) {

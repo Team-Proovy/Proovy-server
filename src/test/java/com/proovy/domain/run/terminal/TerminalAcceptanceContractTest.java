@@ -45,6 +45,14 @@ class TerminalAcceptanceContractTest {
     void pairIsAccepted(String name) {
         JsonNode fixture = pair(name);
         JsonNode source = fixture.get("source");
+        if ("re_explanation.delta".equals(source.get("type").asText())) {
+            SourceEvent parsed = event(source);
+            assertThat(com.proovy.domain.run.event.SourceActivities.browserPayload(
+                    parsed.type(), parsed.payload())).isEqualTo(fixture.get("browser").get("payload"));
+            assertThatThrownBy(() -> TerminalAcceptance.accept(parsed, seededScope(source)))
+                    .isInstanceOf(TerminalRejection.class);
+            return;
+        }
         AcceptedTerminal accepted = TerminalAcceptance.accept(stored(source), seededScope(source));
         assertThat(TerminalAcceptance.accept(event(source), seededScope(source))).isEqualTo(accepted);
         assertThat(accepted.runId()).isEqualTo(source.get("run_id").asText());
@@ -97,6 +105,14 @@ class TerminalAcceptanceContractTest {
             return;
         }
         assertThat(name).isNotIn(ENVELOPE_REJECTED);
+        if ("re_explanation.delta".equals(source.get("type").asText())) {
+            assertThatThrownBy(() -> com.proovy.domain.run.event.SourceActivities.browserPayload(
+                    parsed.type(), parsed.payload()))
+                    .isInstanceOf(com.proovy.domain.run.event.ActivityContractViolation.class)
+                    .satisfies(error -> assertThat(error.getMessage())
+                            .doesNotContainPattern("[\\uAC00-\\uD7A3$]|https?://|Traceback"));
+            return;
+        }
         assertThatThrownBy(() -> TerminalAcceptance.accept(parsed, seededScope(source)))
                 .isInstanceOf(TerminalRejection.class)
                 // message에 payload 값(한국어 본문·math)이 들어가지 않는다.
@@ -129,7 +145,58 @@ class TerminalAcceptanceContractTest {
             }
             checked++;
         }
-        assertThat(checked).isEqualTo(3);
+        assertThat(checked).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("verified-answer-ref: answer_claim_id·answer_text는 저장 입력으로 추출되고 공개 표면에는 노출되지 않는다")
+    void verifiedAnswerRefExtractsAnswerMetadataWithoutLeakingToBrowser() {
+        JsonNode fixture = pair("verified-answer-ref");
+        JsonNode source = fixture.get("source");
+        AcceptedCompletion completion = (AcceptedCompletion) TerminalAcceptance.accept(stored(source),
+                seededScope(source));
+
+        assertThat(completion.verifiedSolutions()).hasSize(1);
+        VerifiedSolutionInput solution = completion.verifiedSolutions().getFirst();
+        assertThat(solution.answerClaimId()).isEqualTo("claim-1");
+        assertThat(solution.answerText()).isEqualTo("$x=2$");
+
+        String browserSurface = fixture.get("browser").toString() + "\n" + completion.plainText() + "\n"
+                + completion.responsePages() + "\n" + completion.verificationSummary();
+        assertThat(browserSurface).doesNotContain("answer_claim_id", "answer_text", "$x=2$", "x=2");
+    }
+
+    @Test
+    @DisplayName("verified-answer-ref: 2,000/2,001/10,000 및 렌더링 확장 답(13,511~20,000)은 잘리지 않고 수락되며 20,001은 거부된다")
+    void verifiedAnswerRefAcceptsLongAndExpandedAnswersUpToSafeMarkdownCeiling() {
+        for (String longAnswer : List.of(
+                "1" + "0".repeat(1_999),
+                "1" + "0".repeat(2_000),
+                "1" + "0".repeat(9_999),
+                "$\\texttt{" + "x\\_".repeat(4_500) + "}$",
+                "1" + "0".repeat(SafeMarkdown.MAX_LENGTH - 1))) {
+            ObjectNode source = (ObjectNode) pair("verified-answer-ref").get("source").deepCopy();
+            ObjectNode artifact = (ObjectNode) source.at("/payload/verified_solutions/0");
+            String body = longAnswer.length() == SafeMarkdown.MAX_LENGTH ? longAnswer : "답: " + longAnswer;
+            artifact.put("solution_text", body);
+            artifact.put("answer_text", longAnswer);
+
+            AcceptedCompletion accepted = (AcceptedCompletion) TerminalAcceptance.accept(stored(source),
+                    seededScope(source));
+            VerifiedSolutionInput solution = accepted.verifiedSolutions().getFirst();
+            assertThat(solution.answerClaimId()).isEqualTo("claim-1");
+            assertThat(solution.answerText()).isEqualTo(longAnswer);
+            assertThat(solution.answerText()).hasSize(longAnswer.length());
+            String browserSurface = accepted.plainText() + "\n" + accepted.responsePages() + "\n"
+                    + accepted.verificationSummary();
+            assertThat(browserSurface).doesNotContain("answer_claim_id", "answer_text", longAnswer);
+        }
+
+        ObjectNode over = (ObjectNode) pair("verified-answer-ref").get("source").deepCopy();
+        ObjectNode overArtifact = (ObjectNode) over.at("/payload/verified_solutions/0");
+        overArtifact.put("answer_text", "1" + "0".repeat(SafeMarkdown.MAX_LENGTH));
+        assertThatThrownBy(() -> TerminalAcceptance.accept(stored(over), seededScope(over)))
+                .isInstanceOf(TerminalRejection.class);
     }
 
     @ParameterizedTest(name = "{0}")
@@ -200,11 +267,12 @@ class TerminalAcceptanceContractTest {
                     .isEqualTo(completed.get("solutionChecks"));
             valid++;
         }
-        assertThat(valid).isEqualTo(7);
+        assertThat(valid).isEqualTo(8);
         int invalid = 0;
         for (var entry : files("browser-run-v1/streams/invalid", ".json").entrySet()) {
             JsonNode completed = completedFrame(read(entry.getValue()));
             if (completed == null || entry.getKey().startsWith("read-back-")
+                    || entry.getKey().startsWith("re-explanation-delta-")
                     || EXTENSION_KEYS.stream().noneMatch(completed::has)) {
                 continue;
             }

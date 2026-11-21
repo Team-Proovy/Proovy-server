@@ -87,6 +87,12 @@ public class VerifiedSolution extends AssignedIdEntity<UUID> {
     @Column(name = "revises_solution_id", updatable = false)
     private UUID revisesSolutionId;
 
+    @Column(name = "answer_claim_id", length = 128, updatable = false)
+    private String answerClaimId;
+
+    @Column(name = "answer_text", columnDefinition = "TEXT", updatable = false)
+    private String answerText;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private VerifiedSolutionStatus status;
@@ -106,7 +112,8 @@ public class VerifiedSolution extends AssignedIdEntity<UUID> {
                              String problemStatement, JsonNode problemConditions, String solutionText,
                              JsonNode claims, JsonNode stepMarks, JsonNode verificationSummary,
                              String verificationVersion, JsonNode sourceRefIds, String overallCoverage,
-                             String contentSha256, UUID revisesSolutionId, Instant createdAt) {
+                             String contentSha256, UUID revisesSolutionId, String answerClaimId,
+                             String answerText, Instant createdAt) {
         this.id = Objects.requireNonNull(id);
         this.publicSolutionId = Objects.requireNonNull(publicSolutionId);
         this.noteId = Objects.requireNonNull(noteId);
@@ -125,6 +132,8 @@ public class VerifiedSolution extends AssignedIdEntity<UUID> {
         this.overallCoverage = Objects.requireNonNull(overallCoverage);
         this.contentSha256 = Objects.requireNonNull(contentSha256);
         this.revisesSolutionId = revisesSolutionId;
+        this.answerClaimId = answerClaimId;
+        this.answerText = answerText;
         this.status = VerifiedSolutionStatus.ACTIVE;
         this.createdAt = Objects.requireNonNull(createdAt);
     }

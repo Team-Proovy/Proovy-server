@@ -64,16 +64,23 @@ public record InternalRunFingerprint(String canonical, String sha256) {
                 .toList());
         document.put("verified_solution_refs", sorted(request.verifiedSolutionRefs(), VerifiedSolutionRef::solutionId)
                 .stream()
-                .map(ref -> Map.of(
-                        "solution_id", ref.solutionId(),
-                        "content_sha256", contentSha256(Map.of(
-                                "problem_summary", ref.problemSummary(),
-                                "claims", sorted(ref.claims(), VerifiedSolutionRefClaim::claimId).stream()
-                                        .map(claim -> Map.of(
-                                                "claim_id", claim.claimId(),
-                                                "statement", claim.statement(),
-                                                "coverage", claim.coverage().wireValue()))
-                                        .toList()))))
+                .map(ref -> {
+                    Map<String, Object> content = new LinkedHashMap<>();
+                    content.put("problem_summary", ref.problemSummary());
+                    content.put("claims", sorted(ref.claims(), VerifiedSolutionRefClaim::claimId).stream()
+                            .map(claim -> Map.of(
+                                    "claim_id", claim.claimId(),
+                                    "statement", claim.statement(),
+                                    "coverage", claim.coverage().wireValue()))
+                            .toList());
+                    if (ref.answerClaimId() != null) {
+                        content.put("answer_claim_id", ref.answerClaimId());
+                        content.put("answer_text", ref.answerText());
+                    }
+                    return Map.of(
+                            "solution_id", ref.solutionId(),
+                            "content_sha256", contentSha256(content));
+                })
                 .toList());
         document.put("turn_attachment_refs", sorted(request.turnAttachmentRefs(), TurnAttachmentRef::attachmentId)
                 .stream()

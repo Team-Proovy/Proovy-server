@@ -1,11 +1,11 @@
 {
-  "consumer_version": "terminal-fixtures-v2.1",
+  "consumer_version": "terminal-fixtures-v2.2",
   "source_contract_version": "brain-source-v1",
   "assistant_response_version": "assistant-response-v1",
   "artifact_version": "verified-solution-v1",
   "original_path": "tests/fixtures/contracts/terminal-v2",
-  "change_reason": "Task 1.58: run.failed gains code invalid_attachment{reason} — attachment-inspection refusals (corrupt/forged/encrypted/oversized inputs) stop reporting budget_exceeded; failure_class=attachment, recoverable=false, reason is a fixed sub-code with a fixed safe message; Server consumes it for compensation and re-upload guidance.",
-  "consumption_policy": "Pin terminal-fixtures-v2.1 at original_path; changes require a new fixture version and reason.",
+  "change_reason": "Task 2.13/2.14 terminal-fixtures-v2.2: re_explanation.delta streaming is added; VerifiedSolution gains optional paired answer_claim_id and answer_text so prior final answers flow from producer through Server storage to internal-run references without browser leakage.",
+  "consumption_policy": "Pin terminal-fixtures-v2.2 at original_path; changes require a new fixture version and reason.",
   "ownership": {
     "brain": [
       "snake_case source",
@@ -44,10 +44,12 @@
     "explain-existing-hide-answer",
     "conflict-clarification",
     "conflict-substantive",
+    "verified-answer-ref",
     "phase2-verified",
     "phase2-mixed-scope",
     "phase2-hide-answer",
-    "phase2-re-explanation"
+    "phase2-re-explanation",
+    "re-explanation-delta"
   ],
   "change_history": [
     {
@@ -70,6 +72,10 @@
     {
       "date": "2026-11-12",
       "reason": "Task 2.07 review (still terminal-fixtures-v2.1, unmerged): run.completed source payload gains the optional Phase 2 completion extension response_kind/assurance_scope/solution_checks (all three or none; snake_case source, camelCase browser = browser-run-v1 CompletionExtension; per-solution disclosure, withheld steps). New pairs phase2-*, negatives extension-*. Existing pairs are byte-identical."
+    },
+    {
+      "date": "2026-11-15",
+      "reason": "Task 2.13/2.14 terminal-fixtures-v2.2 (additive, directory stays terminal-v2): re_explanation.delta streaming is added; VerifiedSolution gains optional paired answer_claim_id and answer_text (verifying answer_claim_id belongs to claims and answer_text is verbatim in solution_text). New pair verified-answer-ref and negative cases unpaired-answer-ref / phantom-answer-claim / missing-answer-text; existing pairs stay byte-identical and browser events never carry verified_solutions."
     }
   ],
   "existing_reference_policy": "Caller supplies checked ID/version/claim coverage only, never the existing full answer. Public summaries select referenced claims inside assemble_response and retain disclosure checks. Storage/authentication/semantic claim matching are caller responsibilities, not implemented here.",
@@ -80,6 +86,10 @@
     "attachment-unknown-reason",
     "attachment-wrong-class",
     "code",
+    "delta-empty",
+    "delta-negative-index",
+    "delta-traceback",
+    "delta-url",
     "duplicate-page",
     "existing-coverage-mismatch",
     "existing-full-answer-extra",
@@ -93,9 +103,11 @@
     "kind-type-mismatch",
     "metadata",
     "missing-activity-kind",
+    "missing-answer-text",
     "missing-block-kind",
     "missing-selected-page",
     "overclaimed-coverage",
+    "phantom-answer-claim",
     "phantom-claim",
     "phantom-solution",
     "phantom-source",
@@ -104,6 +116,7 @@
     "reason-on-non-attachment-code",
     "source-version-conflict",
     "stdout",
+    "unpaired-answer-ref",
     "unsafe-failure-message",
     "unverified-as-verified",
     "video_target"

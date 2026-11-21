@@ -1,0 +1,29 @@
+{
+  "source": {
+    "contract_version": "brain-source-v1",
+    "run_id": "run-7",
+    "attempt": 1,
+    "fence_token": "fence-9f8c",
+    "source_event_id": "run-7:reexp:r0:delta",
+    "occurred_at": "2026-10-01T09:00:00Z",
+    "type": "re_explanation.delta",
+    "payload": {
+      "delta_index": -1,
+      "delta": "step"
+    }
+  },
+  "browser": {
+    "contractVersion": "brain-source-v1",
+    "runId": "run-7",
+    "occurredAt": "2026-10-01T09:00:00Z",
+    "type": "re_explanation.delta",
+    "payload": {
+      "deltaIndex": -1,
+      "delta": "step"
+    },
+    "seq": 4
+  },
+  "source_outcome": "reject",
+  "browser_outcome": "reject",
+  "schema_outcome": "reject"
+}

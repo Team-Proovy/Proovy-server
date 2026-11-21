@@ -70,6 +70,7 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
     @Query("SELECT a.noteId AS noteId, COUNT(a) AS count " +
            "FROM Asset a " +
            "WHERE a.noteId IN :noteIds " +
+           "AND a.status <> com.proovy.domain.asset.entity.AssetStatus.FAILED " +
            "GROUP BY a.noteId")
     List<Map<String, Object>> countByNoteIdIn(@Param("noteIds") List<Long> noteIds);
 
@@ -90,6 +91,21 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
      * OCR 상태가 특정 값이고 updatedAt이 특정 시각 이전인 자산 목록 조회 (타임아웃 처리용)
      */
     List<Asset> findByOcrStatusAndUpdatedAtBefore(Asset.OcrStatus ocrStatus, LocalDateTime threshold);
+
+    /**
+     * 특정 상태의 자산 목록 조회 (FAILED 업로드 GCS 정리 재시도 등)
+     */
+    List<Asset> findByStatus(AssetStatus status);
+
+    /**
+     * 확정 승격 intent가 남아 있는 자산 목록 조회 (롤백/단절로 인한 고아 confirmed 객체 정리)
+     */
+    List<Asset> findByPendingConfirmedObjectKeyIsNotNull();
+
+    /**
+     * staging 객체 정리가 아직 끝나지 않은 자산 목록 조회
+     */
+    List<Asset> findByStagingObjectKeyIsNotNull();
 
     /**
      * 특정 사용자의 모든 자산 삭제 (회원 탈퇴용)

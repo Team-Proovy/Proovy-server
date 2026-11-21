@@ -1,15 +1,27 @@
 package com.proovy.global.infra.gcs;
 
+import com.proovy.global.exception.BusinessException;
+import com.proovy.global.response.ErrorCode;
 import java.io.InputStream;
 import java.util.List;
 
 public interface GcsService {
+
+    record PinnedBlobBytes(byte[] bytes, Long generation) {
+    }
 
     /**
      * GCS에서 파일 삭제
      * @param gcsKey GCS 저장 경로
      */
     void deleteFile(String gcsKey);
+
+    /**
+     * GCS에서 특정 generation과 일치할 때만 파일 삭제
+     */
+    default void deleteFile(String gcsKey, Long generation) {
+        deleteFile(gcsKey);
+    }
 
     /**
      * GCS에서 여러 파일 일괄 삭제
@@ -67,9 +79,35 @@ public interface GcsService {
     String generatePresignedDownloadUrl(String gcsKey, String fileName, int durationMinutes);
 
     /**
+     * 실행/미리보기용 Signed URL 생성 (GET, attachment 강제 없음)
+     * @param gcsKey GCS 저장 경로
+     * @param durationMinutes URL 유효 시간 (분)
+     * @return Signed URL
+     */
+    String generatePresignedReadUrl(String gcsKey, int durationMinutes);
+
+    /**
      * GCS에서 파일 바이트 직접 읽기 (서버 내부용, 버킷 공개 여부 무관)
      * @param gcsKey GCS 저장 경로
      * @return 파일 바이트 배열
      */
     byte[] readFileBytes(String gcsKey);
+
+    /**
+     * GCS 메타데이터로 존재·크기를 먼저 확인한 뒤 generation-pinned 채널에서 {@code maxBytes} 상한까지만 읽고 generation을 반환한다.
+     */
+    default PinnedBlobBytes readFileBytesBoundedPinned(String gcsKey, long maxBytes, ErrorCode exceedErrorCode) {
+        return new PinnedBlobBytes(readFileBytesBounded(gcsKey, maxBytes, exceedErrorCode), null);
+    }
+
+    /**
+     * GCS 메타데이터로 존재·크기를 먼저 확인한 뒤 generation-pinned 채널에서 {@code maxBytes} 상한까지만 읽는다.
+     */
+    default byte[] readFileBytesBounded(String gcsKey, long maxBytes, ErrorCode exceedErrorCode) {
+        byte[] bytes = readFileBytes(gcsKey);
+        if (bytes.length > maxBytes) {
+            throw new BusinessException(exceedErrorCode);
+        }
+        return bytes;
+    }
 }

@@ -26,7 +26,7 @@ public final class InternalRunContract {
     public static final String SOURCE_CONTRACT_VERSION = "brain-source-v1";
     public static final String FINGERPRINT_ALGORITHM = "sha256-canonical-json-v1";
     /** Server가 맞춰 둔 fixture 소비 버전. pin을 올리면 함께 올린다. */
-    public static final String CONSUMER_VERSION = "internal-run-fixtures-v2";
+    public static final String CONSUMER_VERSION = "internal-run-fixtures-v3";
 
     public static final int MAX_HISTORY_MESSAGES = 100;
     public static final int MAX_HISTORY_MESSAGE_CHARS = 50_000;
@@ -36,6 +36,7 @@ public final class InternalRunContract {
     public static final int MAX_TURN_ATTACHMENTS = 10;
     public static final int MAX_PROBLEM_SUMMARY_CHARS = 4_000;
     public static final int MAX_CLAIM_STATEMENT_CHARS = 2_000;
+    public static final int MAX_ANSWER_TEXT_CHARS = 20_000;
     public static final int MAX_REF_CLAIMS = 50;
     public static final int MAX_DISPLAY_LABEL_CHARS = 200;
     public static final int MAX_READ_URL_CHARS = 4_096;

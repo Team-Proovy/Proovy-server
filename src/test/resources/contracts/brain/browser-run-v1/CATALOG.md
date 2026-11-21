@@ -9,11 +9,11 @@ Brain은 versioned artifact만 보관한다 — `src/`는 이 디렉터리를 im
 
 ## 버전
 
-- `consumer_version`: `browser-run-fixtures-v1.1` (2026-11-12, task 2.07 Phase 2 additive 확장 — 아래 "Phase 2 확장")
-  - 이전: `browser-run-fixtures-v1` (2026-10-17 최초 고정, 단계 2 합의 D1~D10). v1 fixture는 모두 byte 그대로 남아 있고 v1.1 schema도 통과한다.
+- `consumer_version`: `browser-run-fixtures-v1.2` (2026-11-15, task 2.14 `re_explanation.delta` 스트리밍 채널 additive 확장 — 아래 "Phase 2 확장")
+  - 이전: `browser-run-fixtures-v1.1` (2026-11-12, task 2.07), `browser-run-fixtures-v1` (2026-10-17 최초 고정, 단계 2 합의 D1~D10). v1/v1.1 fixture는 모두 유효하며 v1.2 schema도 통과한다.
 - `contract_version`: `browser-run-v1`
 - durable frame `contractVersion`: `brain-source-v1` (D1 — terminal-v2 browser schema의 `const`와 같은 값을 Server 소유 frame에도 사용)
-- 참조 계약: terminal-fixtures-v2.1 · activity-fixtures-v1.1 · assistant-response-v1 · internal-run-fixtures-v2(canonical JSON) · page-selection-v1
+- 참조 계약: terminal-fixtures-v2.2 · activity-fixtures-v1.1 · assistant-response-v1 · internal-run-fixtures-v2(canonical JSON) · page-selection-v1
 - 요청 fingerprint: `browser-request-sha256-canonical-json-v1`
 
 ## 소비 규칙
@@ -99,7 +99,8 @@ spec 04·ADR 0017·`docs/plan/27`의 화면 wire다. `contract_version`은 `brow
   userMessageId·assistantMessageId를 공유하고, 다른 시나리오는 다른 runId를 쓴다. 따라서 소비자가 valid fixture를 runId로
   교차 색인해도 충돌하지 않는다(`test_fixtures_describing_one_run_agree_by_run_id`). 진행 중 run은 시점 snapshot이라
   non-terminal 상태가 서로 다를 수 있다(예: `status-running` RUNNING → `cancel-accepted-running` CANCELING). invalid fixture는 색인 대상이 아니다.
-- stream 규칙 S1~S7: `manifest.stream_rules`. replay와 live의 유일한 허용 차이는 read-time `sourceReferences[].available`.
+- [v1.2, task 2.14] `re_explanation.delta` 본문 delta 프레임 추가(`terminal-v2/browser.schema.json` `ReExplanationDeltaBrowserEvent`): `deltaIndex`(0..N 연속 정수)·`delta`(SafeMarkdown 누적 본문 조각). 재설명 turn에서 `DisclosureScope.FULL`일 때만 송신하며 `run.completed`에서 canonical `assistantResponse`로 대체된다. `re-explanation-streaming`·`canceled-during-re-explanation` fixture 및 규칙 `S8` 추가.
+- stream 규칙 S1~S8: `manifest.stream_rules`. replay와 live의 유일한 허용 차이는 read-time `sourceReferences[].available`.
 
 ## 형식·경계 판정
 
@@ -258,6 +259,7 @@ spec 04·ADR 0017·`docs/plan/27`의 화면 wire다. `contract_version`은 `brow
 | 파일 | 최종 상태 | frame 수 | 내용 |
 |---|---|---|---|
 | `canceled-asset-deleting` | CANCELED | 6 | 의존 asset 삭제로 인한 취소 — cause=asset_deleting. |
+| `canceled-during-re-explanation` | CANCELED | 7 | [v1.2] 재설명 delta 스트리밍 중 취소 — deltaIndex 0 전달 뒤 run.canceling → run.canceled. 이후 delta는 송신되지 않으며 부분 본문은 VerifiedSolution으로 승격되지 않는다. |
 | `canceled-pending` | CANCELED | 2 | PENDING 취소 — run.canceling 없이 run.canceled. |
 | `canceled-running` | CANCELED | 8 | RUNNING 취소 — canceling 뒤 진행 Activity만 canceled. |
 | `clarification-completed` | COMPLETED | 7 | clarification_only — 1 page, source 없음, completed(보상은 Server 정책). |
@@ -268,6 +270,7 @@ spec 04·ADR 0017·`docs/plan/27`의 화면 wire다. `contract_version`은 `brow
 | `mixed-scope-completed` | COMPLETED | 16 | [v1.1] 여러 문제: 단답형 검증됨·검산 안 됨 단계가 있는 검증됨·텍스트 입력(번호 없음)·증명 검증 대상 아님 → not_applicable은 집계에서 빠지므로 전체 assuranceScope=verified(문제별 배지는 solutionChecks[].assuranceScope). |
 | `not-applicable-proof` | COMPLETED | 14 | [v1.1] 증명 답(strategy=none) → assuranceScope=not_applicable, crossCheck=null. |
 | `re-explanation-completed` | COMPLETED | 7 | [v1.1] 기존 풀이 재설명 — 검증·Read-back 없이 바로 스트리밍. responseKind=re_explanation, assuranceScope=not_applicable, solutionChecks=[]. Front는 '추가 설명' 표시. |
+| `re-explanation-streaming` | COMPLETED | 9 | [v1.2] 기존 풀이 재설명 실시간 스트리밍 — Read-back 없이 re_explanation.delta deltaIndex 0..1 순서 전달 후 run.completed canonical 교체. responseKind=re_explanation, assuranceScope=not_applicable, solutionChecks=[]. |
 | `replay-source-unavailable` | COMPLETED | 12 | 같은 run을 asset 삭제 후 replay — read-time available만 다르고 id·seq·label snapshot·plainText는 같다. |
 | `substantive-completed` | COMPLETED | 14 | substantive 2-page 완료 — page 경계 2쌍 뒤 run.completed(terminal-v2 multi-page). |
 | `substantive-with-source` | COMPLETED | 12 | source chip이 있는 substantive(terminal-v2 direct-verified, available=true). |
@@ -304,6 +307,10 @@ spec 04·ADR 0017·`docs/plan/27`의 화면 wire다. `contract_version`은 `brow
 | `page-order-mismatch` | S4 | 아니오(순서 규칙) | pageIndex 순서가 run.completed pages와 다름. |
 | `page-unpaired` | S4 | 아니오(순서 규칙) | page.started만 있고 completed 없음. |
 | `proof-with-verified-scope` | S7 | 예 | strategy=none(증명·서술)은 항상 not_applicable. |
+| `re-explanation-delta-after-canceling` | S3 | 아니오(순서 규칙) | run.canceling 뒤에 re_explanation.delta가 올 수 없다. |
+| `re-explanation-delta-after-page` | S8 | 아니오(순서 규칙) | re_explanation.delta는 response.page.* 또는 run.completed 뒤에 올 수 없다. |
+| `re-explanation-delta-empty` | S7 | 예 | re_explanation.delta payload.delta는 빈 문자열일 수 없다. |
+| `re-explanation-delta-gap` | S8 | 아니오(순서 규칙) | re_explanation.delta deltaIndex는 0부터 빈틈없이 +1이어야 한다. |
 | `re-explanation-verified-scope` | S7 | 예 | 재설명은 검증 대상 아님 — assuranceScope=verified 거부. |
 | `re-explanation-with-solution-checks` | S7 | 예 | 재설명은 solutionChecks가 비어 있어야 한다(검증 없이 스트리밍). |
 | `read-back-with-answer` | S7 | 예 | Read-back은 검증 전이다 — 문제에 답을 붙일 수 없다. |

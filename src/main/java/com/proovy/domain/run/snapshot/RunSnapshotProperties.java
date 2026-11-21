@@ -86,8 +86,8 @@ public record RunSnapshotProperties(
 
     public record AssetVersions(
             @DefaultValue("upload-v1") String uploadPolicyVersion,
-            @DefaultValue("pu-v1") String pageUnderstandingVersion,
-            @DefaultValue("imgnorm-v1") String imageNormalizationVersion) {
+            @DefaultValue("page-understanding-v7") String pageUnderstandingVersion,
+            @DefaultValue("image-normalization-v1") String imageNormalizationVersion) {
     }
 
     /** 초기 제품 한도(docs/plan/22): 3개·총 30MB, PDF당 20MB·50 pages, 이미지당 15MB·40 megapixels. */

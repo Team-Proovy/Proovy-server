@@ -1,6 +1,7 @@
 package com.proovy.domain.note.service;
 
 import com.proovy.domain.asset.entity.Asset;
+import com.proovy.domain.asset.entity.AssetStatus;
 import com.proovy.domain.asset.entity.FileCategory;
 import com.proovy.domain.asset.repository.AssetRepository;
 import com.proovy.domain.conversation.entity.ChatMessage;
@@ -355,7 +356,9 @@ public class NoteServiceImpl implements NoteService {
         // 3. GCS 삭제를 위한 Asset 정보만 조회 (영속성 컨텍스트 오염 방지를 위해 별도 처리)
         // TODO(S09/S13): turn_attachments object_key·thumbnail_object_key도 삭제 대상에 포함한다 (업로드 경로 도입 시).
         List<Asset> assets = assetRepository.findAllByNoteId(noteId);
-        int assetCount = assets.size();
+        int assetCount = (int) assets.stream()
+                .filter(asset -> asset.getStatus() != AssetStatus.FAILED)
+                .count();
 
         Set<String> objectKeysToDelete = new HashSet<>();
         long freedStorageBytes = 0L;
@@ -428,8 +431,10 @@ public class NoteServiceImpl implements NoteService {
                 ? conversationPairs.subList(startIndex, endIndex)
                 : List.of();
 
-        // 11. 노트의 모든 자산 조회
-        List<Asset> noteAssets = assetRepository.findAllByNoteId(noteId);
+        // 11. 노트의 모든 자산 조회 (실패 업로드 정리 추적 행 제외)
+        List<Asset> noteAssets = assetRepository.findAllByNoteId(noteId).stream()
+                .filter(asset -> asset.getStatus() != AssetStatus.FAILED)
+                .toList();
 
         // 12. 자산 정보 DTO 생성
         List<NoteDetailResponse.AssetInfo> assetInfos = noteAssets.stream()
@@ -567,8 +572,9 @@ public class NoteServiceImpl implements NoteService {
             assets = assetRepository.findAllByNoteId(noteId);
         }
 
-        // 3. 자산 정보 DTO 생성
+        // 3. 자산 정보 DTO 생성 (실패 업로드 정리 추적 행 제외)
         List<AssetListResponse.AssetInfo> assetInfos = assets.stream()
+                .filter(asset -> asset.getStatus() != AssetStatus.FAILED)
                 .map(asset -> {
                     String thumbnailUrl = asset.getThumbnailObjectKey() != null
                             ? s3Service.getThumbnailUrl(asset.getThumbnailObjectKey())

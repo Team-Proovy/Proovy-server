@@ -212,7 +212,8 @@ public class RunSnapshotFactory {
             }
             return Optional.of(new VerifiedSolutionRef(row.publicSolutionId(), row.assistantMessageId().toString(),
                     row.superseded() ? SolutionReferenceStatus.SUPERSEDED : SolutionReferenceStatus.ACTIVE,
-                    revises, clip(row.problemStatement(), MAX_PROBLEM_SUMMARY_CHARS), claims));
+                    revises, clip(row.problemStatement(), MAX_PROBLEM_SUMMARY_CHARS), claims,
+                    row.answerClaimId(), row.answerText()));
         } catch (InternalRunContractViolation e) {
             log.warn("verified solution {} omitted from references: not representable ({})", row.solutionId(),
                     e.getMessage());

@@ -247,6 +247,40 @@ class ProductConstraintsPostgresTest {
                 """, ALICE_PDF);
     }
 
+    @Test
+    void assetPixelDimensionsRequireConsistencyAndMatchMimeKind() throws SQLException {
+        // 부분 NULL 거부
+        expectViolation(CHECK_VIOLATION, "ck_assets_pixel_dimensions", () -> update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    pixel_width, pixel_height, created_at, updated_at)
+                VALUES (?, ?, 'bad1.png', 100, 'image/png', 'k1', 'upload', 'ACTIVE', 800, 600, now(), now())
+                """, ALICE, ALICE_NOTE));
+        // pixel_count != pixel_width * pixel_height 거부
+        expectViolation(CHECK_VIOLATION, "ck_assets_pixel_dimensions", () -> update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'bad2.png', 100, 'image/png', 'k2', 'upload', 'ACTIVE', 800, 600, 100, now(), now())
+                """, ALICE, ALICE_NOTE));
+        // PDF에 pixel 설정 거부
+        expectViolation(CHECK_VIOLATION, "ck_assets_pixel_dimensions", () -> update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'bad.pdf', 100, 'application/pdf', 'k3', 'upload', 'ACTIVE', 800, 600, 480000, now(), now())
+                """, ALICE, ALICE_NOTE));
+        // 이미지에 page_count 설정 거부
+        expectViolation(CHECK_VIOLATION, "ck_assets_pixel_dimensions", () -> update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    page_count, created_at, updated_at)
+                VALUES (?, ?, 'bad3.png', 100, 'image/png', 'k4', 'upload', 'ACTIVE', 2, now(), now())
+                """, ALICE, ALICE_NOTE));
+        // 정상 이미지 픽셀 수락
+        update(c, """
+                INSERT INTO assets (user_id, note_id, file_name, file_size, mime_type, object_key, source, status,
+                                    sha256, pixel_width, pixel_height, pixel_count, created_at, updated_at)
+                VALUES (?, ?, 'ok.png', 100, 'image/png', 'k5', 'upload', 'ACTIVE', ?, 800, 600, 480000, now(), now())
+                """, ALICE, ALICE_NOTE, "d".repeat(64));
+    }
+
     // ------------------------------------------------------------------
     // Note 삭제 cascade · source snapshot 분리
     // ------------------------------------------------------------------
@@ -640,6 +674,59 @@ class ProductConstraintsPostgresTest {
                 .contains("ux_ai_runs_note_active");
         assertThat(explain("SELECT seq FROM ai_run_events WHERE run_id = '00000000-0000-0000-0000-000000000000' AND seq > 3 ORDER BY seq"))
                 .contains("uq_ai_run_events_seq");
+    }
+
+    @Test
+    void reExplanationDeltaEventEnforcesV8Constraints() throws SQLException {
+        UUID runId = insertRunWithTurn(c, "req-delta-v8", ALICE, ALICE_NOTE);
+        claim(c, runId);
+        allocateSeq(c, runId, 10);
+
+        update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 1, 're_explanation.delta', 'delta-ok', 1, NULL, '{"deltaIndex":0,"delta":"안"}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId);
+
+        expectViolation(CHECK_VIOLATION, "ck_ai_run_events_activity", () -> update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 2, 're_explanation.delta', 'delta-act', 1, 'act-1', '{"deltaIndex":1,"delta":"x"}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId));
+        expectViolation(CHECK_VIOLATION, "ck_ai_run_events_re_explanation_delta", () -> update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 3, 're_explanation.delta', 'delta-neg', 1, NULL, '{"deltaIndex":-1,"delta":"x"}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId));
+        expectViolation(CHECK_VIOLATION, "ck_ai_run_events_re_explanation_delta", () -> update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 4, 're_explanation.delta', 'delta-empty', 1, NULL, '{"deltaIndex":1,"delta":""}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId));
+        expectViolation(CHECK_VIOLATION, "ck_ai_run_events_re_explanation_delta", () -> update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 5, 're_explanation.delta', 'delta-str-idx', 1, NULL, '{"deltaIndex":"1","delta":"x"}'
+                FROM ai_runs WHERE run_id = ?
+                """, runId, runId));
+        for (String invalid : List.of(
+                "{}", "{\"delta\":\"x\"}", "{\"deltaIndex\":0}",
+                "{\"deltaIndex\":null,\"delta\":\"x\"}",
+                "{\"deltaIndex\":0,\"delta\":null}",
+                "{\"deltaIndex\":0.5,\"delta\":\"x\"}",
+                "{\"deltaIndex\":9223372036854775808,\"delta\":\"x\"}",
+                "{\"deltaIndex\":1,\"delta\":\"" + "x".repeat(4001) + "\"}")) {
+            expectViolation(CHECK_VIOLATION, "ck_ai_run_events_re_explanation_delta", () -> update(c, """
+                    INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                    SELECT ?, note_id, 6, 're_explanation.delta', 'delta-invalid', 1, NULL, ?::jsonb
+                    FROM ai_runs WHERE run_id = ?
+                    """, runId, invalid, runId));
+        }
+        String maxDelta = "{\"deltaIndex\":9223372036854775807,\"delta\":\"" + "😀".repeat(4000) + "\"}";
+        update(c, """
+                INSERT INTO ai_run_events (run_id, note_id, seq, event_type, source_event_id, attempt, activity_id, payload)
+                SELECT ?, note_id, 6, 're_explanation.delta', 'delta-max', 1, NULL, ?::jsonb
+                FROM ai_runs WHERE run_id = ?
+                """, runId, maxDelta, runId);
     }
 
     // ------------------------------------------------------------------

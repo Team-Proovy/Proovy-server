@@ -520,6 +520,102 @@ class RunTerminalServicePostgresTest {
         assertThat(after.get(after.size() - 1).at("/payload/assuranceScope").asText()).isEqualTo("verified");
     }
 
+    @Test
+    @DisplayName("V7 verified-answer-ref: answer_claim_id·answer_text는 verified_solutions에 저장되고 chat_messages·SSE에 노출되지 않으며 CHECK가 불일치 행을 막는다")
+    void v7AnswerMetadataPersistedPrivatelyAndGuardedByCheckConstraints() {
+        JsonNode source = pair("verified-answer-ref").get("source");
+        Run hiddenRun = newRun(source, RunOptions.defaults());
+        assertThat(service.settle(event(bind(source, hiddenRun))).outcome()).isEqualTo(Outcome.COMMITTED);
+
+        Map<String, Object> stored = jdbc.queryForMap("""
+                SELECT answer_claim_id, answer_text FROM verified_solutions WHERE source_run_id = ?
+                """, hiddenRun.runId());
+        assertThat(stored.get("answer_claim_id")).isEqualTo("claim-1");
+        assertThat(stored.get("answer_text")).isEqualTo("$x=2$");
+
+        // 공개 메시지(plain_text·response_pages·verification_summary)와 SSE replay에는 숨긴 답·answer metadata가 없다
+        Map<String, Object> msg = message(hiddenRun);
+        String msgSurface = msg.get("plain_text") + "\n" + msg.get("response_pages") + "\n"
+                + msg.get("verification_summary");
+        assertThat(msgSurface).doesNotContain("answer_claim_id", "answer_text", "$x=2$", "x=2");
+        List<JsonNode> frames = SseReplayProbe.frames(frameReader, hiddenRun.runId());
+        assertThat(frames.toString()).doesNotContain("answer_claim_id", "answer_text", "answerClaimId", "answerText",
+                "$x=2$");
+
+        // answer metadata가 없는 기존 direct-verified는 NULL 쌍으로 저장된다
+        JsonNode legacySource = pair("direct-verified").get("source");
+        Run legacyRun = newRun(legacySource, RunOptions.defaults());
+        assertThat(service.settle(event(bind(legacySource, legacyRun))).outcome()).isEqualTo(Outcome.COMMITTED);
+        Map<String, Object> legacyRow = jdbc.queryForMap("""
+                SELECT answer_claim_id, answer_text FROM verified_solutions WHERE source_run_id = ?
+                """, legacyRun.runId());
+        assertThat(legacyRow.get("answer_claim_id")).isNull();
+        assertThat(legacyRow.get("answer_text")).isNull();
+
+        // V7 CHECK: unpaired / 잘못된 claim_id / 빈 answer_text 거부
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id,
+                    assistant_message_id, schema_version, solution_version, problem_statement, problem_conditions,
+                    solution_text, claims, step_marks, verification_summary, verification_version, source_ref_ids,
+                    overall_coverage, content_sha256, answer_claim_id, answer_text)
+                SELECT gen_random_uuid(), 'solution-99', note_id, source_run_id, assistant_message_id, schema_version,
+                       solution_version, problem_statement, problem_conditions, solution_text, claims, step_marks,
+                       verification_summary, verification_version, source_ref_ids, overall_coverage, content_sha256,
+                       'claim-1', NULL
+                FROM verified_solutions WHERE source_run_id = ?
+                """, legacyRun.runId()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id,
+                    assistant_message_id, schema_version, solution_version, problem_statement, problem_conditions,
+                    solution_text, claims, step_marks, verification_summary, verification_version, source_ref_ids,
+                    overall_coverage, content_sha256, answer_claim_id, answer_text)
+                SELECT gen_random_uuid(), 'solution-98', note_id, source_run_id, assistant_message_id, schema_version,
+                       solution_version, problem_statement, problem_conditions, solution_text, claims, step_marks,
+                       verification_summary, verification_version, source_ref_ids, overall_coverage, content_sha256,
+                       'bad-claim', 'x=2'
+                FROM verified_solutions WHERE source_run_id = ?
+                """, legacyRun.runId()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id,
+                    assistant_message_id, schema_version, solution_version, problem_statement, problem_conditions,
+                    solution_text, claims, step_marks, verification_summary, verification_version, source_ref_ids,
+                    overall_coverage, content_sha256, answer_claim_id, answer_text)
+                SELECT gen_random_uuid(), 'solution-97', note_id, source_run_id, assistant_message_id, schema_version,
+                       solution_version, problem_statement, problem_conditions, solution_text, claims, step_marks,
+                       verification_summary, verification_version, source_ref_ids, overall_coverage, content_sha256,
+                       'claim-1', '   '
+                FROM verified_solutions WHERE source_run_id = ?
+                """, legacyRun.runId()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+
+        // R3-M1: 2,001자리 답도 V7 private 저장을 통과하고 20,001자는 V7 CHECK가 거부한다
+        String answer2001 = "1" + "0".repeat(2_000);
+        ObjectNode longSource = (ObjectNode) pair("verified-answer-ref").get("source").deepCopy();
+        ObjectNode longArtifact = (ObjectNode) longSource.at("/payload/verified_solutions/0");
+        longArtifact.put("solution_text", "답: " + answer2001);
+        longArtifact.put("answer_text", answer2001);
+        Run longRun = newRun(longSource, RunOptions.defaults());
+        assertThat(service.settle(event(bind(longSource, longRun))).outcome()).isEqualTo(Outcome.COMMITTED);
+        assertThat(jdbc.queryForObject("SELECT answer_text FROM verified_solutions WHERE source_run_id = ?",
+                String.class, longRun.runId())).isEqualTo(answer2001);
+        assertThat(message(longRun).get("plain_text").toString()).doesNotContain(answer2001);
+
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO verified_solutions (solution_id, public_solution_id, note_id, source_run_id,
+                    assistant_message_id, schema_version, solution_version, problem_statement, problem_conditions,
+                    solution_text, claims, step_marks, verification_summary, verification_version, source_ref_ids,
+                    overall_coverage, content_sha256, answer_claim_id, answer_text)
+                SELECT gen_random_uuid(), 'solution-95', note_id, source_run_id, assistant_message_id, schema_version,
+                       solution_version, problem_statement, problem_conditions, solution_text, claims, step_marks,
+                       verification_summary, verification_version, source_ref_ids, overall_coverage, content_sha256,
+                       'claim-1', repeat('0', 20001)
+                FROM verified_solutions WHERE source_run_id = ?
+                """, legacyRun.runId()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
     /** browser-run-v1.1 valid stream의 run.completed payload. */
     private static JsonNode completedPayload(String stream) {
         for (JsonNode frame : load("browser-run-v1/streams/valid/" + stream + ".json").get("frames")) {

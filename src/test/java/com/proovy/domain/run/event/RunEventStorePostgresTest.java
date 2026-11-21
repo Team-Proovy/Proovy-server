@@ -318,6 +318,40 @@ class RunEventStorePostgresTest {
     }
 
     @Test
+    @DisplayName("re_explanation.delta: deltaIndex 0부터 +1만 허용, NULL activity_id 중복/충돌 판정, CANCELING 뒤 거부")
+    void reExplanationDeltaMonotonicDedupConflictAndCanceling() {
+        UUID run = runningRun();
+
+        SourceEvent gapFirst = deltaEvent(run, 1, "fence-1", 1, "건너뜀", "d-gap-0");
+        assertThat(store.appendActivity(gapFirst).outcome()).isEqualTo(Outcome.OUT_OF_ORDER);
+
+        SourceEvent first = deltaEvent(run, 1, "fence-1", 0, "첫째 ", "d-0");
+        assertThat(store.appendActivity(first)).isEqualTo(new ActivityAppendResult(Outcome.APPENDED, 2L));
+        assertThat(jdbc.queryForObject(
+                "SELECT activity_id IS NULL FROM ai_run_events WHERE run_id = ? AND seq = 2", Boolean.class, run))
+                .isTrue();
+
+        // NULL activity_id에서도 동일 payload는 DUPLICATE, 다른 payload/index는 CONFLICTING_DUPLICATE
+        assertThat(store.appendActivity(deltaEvent(run, 1, "fence-1", 0, "첫째 ", "d-0")))
+                .isEqualTo(new ActivityAppendResult(Outcome.DUPLICATE, 2L));
+        assertThat(store.appendActivity(deltaEvent(run, 1, "fence-1", 0, "다름", "d-0")).outcome())
+                .isEqualTo(Outcome.CONFLICTING_DUPLICATE);
+        assertThat(store.appendActivity(deltaEvent(run, 1, "fence-1", 2, "점프", "d-2")).outcome())
+                .isEqualTo(Outcome.OUT_OF_ORDER);
+
+        SourceEvent second = deltaEvent(run, 1, "fence-1", 1, "둘째", "d-1");
+        assertThat(store.appendActivity(second)).isEqualTo(new ActivityAppendResult(Outcome.APPENDED, 3L));
+
+        tx.executeWithoutResult(status -> {
+            cancelRunning(run);
+            store.appendServerEvent(run, ServerFrameType.RUN_CANCELING,
+                    Map.of("assistantMessageId", UUID.randomUUID().toString(), "status", "CANCELING"), T0);
+        });
+        assertThat(store.appendActivity(deltaEvent(run, 1, "fence-1", 2, "취소뒤", "d-3")).outcome())
+                .isEqualTo(Outcome.NOT_ACCEPTING);
+    }
+
+    @Test
     @DisplayName("PENDING run(attempt 0)과 없는 run의 Activity는 저장되지 않는다")
     void pendingAndUnknownRuns() {
         UUID pending = pendingRunWithCreated();
@@ -661,6 +695,17 @@ class RunEventStorePostgresTest {
                         + type.substring("activity.".length()));
                 assertThat(store.appendActivity(source(source)))
                         .isEqualTo(new ActivityAppendResult(Outcome.APPENDED, expectedSeq));
+            } else if (type.equals("re_explanation.delta")) {
+                if (!claimed) {
+                    claim(run);
+                    claimed = true;
+                }
+                ObjectNode payload = (ObjectNode) snake(frame.get("payload"));
+                ObjectNode source = envelope(run.toString(), type, payload);
+                source.put("occurred_at", at.toString());
+                source.put("source_event_id", run + ":delta:" + payload.get("delta_index").asInt());
+                assertThat(store.appendActivity(source(source)))
+                        .isEqualTo(new ActivityAppendResult(Outcome.APPENDED, expectedSeq));
             } else if (type.equals("run.canceling")) {
                 tx.executeWithoutResult(status -> {
                     cancelRunning(run);
@@ -881,6 +926,18 @@ class RunEventStorePostgresTest {
     private static SourceEvent updated(UUID run, String activityId, String kind, int revision, String message) {
         return event(run, 1, "fence-1", "activity.updated",
                 base(activityId, kind).put("status", "in_progress").put("message", message), "r" + revision);
+    }
+
+    private static SourceEvent deltaEvent(UUID run, int attempt, String fence, int deltaIndex, String delta,
+                                          String sourceEventId) {
+        ObjectNode payload = JsonNodeFactory.instance.objectNode()
+                .put("delta_index", deltaIndex)
+                .put("delta", delta);
+        ObjectNode envelope = envelope(run.toString(), "re_explanation.delta", payload);
+        envelope.put("attempt", attempt);
+        envelope.put("fence_token", fence);
+        envelope.put("source_event_id", sourceEventId);
+        return source(envelope);
     }
 
     private ObjectNode json(String value) {

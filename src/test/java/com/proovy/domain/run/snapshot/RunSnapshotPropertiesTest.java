@@ -25,6 +25,14 @@ class RunSnapshotPropertiesTest {
         assertThat(properties.budget().limits().maxLlmCalls()).isEqualTo(40);
     }
 
+    @Test
+    void defaultAssetVersionsMatchBrainNormalizationAndPageUnderstandingVersions() {
+        RunSnapshotProperties properties = bind(Map.of());
+        assertThat(properties.assetVersions().uploadPolicyVersion()).isEqualTo("upload-v1");
+        assertThat(properties.assetVersions().pageUnderstandingVersion()).isEqualTo("page-understanding-v7");
+        assertThat(properties.assetVersions().imageNormalizationVersion()).isEqualTo("image-normalization-v1");
+    }
+
     private static RunSnapshotProperties bind(Map<String, String> values) {
         return new Binder(new MapConfigurationPropertySource(values))
                 .bindOrCreate("proovy.run.snapshot", RunSnapshotProperties.class);

@@ -16,6 +16,7 @@ from proovy_brain.contracts.publication import (
 from proovy_brain.contracts.solution_verification import parse_solution_verification
 from proovy_brain.contracts.source_progress import (
     SourceEventType,
+    derive_re_explanation_delta_event_id,
     derive_source_event_id,
 )
 from proovy_brain.contracts.terminal import (
@@ -354,6 +355,17 @@ def review_golden_pairs() -> dict[str, dict]:
         ("conflict-substantive", substantive),
     ):
         result[name] = {**completed_pair(name, request), "progress_sources": progress}
+    answer_ref = deepcopy(completed_pair("hide-answer"))
+    answer_source = deepcopy(answer_ref["source"])
+    answer_source["payload"]["verified_solutions"][0]["answer_claim_id"] = "claim-1"
+    answer_source["payload"]["verified_solutions"][0]["answer_text"] = "$x=2$"
+    answer_event = parse_source_event(answer_source)
+    result["verified-answer-ref"] = {
+        "publication_request": answer_ref["publication_request"],
+        "source": to_source_event_payload(answer_event),
+        "browser": to_browser_event_payload(answer_event, **answer_ref["server"]),
+        "server": answer_ref["server"],
+    }
     return result
 
 
@@ -607,6 +619,58 @@ def build() -> None:
     extension_pairs = phase2_pairs(review_pairs)
     for name, pair in extension_pairs.items():
         save(ROOT / "pairs" / f"{name}.json", pair)
+    delta_event = parse_source_event(
+        {
+            **CONTEXT,
+            "source_event_id": derive_re_explanation_delta_event_id(
+                CONTEXT["run_id"], 0
+            ),
+            "type": "re_explanation.delta",
+            "payload": {
+                "delta_index": 0,
+                "delta": "양변에 같은 연산을 적용하는 이유를 설명합니다. ",
+            },
+        }
+    )
+    save(
+        ROOT / "pairs/re-explanation-delta.json",
+        {
+            "source": to_source_event_payload(delta_event),
+            "server": {"seq": 4},
+            "browser": to_browser_event_payload(delta_event, seq=4),
+        },
+    )
+    for neg_name, neg_payload, schema_reject in (
+        ("delta-empty", {"delta_index": 0, "delta": ""}, True),
+        ("delta-negative-index", {"delta_index": -1, "delta": "step"}, True),
+        (
+            "delta-url",
+            {"delta_index": 0, "delta": "https://DO-NOT-LEAK.invalid"},
+            False,
+        ),
+        (
+            "delta-traceback",
+            {"delta_index": 0, "delta": "Traceback (most recent call last):"},
+            False,
+        ),
+    ):
+        bad_source = deepcopy(to_source_event_payload(delta_event))
+        bad_browser = deepcopy(to_browser_event_payload(delta_event, seq=4))
+        bad_source["payload"] = deepcopy(neg_payload)
+        bad_browser["payload"] = {
+            "deltaIndex": neg_payload["delta_index"],
+            "delta": neg_payload["delta"],
+        }
+        save(
+            ROOT / "invalid" / f"{neg_name}.json",
+            {
+                "source": bad_source,
+                "browser": bad_browser,
+                "source_outcome": "reject",
+                "browser_outcome": "reject",
+                "schema_outcome": "reject" if schema_reject else "accept",
+            },
+        )
     phase2 = extension_pairs["phase2-verified"]
     for name, change in (
         ("extension-partial", lambda p: p.pop("response_kind")),
@@ -683,6 +747,31 @@ def build() -> None:
                 pair["browser_outcome"] = "ignore_additive"
             pair["browser_expected"] = existing["browser"]
         save(ROOT / "invalid" / f"{name}.json", pair)
+    answer_ref = review_pairs["verified-answer-ref"]
+    for name in (
+        "unpaired-answer-ref",
+        "phantom-answer-claim",
+        "missing-answer-text",
+    ):
+        source = deepcopy(answer_ref["source"])
+        artifact = source["payload"]["verified_solutions"][0]
+        if name == "unpaired-answer-ref":
+            del artifact["answer_text"]
+        elif name == "phantom-answer-claim":
+            artifact["answer_claim_id"] = "claim-99"
+        else:
+            artifact["answer_text"] = "없는 답"
+        save(
+            ROOT / "invalid" / f"{name}.json",
+            {
+                "source": source,
+                "browser": deepcopy(answer_ref["browser"]),
+                "source_outcome": "reject",
+                "browser_outcome": "valid_public_projection",
+                "browser_expected": answer_ref["browser"],
+                "schema_outcome": "accept",
+            },
+        )
     for name in ("missing-activity-kind", "missing-block-kind"):
         if name == "missing-activity-kind":
             source = json.loads(
@@ -716,13 +805,13 @@ def build() -> None:
     save(
         ROOT / "manifest.json",
         {
-            "consumer_version": "terminal-fixtures-v2.1",
+            "consumer_version": "terminal-fixtures-v2.2",
             "source_contract_version": "brain-source-v1",
             "assistant_response_version": "assistant-response-v1",
             "artifact_version": "verified-solution-v1",
             "original_path": "tests/fixtures/contracts/terminal-v2",
-            "change_reason": "Task 1.58: run.failed gains code invalid_attachment{reason} — attachment-inspection refusals (corrupt/forged/encrypted/oversized inputs) stop reporting budget_exceeded; failure_class=attachment, recoverable=false, reason is a fixed sub-code with a fixed safe message; Server consumes it for compensation and re-upload guidance.",
-            "consumption_policy": "Pin terminal-fixtures-v2.1 at original_path; changes require a new fixture version and reason.",
+            "change_reason": "Task 2.13/2.14 terminal-fixtures-v2.2: re_explanation.delta streaming is added; VerifiedSolution gains optional paired answer_claim_id and answer_text so prior final answers flow from producer through Server storage to internal-run references without browser leakage.",
+            "consumption_policy": "Pin terminal-fixtures-v2.2 at original_path; changes require a new fixture version and reason.",
             "ownership": {
                 "brain": [
                     "snake_case source",
@@ -750,6 +839,7 @@ def build() -> None:
                 "failure-invalid-attachment",
                 *review_pairs,
                 *extension_pairs,
+                "re-explanation-delta",
             ],
             "change_history": [
                 {
@@ -772,6 +862,10 @@ def build() -> None:
                 {
                     "date": "2026-11-12",
                     "reason": "Task 2.07 review (still terminal-fixtures-v2.1, unmerged): run.completed source payload gains the optional Phase 2 completion extension response_kind/assurance_scope/solution_checks (all three or none; snake_case source, camelCase browser = browser-run-v1 CompletionExtension; per-solution disclosure, withheld steps). New pairs phase2-*, negatives extension-*. Existing pairs are byte-identical.",
+                },
+                {
+                    "date": "2026-11-15",
+                    "reason": "Task 2.13/2.14 terminal-fixtures-v2.2 (additive, directory stays terminal-v2): re_explanation.delta streaming is added; VerifiedSolution gains optional paired answer_claim_id and answer_text (verifying answer_claim_id belongs to claims and answer_text is verbatim in solution_text). New pair verified-answer-ref and negative cases unpaired-answer-ref / phantom-answer-claim / missing-answer-text; existing pairs stay byte-identical and browser events never carry verified_solutions.",
                 },
             ],
             "existing_reference_policy": "Caller supplies checked ID/version/claim coverage only, never the existing full answer. Public summaries select referenced claims inside assemble_response and retain disclosure checks. Storage/authentication/semantic claim matching are caller responsibilities, not implemented here.",

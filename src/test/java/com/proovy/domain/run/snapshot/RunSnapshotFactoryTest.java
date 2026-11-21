@@ -353,6 +353,45 @@ class RunSnapshotFactoryTest {
                 NOW), RunAssetAccess.NONE).verifiedSolutionRefs()).isEmpty();
     }
 
+    @Test
+    void storedAnswerMetadataPropagatesToReferenceAndFingerprintWhileLegacyRowsStayNull() {
+        CompletedTurn hidden = sources.turn("x+1=3 답은 가리고 풀어줘", "풀이 단계만 안내했습니다.");
+        sources.solutions.add(new SolutionRow(UUID.randomUUID(), "solution-1", hidden.assistantMessageId(),
+                "x+1=3", claims("x=2"), null, null, false, "claim-1", "$x=2$"));
+        InternalRunRequest delivered = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("답이 99 아닌가요?", null), NOW), RunAssetAccess.NONE);
+        VerifiedSolutionRef ref = delivered.verifiedSolutionRefs().getFirst();
+        assertThat(ref.answerClaimId()).isEqualTo("claim-1");
+        assertThat(ref.answerText()).isEqualTo("$x=2$");
+        assertThat(delivered.history()).noneMatch(message -> message.text().contains("$x=2$"));
+
+        String fpOne = factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("답이 99 아닌가요?", null), NOW).requestFingerprint();
+        sources.solutions.set(0, new SolutionRow(sources.solutions.getFirst().solutionId(), "solution-1",
+                hidden.assistantMessageId(), "x+1=3", claims("x=2"), null, null, false, "claim-1", "$x=3$"));
+        String fpChanged = factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("답이 99 아닌가요?", null), NOW).requestFingerprint();
+        assertThat(fpChanged).isNotEqualTo(fpOne);
+
+        sources.solutions.set(0, new SolutionRow(sources.solutions.getFirst().solutionId(), "solution-1",
+                hidden.assistantMessageId(), "x+1=3", claims("x=2"), null, null, false));
+        VerifiedSolutionRef legacy = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                request("설명", null), NOW), RunAssetAccess.NONE).verifiedSolutionRefs().getFirst();
+        assertThat(legacy.answerClaimId()).isNull();
+        assertThat(legacy.answerText()).isNull();
+
+        // R3-M1: 2,001자리·렌더링 확장(13,511자)·20,000자 답도 잘리지 않고 그대로 snapshot→ref에 실린다
+        for (String longAnswer : List.of("1" + "0".repeat(2_000),
+                "$\\texttt{" + "x\\_".repeat(4_500) + "}$",
+                "1" + "0".repeat(19_999))) {
+            sources.solutions.set(0, new SolutionRow(sources.solutions.getFirst().solutionId(), "solution-1",
+                    hidden.assistantMessageId(), "10^n", claims("답 계산"), null, null, false, "claim-1", longAnswer));
+            VerifiedSolutionRef longRef = firstDelivery(factory(defaults()).create(UUID.randomUUID(), USER, NOTE,
+                    request("답이 틀린 것 같아요", null), NOW), RunAssetAccess.NONE).verifiedSolutionRefs().getFirst();
+            assertThat(longRef.answerText()).isEqualTo(longAnswer);
+        }
+    }
+
     // ------------------------------------------------------------------
     // Viewer Focus·corpus·현재 첨부
     // ------------------------------------------------------------------

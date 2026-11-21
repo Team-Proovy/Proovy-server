@@ -68,7 +68,8 @@ public class JdbcRunSnapshotSources implements RunSnapshotSources {
                 SELECT s.solution_id, s.public_solution_id, s.assistant_message_id, s.problem_statement,
                        s.claims::text AS claims, s.revises_solution_id,
                        p.public_solution_id AS revises_public_solution_id,
-                       s.status = 'SUPERSEDED' AS superseded
+                       s.status = 'SUPERSEDED' AS superseded,
+                       s.answer_claim_id, s.answer_text
                 FROM verified_solutions s
                 LEFT JOIN verified_solutions p ON p.solution_id = s.revises_solution_id AND p.note_id = s.note_id
                 WHERE s.note_id = :noteId AND s.assistant_message_id IN (:messageIds)
@@ -77,7 +78,8 @@ public class JdbcRunSnapshotSources implements RunSnapshotSources {
                 rs.getObject("solution_id", UUID.class), rs.getString("public_solution_id"),
                 rs.getObject("assistant_message_id", UUID.class), rs.getString("problem_statement"),
                 claims(rs), rs.getObject("revises_solution_id", UUID.class),
-                rs.getString("revises_public_solution_id"), rs.getBoolean("superseded")));
+                rs.getString("revises_public_solution_id"), rs.getBoolean("superseded"),
+                rs.getString("answer_claim_id"), rs.getString("answer_text")));
     }
 
     @Override

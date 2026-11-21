@@ -135,7 +135,7 @@ public class RunEventStore {
 
         String payload = json(activity.payload());
         List<long[]> existing = jdbc.query("""
-                        SELECT seq, CASE WHEN event_type = ? AND activity_id = ? AND payload = CAST(? AS jsonb)
+                        SELECT seq, CASE WHEN event_type = ? AND activity_id IS NOT DISTINCT FROM ? AND payload = CAST(? AS jsonb)
                                          THEN 1 ELSE 0 END
                         FROM ai_run_events WHERE run_id = ? AND source_event_id = ?
                         """, (rs, row) -> new long[]{rs.getLong(1), rs.getInt(2)},
@@ -174,8 +174,18 @@ public class RunEventStore {
         };
     }
 
-    /** browser-run-v1 S6: started 하나 → 같은 kind의 후속 → terminal 하나, terminal 뒤 event 없음. */
+    /** browser-run-v1 S6·S8: Activity는 started → 후속 → terminal 순서, re_explanation.delta는 deltaIndex 0부터 +1. */
     private boolean inOrder(DurableActivity activity) {
+        if (activity.type() == AiRunEventType.RE_EXPLANATION_DELTA) {
+            long deltaIndex = activity.payload().get("deltaIndex").asLong();
+            List<Long> lastDelta = jdbc.query("""
+                            SELECT (payload ->> 'deltaIndex')::bigint FROM ai_run_events
+                            WHERE run_id = ? AND event_type = ? ORDER BY seq DESC LIMIT 1
+                            """, (rs, row) -> rs.getLong(1),
+                    activity.runId(), AiRunEventType.RE_EXPLANATION_DELTA.wireValue());
+            long expected = lastDelta.isEmpty() ? 0L : lastDelta.get(0) + 1L;
+            return deltaIndex == expected;
+        }
         // run 잠금 아래에서 Activity 이력 전체가 아니라 첫·마지막 row만 읽는다.
         List<String[]> first = jdbc.query("""
                         SELECT event_type, payload ->> 'kind' FROM ai_run_events
